@@ -12,6 +12,7 @@ import {
   Tag,
   AlertCircle,
   HelpCircle,
+  ArrowRight,
 } from "lucide-react";
 import { ExtractedInvoice, ExtractedInvoiceItem } from "@/lib/llm/schema";
 import { validateInvoice, Issue } from "@/lib/validation/invoice";
@@ -37,9 +38,10 @@ interface PreviewFormProps {
   productMatches: ProductResolution[];
   fileToken?: string;
   mode: "create" | "replace";
-  onSave: (payload: any) => Promise<void>;
+  onSave: (payload: any, options?: { advanceToNext?: boolean }) => Promise<void>;
   onDiscard: () => void;
   saving?: boolean;
+  hasNextReady?: boolean;
 }
 
 export function PreviewForm({
@@ -51,6 +53,7 @@ export function PreviewForm({
   onSave,
   onDiscard,
   saving = false,
+  hasNextReady = false,
 }: PreviewFormProps) {
   const [draft, setDraft] = useState<ExtractedInvoice>(initialDraft);
   const [customerRes, setCustomerRes] = useState(customerMatch);
@@ -245,7 +248,7 @@ export function PreviewForm({
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (advance = false) => {
     if (errors.length > 0) return;
     if (warnings.length > 0 && !acknowledgedWarnings) return;
 
@@ -274,7 +277,7 @@ export function PreviewForm({
       acknowledgeWarnings: acknowledgedWarnings,
     };
 
-    await onSave(payload);
+    await onSave(payload, { advanceToNext: advance });
   };
 
   const canSave = errors.length === 0 && (warnings.length === 0 || acknowledgedWarnings);
@@ -694,15 +697,39 @@ export function PreviewForm({
             Discard
           </button>
 
-          <button
-            type="button"
-            disabled={!canSave || saving}
-            onClick={handleSubmit}
-            className="px-4 py-1.5 bg-primary text-primary-fg rounded-sm text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition flex items-center gap-1.5 shadow-sm"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>{saving ? "Saving..." : mode === "replace" ? "Save Modifications" : "Save Invoice"}</span>
-          </button>
+          {hasNextReady ? (
+            <>
+              <button
+                type="button"
+                disabled={!canSave || saving}
+                onClick={() => handleSubmit(false)}
+                className="px-3 py-1.5 border border-border text-xs text-ink hover:bg-surface-2 disabled:opacity-40 rounded-sm font-medium transition"
+              >
+                <span>Save</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!canSave || saving}
+                onClick={() => handleSubmit(true)}
+                className="px-4 py-1.5 bg-primary text-primary-fg rounded-sm text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{saving ? "Saving..." : "Save & Next"}</span>
+                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={!canSave || saving}
+              onClick={() => handleSubmit(false)}
+              className="px-4 py-1.5 bg-primary text-primary-fg rounded-sm text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition flex items-center gap-1.5 shadow-sm"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{saving ? "Saving..." : mode === "replace" ? "Save Modifications" : "Save Invoice"}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
