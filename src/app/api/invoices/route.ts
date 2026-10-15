@@ -62,6 +62,18 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const result = await confirmInvoice(body);
+
+    if (body.uploadJobId) {
+      await prisma.uploadJob.update({
+        where: { id: body.uploadJobId },
+        data: {
+          status: "SAVED",
+          saved_invoice_id: result.invoice.id,
+          saved_invoice_num: result.invoice.invoice_number,
+        },
+      }).catch(() => {});
+    }
+
     return NextResponse.json(result, { status: 201 });
   } catch (error: any) {
     console.error("Confirm invoice error:", error);

@@ -201,3 +201,32 @@ model Setting {
 
   @@map("settings")
 }
+
+enum UploadJobStatus {
+  QUEUED
+  PROCESSING
+  READY
+  SAVED
+  FAILED
+  CANCELLED
+}
+
+model UploadJob {
+  id                String          @id @default(cuid())
+  file_name         String
+  file_size         Int
+  file_token        String
+  file_hash         String
+  status            UploadJobStatus @default(QUEUED)
+  error             String?
+  extracted_data    Json?
+  saved_invoice_id  String?
+  saved_invoice_num String?
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+
+  @@index([status])
+  @@index([created_at])
+  @@map("upload_jobs")
+}
+
