@@ -1,0 +1,85 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
+
+const COOKIE_NAME = "indobest_session";
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Public paths that do not require authentication
+  if (
+    pathname === "/login" ||
+    pathname === "/api/auth/login" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname === "/favicon.ico"
+  ) {
+    // If user is already authenticated and visits /login, redirect to /dashboard
+    if (pathname === "/login") {
+      const token = request.cookies.get(COOKIE_NAME)?.value;
+      if (token) {
+        const secret = new TextEncoder().encode(
+          process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long"
+        );
+        try {
+          await jwtVerify(token, secret);
+          return NextResponse.redirect(new URL("/dashboard", request.url));
+        } catch {
+          // Token invalid, proceed to login page
+        }
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // Check session token
+  const token = request.cookies.get(COOKIE_NAME)?.value;
+  let isAuthenticated = false;
+
+  if (token) {
+    const secret = new TextEncoder().encode(
+      process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long"
+    );
+    try {
+      await jwtVerify(token, secret);
+      isAuthenticated = true;
+    } catch {
+      isAuthenticated = false;
+    }
+  }
+
+  if (!isAuthenticated) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Authentication required",
+          },
+        },
+        { status: 401 }
+      );
+    }
+
+    const loginUrl = new URL("/login", request.url);
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("next", pathname);
+    }
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
+};
