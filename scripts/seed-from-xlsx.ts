@@ -164,7 +164,7 @@ export async function seedFromXlsx(options: SeedOptions = {}) {
     });
 
     let txnCount = 0;
-    const legacyMovements = [];
+    const legacyMovements: any[] = [];
 
     transactionsSheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
       if (rowNumber === 1) return;

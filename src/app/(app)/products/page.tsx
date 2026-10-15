@@ -64,6 +64,7 @@ export default function ProductsPage() {
       loadProducts();
     }, 300);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const handleEditClick = (p: Product) => {

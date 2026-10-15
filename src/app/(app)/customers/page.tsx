@@ -51,6 +51,7 @@ export default function CustomersPage() {
       loadCustomers();
     }, 300);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const handleAddCustomer = async (e: React.FormEvent) => {

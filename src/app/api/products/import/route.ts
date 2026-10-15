@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         bufferStream.end(buffer);
         await workbook.csv.read(bufferStream);
       } else {
-        await workbook.xlsx.load(buffer);
+        await workbook.xlsx.load(buffer as any);
       }
 
       const worksheet = workbook.worksheets[0];
