@@ -1,0 +1,37 @@
+{
+  "customer": {
+    "name": "TIGER INTERNATIONAL",
+    "gstin": "19ACUPA0333J1ZL",
+    "address": "10/B TOPSIA 2nd LANE KOLKATA 39 19-WEST BENGAL"
+  },
+  "invoice": {
+    "number": "IB26-27/0475",
+    "date": "2026-10-12"
+  },
+  "items": [
+    {
+      "lineNo": 1,
+      "productNameRaw": "ACTIPACT DLP-S",
+      "hsn": "32021000",
+      "qtyKg": 360,
+      "packSizeKg": 120,
+      "rate": 428,
+      "taxableAmount": 154080,
+      "cgstPct": 9,
+      "sgstPct": 9,
+      "igstPct": 0,
+      "cgstAmount": 13867.2,
+      "sgstAmount": 13867.2,
+      "lineTotal": 181814.4
+    }
+  ],
+  "totals": {
+    "taxableSubtotal": 154080,
+    "cgstTotal": 13867.2,
+    "sgstTotal": 13867.2,
+    "igstTotal": 0,
+    "roundOff": -0.4,
+    "grandTotal": 181814
+  },
+  "uncertainFields": []
+}

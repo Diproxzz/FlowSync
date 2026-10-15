@@ -1,0 +1,37 @@
+{
+  "customer": {
+    "name": "SUPER TANNERS SYNDICATE",
+    "gstin": "19ACSFS7525C1ZP",
+    "address": "17/2, SMITH LANE, Kolkata - 700013. 19-WEST BENGAL"
+  },
+  "invoice": {
+    "number": "IB26-27/0474",
+    "date": "2026-10-12"
+  },
+  "items": [
+    {
+      "lineNo": 1,
+      "productNameRaw": "AA ACTOIL",
+      "hsn": "34039100",
+      "qtyKg": 120,
+      "packSizeKg": 120,
+      "rate": 105,
+      "taxableAmount": 12600,
+      "cgstPct": 9,
+      "sgstPct": 9,
+      "igstPct": 0,
+      "cgstAmount": 1134,
+      "sgstAmount": 1134,
+      "lineTotal": 14868
+    }
+  ],
+  "totals": {
+    "taxableSubtotal": 12600,
+    "cgstTotal": 1134,
+    "sgstTotal": 1134,
+    "igstTotal": 0,
+    "roundOff": 0,
+    "grandTotal": 14868
+  },
+  "uncertainFields": []
+}

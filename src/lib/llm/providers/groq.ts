@@ -1,0 +1,78 @@
+import { LLMProvider, ExtractionRequest, ExtractionResponse } from "../types";
+import { env } from "@/lib/env";
+
+export class GroqProvider implements LLMProvider {
+  id = "groq" as const;
+  name = "Groq";
+
+  isConfigured(): boolean {
+    return Boolean(env.GROQ_API_KEY && env.GROQ_API_KEY.trim());
+  }
+
+  async extract(req: ExtractionRequest): Promise<ExtractionResponse> {
+    if (!this.isConfigured()) {
+      throw new Error("Groq API key is not configured in environment");
+    }
+
+    const model = env.GROQ_MODEL || "llama-3.2-11b-vision-preview";
+    const url = "https://api.groq.com/openai/v1/chat/completions";
+
+    const userContent: any[] = [];
+    userContent.push({ type: "text", text: req.userPrompt });
+
+    if (req.text) {
+      userContent.push({ type: "text", text: `Document text layer:\n${req.text}` });
+    }
+
+    if (req.images && req.images.length > 0) {
+      for (const img of req.images) {
+        userContent.push({
+          type: "image_url",
+          image_url: {
+            url: `data:${img.mime};base64,${img.base64}`,
+          },
+        });
+      }
+    }
+
+    const messages = [
+      { role: "system", content: req.systemPrompt },
+      { role: "user", content: userContent },
+    ];
+
+    const body: any = {
+      model,
+      messages,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+      signal: req.signal,
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      const message = errJson.error?.message || `Groq returned status ${res.status}`;
+      throw new Error(`Groq error: ${message}`);
+    }
+
+    const data = await res.json();
+    const rawText = data.choices?.[0]?.message?.content;
+    if (!rawText) {
+      throw new Error("Groq returned empty response");
+    }
+
+    return {
+      rawText,
+      model,
+      usage: data.usage,
+    };
+  }
+}

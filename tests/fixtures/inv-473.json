@@ -1,0 +1,52 @@
+{
+  "customer": {
+    "name": "RAHMAN INDUSTRIES LTD.",
+    "gstin": "19AAACR6862N1ZP",
+    "address": "KARAI DANGA 24 PARGANAS, SOUTH KOLKATA-743502 19-WEST BENGAL"
+  },
+  "invoice": {
+    "number": "IB26-27/0473",
+    "date": "2026-10-12"
+  },
+  "items": [
+    {
+      "lineNo": 1,
+      "productNameRaw": "BESTRUB 108",
+      "hsn": "40025100",
+      "qtyKg": 660,
+      "packSizeKg": 220,
+      "rate": 320,
+      "taxableAmount": 211200,
+      "cgstPct": 9,
+      "sgstPct": 9,
+      "igstPct": 0,
+      "cgstAmount": 19008,
+      "sgstAmount": 19008,
+      "lineTotal": 249216
+    },
+    {
+      "lineNo": 2,
+      "productNameRaw": "Silcoat CS30,OSOL TSM3",
+      "hsn": "38241000",
+      "qtyKg": 600,
+      "packSizeKg": 60,
+      "rate": 178,
+      "taxableAmount": 106800,
+      "cgstPct": 9,
+      "sgstPct": 9,
+      "igstPct": 0,
+      "cgstAmount": 9612,
+      "sgstAmount": 9612,
+      "lineTotal": 126024
+    }
+  ],
+  "totals": {
+    "taxableSubtotal": 318000,
+    "cgstTotal": 28620,
+    "sgstTotal": 28620,
+    "igstTotal": 0,
+    "roundOff": 0,
+    "grandTotal": 375240
+  },
+  "uncertainFields": []
+}
