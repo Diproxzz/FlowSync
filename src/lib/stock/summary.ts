@@ -1,0 +1,81 @@
+import { prisma } from "@/lib/db";
+import { Decimal } from "decimal.js";
+
+export interface StockSummaryRow {
+  productId: string;
+  code: string;
+  name: string;
+  category: string | null;
+  opening: number;
+  purchases: number;
+  sales: number;
+  adjustments: number;
+  closing: number;
+  packSizeKg: number | null;
+  drums: number;
+  purchaseRate: number | null;
+  saleRate: number | null;
+  stockValue: number;
+  salesValue: number;
+  reorderLevelKg: number | null;
+  status: "LOW STOCK" | "OK";
+}
+
+export async function getStockSummary(): Promise<StockSummaryRow[]> {
+  const products = await prisma.product.findMany({
+    where: { is_active: true },
+    include: {
+      stock_movements: true,
+    },
+    orderBy: { code: "asc" },
+  });
+
+  return products.map((p) => {
+    let opening = new Decimal(0);
+    let purchases = new Decimal(0);
+    let sales = new Decimal(0);
+    let adjustments = new Decimal(0);
+
+    for (const sm of p.stock_movements) {
+      const q = new Decimal(sm.qty_kg.toString());
+      if (sm.type === "OPENING") opening = opening.plus(q);
+      else if (sm.type === "PURCHASE") purchases = purchases.plus(q);
+      else if (sm.type === "SALE") sales = sales.plus(q);
+      else if (sm.type === "ADJUSTMENT") adjustments = adjustments.plus(q);
+    }
+
+    const closing = opening.plus(purchases).minus(sales).minus(adjustments);
+
+    const packSize = p.pack_size_kg ? new Decimal(p.pack_size_kg.toString()) : null;
+    const drums = packSize && !packSize.isZero() ? closing.dividedBy(packSize).toNumber() : 0;
+
+    const purchaseRate = p.std_purchase_rate ? new Decimal(p.std_purchase_rate.toString()) : null;
+    const saleRate = p.std_sale_rate ? new Decimal(p.std_sale_rate.toString()) : null;
+
+    const stockValue = purchaseRate ? closing.times(purchaseRate).toNumber() : 0;
+    const salesValue = saleRate ? sales.times(saleRate).toNumber() : 0;
+
+    const reorderLevel = p.reorder_level_kg ? new Decimal(p.reorder_level_kg.toString()) : null;
+    const isLowStock = reorderLevel && !reorderLevel.isZero() && closing.lessThanOrEqualTo(reorderLevel);
+
+    return {
+      productId: p.id,
+      code: p.code,
+      name: p.name,
+      category: p.category,
+      opening: opening.toNumber(),
+      purchases: purchases.toNumber(),
+      sales: sales.toNumber(),
+      adjustments: adjustments.toNumber(),
+      closing: closing.toNumber(),
+      packSizeKg: packSize ? packSize.toNumber() : null,
+      drums: Math.round(drums * 100) / 100,
+      purchaseRate: purchaseRate ? purchaseRate.toNumber() : null,
+      saleRate: saleRate ? saleRate.toNumber() : null,
+      stockValue: Math.round(stockValue * 100) / 100,
+      salesValue: Math.round(salesValue * 100) / 100,
+      reorderLevelKg: reorderLevel ? reorderLevel.toNumber() : null,
+      status: isLowStock ? "LOW STOCK" : "OK",
+    };
+  });
+}
