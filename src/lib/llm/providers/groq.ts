@@ -14,7 +14,7 @@ export class GroqProvider implements LLMProvider {
       throw new Error("Groq API key is not configured in environment");
     }
 
-    const model = env.GROQ_MODEL || "llama-3.2-11b-vision-preview";
+    const model = env.GROQ_MODEL || "qwen/qwen3.8-27b";
     const url = "https://api.groq.com/openai/v1/chat/completions";
 
     const userContent: any[] = [];

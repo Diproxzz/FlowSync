@@ -47,17 +47,17 @@ export function normalizeRawExtractedInvoice(raw: any): any {
     rawTotals.taxableSubtotal ?? rawTotals.subTotal ?? rawTotals.sub_total ?? rawTotals.taxable_subtotal ??
     raw.taxableSubtotal ?? raw.subTotal ?? raw.taxable_subtotal ?? raw.sub_total ?? raw.taxableTotal ?? 0;
   const cgstTotal =
-    rawTotals.cgstTotal ?? rawTotals.cgstAmount ?? rawTotals.cgst_amount ?? rawTotals.cgst_total ??
-    raw.cgstTotal ?? raw.cgstAmount ?? 0;
+    rawTotals.cgstTotal ?? rawTotals.cgstAmount ?? rawTotals.cgst_amount ?? rawTotals.cgst_total ?? rawTotals.cgst ??
+    raw.cgstTotal ?? raw.cgstAmount ?? raw.cgst ?? 0;
   const sgstTotal =
-    rawTotals.sgstTotal ?? rawTotals.sgstAmount ?? rawTotals.sgst_amount ?? rawTotals.sgst_total ??
-    raw.sgstTotal ?? raw.sgstAmount ?? 0;
+    rawTotals.sgstTotal ?? rawTotals.sgstAmount ?? rawTotals.sgst_amount ?? rawTotals.sgst_total ?? rawTotals.sgst ??
+    raw.sgstTotal ?? raw.sgstAmount ?? raw.sgst ?? 0;
   const igstTotal =
-    rawTotals.igstTotal ?? rawTotals.igstAmount ?? rawTotals.igst_amount ?? rawTotals.igst_total ??
-    raw.igstTotal ?? raw.igstAmount ?? 0;
+    rawTotals.igstTotal ?? rawTotals.igstAmount ?? rawTotals.igst_amount ?? rawTotals.igst_total ?? rawTotals.igst ??
+    raw.igstTotal ?? raw.igstAmount ?? raw.igst ?? 0;
   const roundOff =
-    rawTotals.roundOff ?? rawTotals.round_off ??
-    raw.roundOff ?? raw.round_off ?? 0;
+    rawTotals.roundOff ?? rawTotals.round_off ?? rawTotals.roundoff ??
+    raw.roundOff ?? raw.round_off ?? raw.roundoff ?? 0;
   const grandTotal =
     rawTotals.grandTotal ?? rawTotals.grand_total ?? rawTotals.total ??
     raw.grandTotal ?? raw.grand_total ?? 0;
@@ -77,21 +77,21 @@ export function normalizeRawExtractedInvoice(raw: any): any {
         const taxable = it.taxableAmount ?? it.taxableValue ?? it.taxable_amount ?? it.taxable_value ?? it.taxable ?? 0;
         const cgstPct = it.cgstPct ?? it.cgst_pct ?? 9;
         const sgstPct = it.sgstPct ?? it.sgst_pct ?? 9;
-        const lineTotal = it.lineTotal ?? it.line_total ?? it.amount ?? taxable;
+        const lineTotal = it.lineTotal ?? it.line_total ?? it.amount ?? it.total ?? taxable;
 
         return {
-          lineNo: it.lineNo ?? it.slNo ?? it.sl_no ?? it.line_no ?? idx + 1,
-          productNameRaw: it.productNameRaw ?? it.product_name_raw ?? it.product ?? it.description ?? "",
+          lineNo: it.lineNo ?? it.slNo ?? it.sl_no ?? it.line_no ?? it.sl ?? it.srNo ?? it.sr_no ?? it.sNo ?? idx + 1,
+          productNameRaw: it.productNameRaw ?? it.product_name_raw ?? it.product ?? it.description ?? it.item ?? it.particulars ?? "",
           hsn: it.hsn ? String(it.hsn) : null,
-          qtyKg: it.qtyKg ?? it.quantityKg ?? it.qty_kg ?? it.quantity_kg ?? it.qnty ?? 0,
-          packSizeKg: it.packSizeKg ?? it.pack_size_kg ?? it.pack ?? null,
-          rate: it.rate ?? 0,
+          qtyKg: it.qtyKg ?? it.quantityKg ?? it.qty_kg ?? it.quantity_kg ?? it.qty ?? it.quantity ?? it.qnty ?? 0,
+          packSizeKg: it.packSizeKg ?? it.pack_size_kg ?? it.pack ?? it.packing ?? null,
+          rate: it.rate ?? it.price ?? 0,
           taxableAmount: taxable,
           cgstPct: cgstPct,
           sgstPct: sgstPct,
           igstPct: it.igstPct ?? it.igst_pct ?? 0,
-          cgstAmount: it.cgstAmount ?? it.cgst_amount ?? Math.round(((taxable * cgstPct) / 100) * 100) / 100,
-          sgstAmount: it.sgstAmount ?? it.sgst_amount ?? Math.round(((taxable * sgstPct) / 100) * 100) / 100,
+          cgstAmount: it.cgstAmount ?? it.cgst_amount ?? it.cgst ?? Math.round(((taxable * cgstPct) / 100) * 100) / 100,
+          sgstAmount: it.sgstAmount ?? it.sgst_amount ?? it.sgst ?? Math.round(((taxable * sgstPct) / 100) * 100) / 100,
           lineTotal: lineTotal,
         };
       })

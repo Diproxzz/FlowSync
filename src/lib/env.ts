@@ -7,13 +7,13 @@ const envSchema = z.object({
   COMPANY_NAME: z.string().default("INDOBEST"),
   COMPANY_GSTIN: z.string().default("19AVZPC2361G1ZA"),
 
-  LLM_PROVIDER_ORDER: z.string().default("gemini,openrouter,groq,ollama"),
+  LLM_PROVIDER_ORDER: z.string().default("groq,gemini,openrouter,ollama"),
   GEMINI_API_KEY: z.string().optional().default(""),
-  GEMINI_MODEL: z.string().optional().default("gemini-1.5-flash"),
+  GEMINI_MODEL: z.string().optional().default("gemini-3.7-flash"),
   OPENROUTER_API_KEY: z.string().optional().default(""),
   OPENROUTER_MODEL: z.string().optional().default(""),
   GROQ_API_KEY: z.string().optional().default(""),
-  GROQ_MODEL: z.string().optional().default(""),
+  GROQ_MODEL: z.string().optional().default("qwen/qwen3.8-27b"),
   OLLAMA_BASE_URL: z.string().default("http://localhost:11434"),
   OLLAMA_MODEL: z.string().optional().default(""),
 
