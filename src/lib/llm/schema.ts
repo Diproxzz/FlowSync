@@ -26,9 +26,10 @@ export function normalizeRawExtractedInvoice(raw: any): any {
 
   // Normalize customer
   const customer = raw.customer || {};
+  const rawGstin = customer.gstin || raw.customerGstin || raw.partyGstin || null;
   const normalizedCustomer = {
     name: customer.name || raw.customerName || raw.partyName || "",
-    gstin: customer.gstin || raw.customerGstin || raw.partyGstin || null,
+    gstin: typeof rawGstin === "string" ? rawGstin.replace(/\s+/g, "").toUpperCase() : null,
     address: customer.address || raw.customerAddress || raw.partyAddress || null,
   };
 
@@ -96,6 +97,11 @@ export function normalizeRawExtractedInvoice(raw: any): any {
         };
       })
     : [];
+
+  // Fallback taxableSubtotal if 0 or missing
+  if ((!totals.taxableSubtotal || totals.taxableSubtotal === 0) && items.length > 0) {
+    totals.taxableSubtotal = Math.round(items.reduce((acc, it) => acc + (it.taxableAmount || 0), 0) * 100) / 100;
+  }
 
   return {
     ...raw,
