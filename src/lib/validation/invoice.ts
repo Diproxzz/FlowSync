@@ -121,7 +121,7 @@ export function validateInvoice(
     if (taxableDiff.greaterThan(0.01)) {
       issues.push({
         path: `${p}.taxableAmount`,
-        severity: "error",
+        severity: "warning",
         code: "LINE_TAXABLE_MISMATCH",
         message: `Line ${item.lineNo}: Taxable ₹${taxable.toFixed(2)} ≠ Qty (${qty}) × Rate (₹${rate}) = ₹${expectedTaxable.toFixed(2)}`,
       });
@@ -148,7 +148,7 @@ export function validateInvoice(
     if (lineTotalDiff.greaterThan(1.0)) {
       issues.push({
         path: `${p}.lineTotal`,
-        severity: "error",
+        severity: "warning",
         code: "LINE_TOTAL_MISMATCH",
         message: `Line ${item.lineNo}: Amount ₹${lineTotal.toFixed(2)} differs from taxable + taxes (₹${expectedLineTotal.toFixed(2)}) by ₹${lineTotalDiff.toFixed(2)}`,
       });
@@ -182,7 +182,7 @@ export function validateInvoice(
   if (sumTaxable.minus(declaredSubtotal).abs().greaterThan(0.01)) {
     issues.push({
       path: "totals.taxableSubtotal",
-      severity: "error",
+      severity: "warning",
       code: "SUBTOTAL_MISMATCH",
       message: `Sub total ₹${declaredSubtotal.toFixed(2)} does not match sum of lines (₹${sumTaxable.toFixed(2)})`,
     });
@@ -191,7 +191,7 @@ export function validateInvoice(
   if (sumCgst.minus(declaredCgst).abs().greaterThan(0.05)) {
     issues.push({
       path: "totals.cgstTotal",
-      severity: "error",
+      severity: "warning",
       code: "CGST_TOTAL_MISMATCH",
       message: `CGST total ₹${declaredCgst.toFixed(2)} does not match line CGST sum (₹${sumCgst.toFixed(2)})`,
     });
@@ -200,7 +200,7 @@ export function validateInvoice(
   if (sumSgst.minus(declaredSgst).abs().greaterThan(0.05)) {
     issues.push({
       path: "totals.sgstTotal",
-      severity: "error",
+      severity: "warning",
       code: "SGST_TOTAL_MISMATCH",
       message: `SGST total ₹${declaredSgst.toFixed(2)} does not match line SGST sum (₹${sumSgst.toFixed(2)})`,
     });
@@ -213,7 +213,7 @@ export function validateInvoice(
   if (derivedRoundOff.abs().greaterThan(1.0)) {
     issues.push({
       path: "totals.grandTotal",
-      severity: "error",
+      severity: "warning",
       code: "GRAND_TOTAL_MISMATCH",
       message: `Grand total ₹${declaredGrand.toFixed(2)} mismatch. Derived round-off ₹${derivedRoundOff.toFixed(2)} exceeds ±₹1.00`,
     });

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   HelpCircle,
   ArrowRight,
+  Calculator,
 } from "lucide-react";
 import { ExtractedInvoice, ExtractedInvoiceItem } from "@/lib/llm/schema";
 import { validateInvoice, Issue } from "@/lib/validation/invoice";
@@ -149,6 +150,16 @@ export function PreviewForm({
       item.cgstAmount = Math.round(cgstAmt * 100) / 100;
       item.sgstAmount = Math.round(sgstAmt * 100) / 100;
       item.lineTotal = Math.round((item.taxableAmount + cgstAmt + sgstAmt) * 100) / 100;
+    } else if (field === "taxableAmount") {
+      const t = Number(value) || 0;
+      item.taxableAmount = t;
+      const cgstAmt = (t * item.cgstPct) / 100;
+      const sgstAmt = (t * item.sgstPct) / 100;
+      item.cgstAmount = Math.round(cgstAmt * 100) / 100;
+      item.sgstAmount = Math.round(sgstAmt * 100) / 100;
+      item.lineTotal = Math.round((t + cgstAmt + sgstAmt) * 100) / 100;
+    } else if (field === "lineTotal") {
+      item.lineTotal = Number(value) || 0;
     }
 
     nextItems[index] = item;
@@ -159,6 +170,16 @@ export function PreviewForm({
       items: nextItems,
       totals: nextTotals,
     });
+  };
+
+  const updateTotal = (field: keyof ExtractedInvoice["totals"], value: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      totals: {
+        ...prev.totals,
+        [field]: value,
+      },
+    }));
   };
 
   const handleAddItem = () => {
@@ -248,9 +269,22 @@ export function PreviewForm({
     });
   };
 
+  const blockingErrors = validation.issues.filter(
+    (i) =>
+      i.severity === "error" &&
+      [
+        "CUSTOMER_NAME_MISSING",
+        "INVOICE_NUMBER_MISSING",
+        "GSTIN_FORMAT",
+        "GSTIN_CHECKSUM",
+        "GSTIN_IS_COMPANY",
+        "NO_ITEMS",
+        "DATE_INVALID",
+      ].includes(i.code)
+  );
+
   const handleSubmit = async (advance = false) => {
-    if (errors.length > 0) return;
-    if (warnings.length > 0 && !acknowledgedWarnings) return;
+    if (blockingErrors.length > 0) return;
 
     const payload = {
       draft,
@@ -274,13 +308,13 @@ export function PreviewForm({
       }),
       mode,
       fileToken,
-      acknowledgeWarnings: acknowledgedWarnings,
+      acknowledgeWarnings: true,
     };
 
     await onSave(payload, { advanceToNext: advance });
   };
 
-  const canSave = errors.length === 0 && (warnings.length === 0 || acknowledgedWarnings);
+  const canSave = blockingErrors.length === 0;
 
   return (
     <div className="flex flex-col h-full bg-surface border border-border rounded-sm overflow-hidden text-xs">
@@ -557,16 +591,50 @@ export function PreviewForm({
                         />
                       </td>
 
-                      <td className="py-2 px-2.5 text-right num font-medium text-ink">
-                        {formatINR(item.taxableAmount)}
+                      <td className="py-2 px-2.5 text-right">
+                        <input
+                          type="number"
+                          step="any"
+                          value={item.taxableAmount}
+                          onChange={(e) => updateItem(index, "taxableAmount", parseFloat(e.target.value) || 0)}
+                          className="w-24 px-1.5 py-1 bg-bg border border-border rounded-sm text-xs text-right num font-medium text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
                       </td>
 
-                      <td className="py-2 px-2.5 text-right num text-ink-3">
-                        {item.cgstPct + item.sgstPct}%
+                      <td className="py-2 px-2.5 text-right">
+                        <select
+                          value={Math.round(item.cgstPct + item.sgstPct)}
+                          onChange={(e) => {
+                            const totalGst = parseFloat(e.target.value) || 0;
+                            const halfGst = totalGst / 2;
+                            const nextItems = [...draft.items];
+                            const cur = { ...nextItems[index], cgstPct: halfGst, sgstPct: halfGst };
+                            const cgstAmt = Math.round(((cur.taxableAmount * halfGst) / 100) * 100) / 100;
+                            const sgstAmt = Math.round(((cur.taxableAmount * halfGst) / 100) * 100) / 100;
+                            cur.cgstAmount = cgstAmt;
+                            cur.sgstAmount = sgstAmt;
+                            cur.lineTotal = Math.round((cur.taxableAmount + cgstAmt + sgstAmt) * 100) / 100;
+                            nextItems[index] = cur;
+                            setDraft({ ...draft, items: nextItems, totals: recalculateTotals(nextItems) });
+                          }}
+                          className="w-16 px-1 py-1 bg-bg border border-border rounded-sm text-xs text-right num text-ink-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="18">18%</option>
+                          <option value="12">12%</option>
+                          <option value="5">5%</option>
+                          <option value="28">28%</option>
+                          <option value="0">0%</option>
+                        </select>
                       </td>
 
-                      <td className="py-2 px-2.5 text-right num font-semibold text-ink">
-                        {formatINR(item.lineTotal)}
+                      <td className="py-2 px-2.5 text-right">
+                        <input
+                          type="number"
+                          step="any"
+                          value={item.lineTotal}
+                          onChange={(e) => updateItem(index, "lineTotal", parseFloat(e.target.value) || 0)}
+                          className="w-24 px-1.5 py-1 bg-bg border border-border rounded-sm text-xs text-right num font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
                       </td>
 
                       <td className="py-2 px-2 text-center">
@@ -590,62 +658,97 @@ export function PreviewForm({
 
         {/* 3. Totals Card */}
         <div className="bg-bg border border-border rounded-sm p-4 space-y-3">
-          <span className="font-semibold text-ink uppercase tracking-wide text-[11px]">Invoice Totals</span>
+          <div className="flex items-center justify-between pb-1 border-b border-border">
+            <span className="font-semibold text-ink uppercase tracking-wide text-[11px]">Invoice Totals</span>
+            <button
+              type="button"
+              onClick={() => {
+                const newTotals = recalculateTotals(draft.items);
+                setDraft({ ...draft, totals: newTotals });
+              }}
+              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
+              title="Automatically recalculate subtotal, taxes, round-off, and grand total from line items"
+            >
+              <Calculator className="w-3.5 h-3.5" />
+              <span>Auto-Calculate from Lines</span>
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="bg-surface p-2.5 rounded-sm border border-border">
-              <span className="text-[11px] text-ink-3 block">Taxable Subtotal</span>
-              <span className="text-sm font-semibold text-ink num mt-0.5 block">
-                {formatINR(draft.totals.taxableSubtotal)}
-              </span>
+              <label className="text-[11px] text-ink-3 block mb-1">Taxable Subtotal (₹)</label>
+              <input
+                type="number"
+                step="any"
+                value={draft.totals.taxableSubtotal}
+                onChange={(e) => updateTotal("taxableSubtotal", parseFloat(e.target.value) || 0)}
+                className="w-full px-2 py-1 bg-bg border border-border rounded-sm text-xs font-semibold text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
 
             <div className="bg-surface p-2.5 rounded-sm border border-border">
-              <span className="text-[11px] text-ink-3 block">CGST 9%</span>
-              <span className="text-sm font-semibold text-ink num mt-0.5 block">
-                {formatINR(draft.totals.cgstTotal)}
-              </span>
+              <label className="text-[11px] text-ink-3 block mb-1">CGST Total (₹)</label>
+              <input
+                type="number"
+                step="any"
+                value={draft.totals.cgstTotal}
+                onChange={(e) => updateTotal("cgstTotal", parseFloat(e.target.value) || 0)}
+                className="w-full px-2 py-1 bg-bg border border-border rounded-sm text-xs font-semibold text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
 
             <div className="bg-surface p-2.5 rounded-sm border border-border">
-              <span className="text-[11px] text-ink-3 block">SGST 9%</span>
-              <span className="text-sm font-semibold text-ink num mt-0.5 block">
-                {formatINR(draft.totals.sgstTotal)}
-              </span>
+              <label className="text-[11px] text-ink-3 block mb-1">SGST Total (₹)</label>
+              <input
+                type="number"
+                step="any"
+                value={draft.totals.sgstTotal}
+                onChange={(e) => updateTotal("sgstTotal", parseFloat(e.target.value) || 0)}
+                className="w-full px-2 py-1 bg-bg border border-border rounded-sm text-xs font-semibold text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
 
             <div className="bg-surface p-2.5 rounded-sm border border-border">
-              <span className="text-[11px] text-ink-3 block">Round-off</span>
-              <span className="text-sm font-semibold text-ink num mt-0.5 block">
-                {formatINR(draft.totals.roundOff || 0)}
-              </span>
+              <label className="text-[11px] text-ink-3 block mb-1">Round-off (₹)</label>
+              <input
+                type="number"
+                step="any"
+                value={draft.totals.roundOff ?? 0}
+                onChange={(e) => updateTotal("roundOff", parseFloat(e.target.value) || 0)}
+                placeholder="e.g. -0.37 or 0.37"
+                className="w-full px-2 py-1 bg-bg border border-border rounded-sm text-xs font-semibold text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
 
             <div className="bg-surface p-2.5 rounded-sm border-2 border-primary col-span-2 sm:col-span-1">
-              <span className="text-[11px] text-primary font-medium block">Grand Total</span>
-              <span className="text-base font-bold text-ink num mt-0.5 block">
-                {formatINR(draft.totals.grandTotal)}
-              </span>
+              <label className="text-[11px] text-primary font-medium block mb-1">Grand Total (₹)</label>
+              <input
+                type="number"
+                step="any"
+                value={draft.totals.grandTotal}
+                onChange={(e) => updateTotal("grandTotal", parseFloat(e.target.value) || 0)}
+                className="w-full px-2 py-1 bg-bg border border-primary/50 rounded-sm text-sm font-bold text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
           </div>
         </div>
 
         {/* Issues Box */}
-        {(errors.length > 0 || warnings.length > 0) && (
+        {(blockingErrors.length > 0 || warnings.length > 0) && (
           <div className="p-3 bg-surface border border-border rounded-sm space-y-2">
             <div className="flex items-center gap-2">
-              {errors.length > 0 ? (
+              {blockingErrors.length > 0 ? (
                 <XCircle className="w-4 h-4 text-danger" />
               ) : (
                 <AlertTriangle className="w-4 h-4 text-warning" />
               )}
               <span className="font-semibold text-xs text-ink">
-                Verification Issues ({errors.length} errors, {warnings.length} warnings)
+                Verification Issues ({blockingErrors.length} format error{blockingErrors.length === 1 ? "" : "s"}, {warnings.length} warning{warnings.length === 1 ? "" : "s"})
               </span>
             </div>
 
             <ul className="space-y-1 text-xs">
-              {errors.map((e, idx) => (
+              {blockingErrors.map((e, idx) => (
                 <li key={`err-${idx}`} className="text-danger flex items-center gap-1.5 font-medium">
                   <span>✕</span> {e.message}
                 </li>
@@ -663,23 +766,16 @@ export function PreviewForm({
       {/* Sticky Footer Bar */}
       <div className="h-14 px-5 bg-surface-2 border-t border-border flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {errors.length > 0 ? (
+          {blockingErrors.length > 0 ? (
             <span className="text-xs font-semibold text-danger flex items-center gap-1">
               <XCircle className="w-4 h-4" />
-              <span>{errors.length} errors must be resolved to save</span>
+              <span>{blockingErrors.length} format error{blockingErrors.length > 1 ? "s" : ""} must be resolved to save</span>
             </span>
           ) : warnings.length > 0 ? (
-            <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
-              <input
-                type="checkbox"
-                checked={acknowledgedWarnings}
-                onChange={(e) => setAcknowledgedWarnings(e.target.checked)}
-                className="w-3.5 h-3.5 rounded-sm border-border text-primary"
-              />
-              <span className="font-medium text-warning">
-                I have checked these {warnings.length} warnings
-              </span>
-            </label>
+            <span className="text-xs text-warning flex items-center gap-1.5 font-medium">
+              <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
+              <span>{warnings.length} warning{warnings.length > 1 ? "s" : ""} detected — review or save directly</span>
+            </span>
           ) : (
             <span className="text-xs font-semibold text-success flex items-center gap-1">
               <CheckCircle2 className="w-4 h-4" />

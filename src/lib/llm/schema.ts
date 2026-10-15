@@ -100,7 +100,7 @@ export function normalizeRawExtractedInvoice(raw: any): any {
 
   // Fallback taxableSubtotal if 0 or missing
   if ((!totals.taxableSubtotal || totals.taxableSubtotal === 0) && items.length > 0) {
-    totals.taxableSubtotal = Math.round(items.reduce((acc, it) => acc + (it.taxableAmount || 0), 0) * 100) / 100;
+    totals.taxableSubtotal = Math.round(items.reduce((acc: number, it: any) => acc + (it.taxableAmount || 0), 0) * 100) / 100;
   }
 
   return {

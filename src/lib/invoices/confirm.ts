@@ -33,10 +33,23 @@ export interface ConfirmInvoiceInput {
 export async function confirmInvoice(input: ConfirmInvoiceInput) {
   const { draft, customerResolution, productResolutions, mode, fileToken, fileHash, provider, model } = input;
 
-  // 1. Server-side validation
+  // 1. Server-side validation: only reject for format errors (GSTIN, Invoice number, customer)
   const validation = validateInvoice(draft);
-  if (validation.hasErrors) {
-    throw new Error(`Validation failed with ${validation.issues.filter((i) => i.severity === "error").length} errors`);
+  const blockingErrors = validation.issues.filter(
+    (i) =>
+      i.severity === "error" &&
+      [
+        "CUSTOMER_NAME_MISSING",
+        "INVOICE_NUMBER_MISSING",
+        "GSTIN_FORMAT",
+        "GSTIN_CHECKSUM",
+        "GSTIN_IS_COMPANY",
+        "NO_ITEMS",
+        "DATE_INVALID",
+      ].includes(i.code)
+  );
+  if (blockingErrors.length > 0) {
+    throw new Error(`Validation failed with format error(s): ${blockingErrors.map((e) => e.message).join(", ")}`);
   }
 
   const numberNorm = normalizeInvoiceNumber(draft.invoice.number);

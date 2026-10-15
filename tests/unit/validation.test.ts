@@ -35,28 +35,28 @@ describe("Phase 4: Invoice Validation Rules", () => {
     expect(result.derivedRoundOff).toBe(-0.4);
   });
 
-  it("should reject tampered Grand Total with GRAND_TOTAL_MISMATCH", () => {
+  it("should flag tampered Grand Total with GRAND_TOTAL_MISMATCH warning", () => {
     const tampered = JSON.parse(JSON.stringify(inv474));
     tampered.totals.grandTotal = 20000; // was 14868
 
     const result = validateInvoice(tampered, COMPANY_GSTIN);
-    expect(result.hasErrors).toBe(true);
-    expect(result.isValid).toBe(false);
+    expect(result.hasWarnings).toBe(true);
 
     const issue = result.issues.find((i) => i.code === "GRAND_TOTAL_MISMATCH");
     expect(issue).toBeDefined();
-    expect(issue?.severity).toBe("error");
+    expect(issue?.severity).toBe("warning");
   });
 
-  it("should reject tampered line rate/taxable with LINE_TAXABLE_MISMATCH", () => {
+  it("should flag tampered line rate/taxable with LINE_TAXABLE_MISMATCH warning", () => {
     const tampered = JSON.parse(JSON.stringify(inv474));
     tampered.items[0].taxableAmount = 15000; // Qty 120 * Rate 105 = 12600
 
     const result = validateInvoice(tampered, COMPANY_GSTIN);
-    expect(result.hasErrors).toBe(true);
+    expect(result.hasWarnings).toBe(true);
 
     const issue = result.issues.find((i) => i.code === "LINE_TAXABLE_MISMATCH");
     expect(issue).toBeDefined();
+    expect(issue?.severity).toBe("warning");
   });
 
   it("should reject customer GSTIN matching Company Issuer GSTIN with GSTIN_IS_COMPANY", () => {
