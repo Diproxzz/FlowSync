@@ -10,6 +10,11 @@ export async function GET(request: NextRequest) {
   const productId = searchParams.get("productId")?.trim();
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const financialYear = searchParams.get("financialYear")?.trim();
+  const minAmount = searchParams.get("minAmount")?.trim();
+  const maxAmount = searchParams.get("maxAmount")?.trim();
+  const sortBy = searchParams.get("sortBy")?.trim() || "date";
+  const sortOrder = (searchParams.get("sortOrder")?.trim() || "desc").toLowerCase() === "asc" ? "asc" : "desc";
   const limit = parseInt(searchParams.get("limit") || "50", 10);
   const page = parseInt(searchParams.get("page") || "1", 10);
 
@@ -17,8 +22,11 @@ export async function GET(request: NextRequest) {
     AND: [
       customerId ? { customer_id: customerId } : {},
       productId ? { items: { some: { product_id: productId } } } : {},
+      financialYear ? { financial_year: financialYear } : {},
       from ? { invoice_date: { gte: new Date(from) } } : {},
-      to ? { invoice_date: { lte: new Date(to) } } : {},
+      to ? { invoice_date: { lte: new Date(to + "T23:59:59.999Z") } } : {},
+      minAmount ? { grand_total: { gte: new Prisma.Decimal(minAmount) } } : {},
+      maxAmount ? { grand_total: { lte: new Prisma.Decimal(maxAmount) } } : {},
       search
         ? {
             OR: [
@@ -31,6 +39,22 @@ export async function GET(request: NextRequest) {
     ],
   };
 
+  // Determine sorting order
+  let orderBy: Prisma.InvoiceOrderByWithRelationInput = { invoice_date: sortOrder };
+  if (sortBy === "number" || sortBy === "invoice_number") {
+    orderBy = { invoice_number: sortOrder };
+  } else if (sortBy === "customer" || sortBy === "customer_name") {
+    orderBy = { customer_name_snapshot: sortOrder };
+  } else if (sortBy === "amount" || sortBy === "grand_total" || sortBy === "total") {
+    orderBy = { grand_total: sortOrder };
+  } else if (sortBy === "taxable" || sortBy === "taxable_total") {
+    orderBy = { taxable_total: sortOrder };
+  } else if (sortBy === "created" || sortBy === "created_at") {
+    orderBy = { created_at: sortOrder };
+  } else {
+    orderBy = { invoice_date: sortOrder };
+  }
+
   const [invoices, total] = await Promise.all([
     prisma.invoice.findMany({
       where,
@@ -40,7 +64,7 @@ export async function GET(request: NextRequest) {
           include: { product: { select: { id: true, code: true, name: true } } },
         },
       },
-      orderBy: { invoice_date: "desc" },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     }),

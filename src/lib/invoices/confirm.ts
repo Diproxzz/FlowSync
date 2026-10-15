@@ -139,6 +139,7 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
             data: {
               code: cleanCode,
               name: pRes.productName || cleanCode,
+              default_hsn: matchedItem?.hsn ? String(matchedItem.hsn).trim() : null,
               pack_size_kg: matchedItem?.packSizeKg ? new Prisma.Decimal(matchedItem.packSizeKg) : null,
               std_sale_rate: matchedItem?.rate ? new Prisma.Decimal(matchedItem.rate) : null,
               source: "INVOICE_AUTO",
@@ -149,6 +150,21 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
           newProductsCreatedCount++;
         }
         prodId = prod.id;
+      }
+
+      // If matched line item has an HSN code, update product default_hsn if not already set
+      const matchedItem = draft.items.find((it) => it.lineNo === pRes.lineNo);
+      if (matchedItem?.hsn && prodId) {
+        const existingProd = await tx.product.findUnique({
+          where: { id: prodId },
+          select: { default_hsn: true },
+        });
+        if (existingProd && !existingProd.default_hsn) {
+          await tx.product.update({
+            where: { id: prodId },
+            data: { default_hsn: String(matchedItem.hsn).trim() },
+          });
+        }
       }
 
       lineProductMap.set(pRes.lineNo, prodId);

@@ -47,32 +47,58 @@ export class GroqProvider implements LLMProvider {
       response_format: { type: "json_object" },
     };
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify(body),
-      signal: req.signal,
-    });
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      const message = errJson.error?.message || `Groq returned status ${res.status}`;
-      throw new Error(`Groq error: ${message}`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify(body),
+          signal: req.signal,
+        });
+
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          const message = errJson.error?.message || `Groq returned status ${res.status}`;
+
+          // If rate limited (429), parse delay or wait and retry
+          if (res.status === 429 && attempt < maxRetries) {
+            let waitSeconds = 4;
+            const match = message.match(/try again in ([\d.]+)s/i);
+            if (match && match[1]) {
+              waitSeconds = Math.max(Math.ceil(parseFloat(match[1])), 2) + 1;
+            }
+            console.warn(`[Groq] Rate limit reached. Pacing request: pausing for ${waitSeconds}s before retry ${attempt}/${maxRetries}...`);
+            await new Promise((r) => setTimeout(r, waitSeconds * 1000));
+            continue;
+          }
+
+          throw new Error(`Groq error: ${message}`);
+        }
+
+        const data = await res.json();
+        const rawText = data.choices?.[0]?.message?.content;
+        if (!rawText) {
+          throw new Error("Groq returned empty response");
+        }
+
+        return {
+          rawText,
+          model,
+          usage: data.usage,
+        };
+      } catch (err: any) {
+        lastError = err;
+        if (err.name === "AbortError") throw err;
+        if (attempt === maxRetries) throw err;
+      }
     }
 
-    const data = await res.json();
-    const rawText = data.choices?.[0]?.message?.content;
-    if (!rawText) {
-      throw new Error("Groq returned empty response");
-    }
-
-    return {
-      rawText,
-      model,
-      usage: data.usage,
-    };
+    throw lastError || new Error("Groq extraction failed");
   }
 }

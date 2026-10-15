@@ -106,6 +106,28 @@ export async function processUploadJob(jobId: string) {
       draft.items.map((item) => resolveProduct(item.productNameRaw))
     );
 
+    // Update product HSN once fetched (if not already present)
+    for (let i = 0; i < draft.items.length; i++) {
+      const item = draft.items[i];
+      const match = productMatches[i];
+      if (item.hsn && match?.status === "MATCHED" && match.productId) {
+        try {
+          const prod = await prisma.product.findUnique({
+            where: { id: match.productId },
+            select: { default_hsn: true },
+          });
+          if (prod && !prod.default_hsn) {
+            await prisma.product.update({
+              where: { id: match.productId },
+              data: { default_hsn: String(item.hsn).trim() },
+            });
+          }
+        } catch (hsnErr) {
+          console.warn("Could not update product default_hsn:", hsnErr);
+        }
+      }
+    }
+
     // 9. Duplicate invoice check by normalized invoice number
     const numberNorm = normalizeInvoiceNumber(draft.invoice.number);
     const existingInvoice = await prisma.invoice.findUnique({
@@ -181,10 +203,10 @@ export async function processUploadJob(jobId: string) {
     }
   } finally {
     activeJobs.delete(jobId);
-    // Queue next job one at a time with a 500ms pacing delay
+    // Queue next job one at a time with a 4s pacing delay to avoid token rate limits
     setTimeout(() => {
       processNextQueuedJobs().catch(console.error);
-    }, 500);
+    }, 4000);
   }
 }
 
