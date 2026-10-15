@@ -81,7 +81,7 @@ export async function extractInvoiceData(input: {
 
       try {
         const timeoutController = new AbortController();
-        const timeoutId = setTimeout(() => timeoutController.abort(), 45000); // 45s timeout
+        const timeoutId = setTimeout(() => timeoutController.abort(), 60000); // 60s timeout
 
         const response = await provider.extract({
           systemPrompt: getInvoiceSystemPrompt(),
@@ -115,7 +115,7 @@ export async function extractInvoiceData(input: {
           if (env.LOG_EXTRACTION_PAYLOADS) {
             await prisma.extractionLog.create({
               data: {
-                file_hash: input.fileHash,
+                file_hash: input.fileHash || "manual",
                 provider: provider.id,
                 model: response.model,
                 latency_ms: latencyMs,
@@ -138,6 +138,7 @@ export async function extractInvoiceData(input: {
             `[Extraction] ${provider.name} attempt ${attempts} schema issues:`,
             lastZodIssues
           );
+          console.log("[Extraction] Raw parsed JSON from LLM:\n", JSON.stringify(parsedJson, null, 2));
         }
       } catch (err: any) {
         console.error(`[Extraction] Provider ${provider.name} failed:`, err.message);
@@ -161,7 +162,7 @@ export async function extractInvoiceData(input: {
 
   await prisma.extractionLog.create({
     data: {
-      file_hash: input.fileHash,
+      file_hash: input.fileHash || "manual",
       provider: "ALL_FAILED",
       model: "none",
       latency_ms: totalLatencyMs,

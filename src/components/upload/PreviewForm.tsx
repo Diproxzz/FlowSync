@@ -107,8 +107,8 @@ export function PreviewForm({
 
     items.forEach((it) => {
       subtotal += it.taxableAmount;
-      const c = it.cgstAmount !== null ? it.cgstAmount : (it.taxableAmount * it.cgstPct) / 100;
-      const s = it.sgstAmount !== null ? it.sgstAmount : (it.taxableAmount * it.sgstPct) / 100;
+      const c = (it.cgstAmount !== null && it.cgstAmount !== undefined) ? it.cgstAmount : (it.taxableAmount * it.cgstPct) / 100;
+      const s = (it.sgstAmount !== null && it.sgstAmount !== undefined) ? it.sgstAmount : (it.taxableAmount * it.sgstPct) / 100;
       const i = (it.taxableAmount * (it.igstPct || 0)) / 100;
       cgst += c;
       sgst += s;

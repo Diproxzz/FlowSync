@@ -400,12 +400,13 @@ export async function getDashboardAnalytics(filter: AnalyticsFilter = {}): Promi
 
   const totalABCRevenue = allProductsRanked.reduce((s, p) => s + p.revenue, 0);
   let runningRev = 0;
-  const abcProducts: AbcProduct[] = allProductsRanked.map((p) => {
+  const abcProducts: AbcProduct[] = allProductsRanked.map((p, idx) => {
+    const priorPct = totalABCRevenue > 0 ? (runningRev / totalABCRevenue) * 100 : 0;
     runningRev += p.revenue;
     const cumulativePct = totalABCRevenue > 0 ? (runningRev / totalABCRevenue) * 100 : 100;
     let classification: "A" | "B" | "C" = "C";
-    if (cumulativePct <= 80) classification = "A";
-    else if (cumulativePct <= 95) classification = "B";
+    if (idx === 0 || priorPct < 80) classification = "A";
+    else if (priorPct < 95) classification = "B";
     return {
       id: p.id,
       code: p.code,

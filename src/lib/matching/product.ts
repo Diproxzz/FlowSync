@@ -9,7 +9,7 @@ export interface ProductResolution {
   productId?: string;
   productCode?: string;
   productName?: string;
-  reason?: "ALIAS" | "CODE_EXACT" | "CODE_PREFIX" | "CODE_CONTAINS" | "FUZZY";
+  reason?: "ALIAS" | "CODE_EXACT" | "CODE_PREFIX" | "CODE_SUFFIX" | "CODE_CONTAINS" | "FUZZY";
   confidence: number;
   suggestions?: Array<{ id: string; code: string; name: string; score: number }>;
 }
@@ -94,20 +94,68 @@ export async function resolveProduct(
     }
   }
 
-  // 4. Code contained in tokens
-  for (const p of products) {
-    const pCodeNorm = normalize(p.code);
-    if (pCodeNorm.length >= 2 && tokens.includes(pCodeNorm)) {
+  // 4. Trailing-code rule:
+  // e.g. "ACTOIL AA" -> last token "aa" matches code "AA"
+  // e.g. "SYNTHETIC WAK" -> last token "wak" matches code "WAK"
+  if (tokens.length >= 2) {
+    const lastToken = tokens[tokens.length - 1];
+    const matchLast = products.find((p) => normalize(p.code) === lastToken);
+    if (matchLast) {
       return {
-        status: "SUGGESTED",
-        productId: p.id,
-        productCode: p.code,
-        productName: p.name,
-        reason: "CODE_CONTAINS",
-        confidence: 0.85,
-        suggestions: [{ id: p.id, code: p.code, name: p.name, score: 0.85 }],
+        status: "MATCHED",
+        productId: matchLast.id,
+        productCode: matchLast.code,
+        productName: matchLast.name,
+        reason: "CODE_SUFFIX",
+        confidence: 0.95,
       };
     }
+
+    const lastTwoTokens = `${tokens[tokens.length - 2]} ${tokens[tokens.length - 1]}`;
+    const matchLastTwo = products.find((p) => normalize(p.code) === lastTwoTokens);
+    if (matchLastTwo) {
+      return {
+        status: "MATCHED",
+        productId: matchLastTwo.id,
+        productCode: matchLastTwo.code,
+        productName: matchLastTwo.name,
+        reason: "CODE_SUFFIX",
+        confidence: 0.95,
+      };
+    }
+  }
+
+  // 5. Code contained in tokens: if a unique product code (length >= 2) is present in the phrase
+  const tokenMatches = products.filter((p) => {
+    const pCodeNorm = normalize(p.code);
+    return pCodeNorm.length >= 2 && tokens.includes(pCodeNorm);
+  });
+  if (tokenMatches.length === 1) {
+    const p = tokenMatches[0];
+    return {
+      status: "MATCHED",
+      productId: p.id,
+      productCode: p.code,
+      productName: p.name,
+      reason: "CODE_CONTAINS",
+      confidence: 0.95,
+    };
+  } else if (tokenMatches.length > 1) {
+    const suggestions = tokenMatches.map((p) => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      score: 0.85,
+    }));
+    return {
+      status: "SUGGESTED",
+      productId: suggestions[0].id,
+      productCode: suggestions[0].code,
+      productName: suggestions[0].name,
+      reason: "CODE_CONTAINS",
+      confidence: 0.85,
+      suggestions,
+    };
   }
 
   // 5. Fuzzy match across product names and codes

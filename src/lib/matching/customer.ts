@@ -28,7 +28,7 @@ export function calculateSimilarity(s1: string, s2: string): number {
 }
 
 export async function resolveCustomer(
-  customerDraft: { name: string; gstin: string | null; address: string | null },
+  customerDraft: { name: string; gstin?: string | null; address?: string | null },
   fuzzyThreshold = 0.85
 ): Promise<CustomerResolution> {
   const { name, gstin } = customerDraft;

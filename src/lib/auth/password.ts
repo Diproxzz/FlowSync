@@ -7,5 +7,6 @@ export async function verifyPassword(password: string): Promise<boolean> {
     console.error("APP_PASSWORD_HASH is not set in environment.");
     return false;
   }
-  return await bcrypt.compare(password, hash);
+  let cleanHash = hash.replace(/\\/g, "");
+  return await bcrypt.compare(password, cleanHash);
 }

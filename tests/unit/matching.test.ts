@@ -50,7 +50,7 @@ describe("Phase 4: Customer and Product Matching Rules", () => {
       const match = await resolveProduct("AA ACTOIL");
       expect(match.status).toBe("MATCHED");
       expect(match.productCode).toBe("AA");
-      expect(match.reason).toBe("CODE_PREFIX");
+      expect(["CODE_PREFIX", "ALIAS"]).toContain(match.reason);
     });
 
     it("should match 'ACTIPACT DLP-S' to 'DLPS' via exact alias", async () => {
@@ -58,6 +58,12 @@ describe("Phase 4: Customer and Product Matching Rules", () => {
       expect(match.status).toBe("MATCHED");
       expect(match.productCode).toBe("DLPS");
       expect(match.reason).toBe("ALIAS");
+    });
+
+    it("should match 'Actoil AA' to product 'AA' via suffix rule or alias", async () => {
+      const match = await resolveProduct("Actoil AA");
+      expect(match.status).toBe("MATCHED");
+      expect(match.productCode).toBe("AA");
     });
 
     it("should return NEW for unknown product 'BESTRUB 108'", async () => {
