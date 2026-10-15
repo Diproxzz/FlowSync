@@ -154,6 +154,36 @@ export default function UploadPage() {
     }
   };
 
+  // Retry single job
+  const handleRetryJob = async (id: string) => {
+    try {
+      await fetch(`/api/upload/jobs/${id}/retry`, { method: "POST" });
+      setJobs((prev) =>
+        prev.map((j) => (j.id === id ? { ...j, status: "QUEUED", error: null } : j))
+      );
+      fetchJobs();
+    } catch (err) {
+      console.error("Failed to retry job:", err);
+    }
+  };
+
+  // Retry all failed jobs
+  const handleRetryAllFailed = async () => {
+    try {
+      await fetch("/api/upload/jobs/retry-failed", { method: "POST" });
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.status === "FAILED" || j.status === "CANCELLED"
+            ? { ...j, status: "QUEUED", error: null }
+            : j
+        )
+      );
+      fetchJobs();
+    } catch (err) {
+      console.error("Failed to retry all failed jobs:", err);
+    }
+  };
+
   // Delete a job
   const handleDeleteJob = async (id: string) => {
     try {
@@ -643,6 +673,16 @@ export default function UploadPage() {
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
+                  {failedJobs.length > 0 && (
+                    <button
+                      onClick={handleRetryAllFailed}
+                      className="px-2.5 py-1 text-xs text-danger hover:bg-danger-bg rounded-sm transition flex items-center gap-1 font-medium"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Retry All Failed ({failedJobs.length})</span>
+                    </button>
+                  )}
+
                   {savedJobs.length > 0 && (
                     <button
                       onClick={handleClearCompleted}
@@ -737,7 +777,7 @@ export default function UploadPage() {
                         {job.status === "QUEUED" && (
                           <span className="inline-flex items-center gap-1.5 text-ink-3 text-[11px] bg-surface-2 px-2.5 py-1 rounded-sm border border-border">
                             <Clock className="w-3.5 h-3.5" />
-                            <span>Queued in PostgreSQL</span>
+                            <span>Queued (1 at a time)</span>
                           </span>
                         )}
 
@@ -774,6 +814,18 @@ export default function UploadPage() {
                               </button>
                             )}
                           </div>
+                        )}
+
+                        {/* Retry button for failed or stopped jobs */}
+                        {(job.status === "FAILED" || job.status === "CANCELLED") && (
+                          <button
+                            onClick={() => handleRetryJob(job.id)}
+                            className="px-2.5 py-1 bg-surface border border-danger/40 text-danger rounded-sm font-semibold text-[11px] hover:bg-danger-bg transition flex items-center gap-1"
+                            title="Retry extracting this invoice"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Retry</span>
+                          </button>
                         )}
 
                         {/* Manual STOP button: Allows user to cancel a queued or processing job */}

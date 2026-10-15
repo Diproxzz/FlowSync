@@ -15,7 +15,14 @@ export class GeminiProvider implements LLMProvider {
     }
 
     const candidateModels = Array.from(
-      new Set([env.GEMINI_MODEL, "gemini-3.7-flash", "gemini-3.8-flash", "gemini-3.6-flash"].filter(Boolean))
+      new Set([
+        env.GEMINI_MODEL,
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
+      ].filter(Boolean))
     );
 
     let lastError: Error | null = null;
@@ -63,10 +70,11 @@ export class GeminiProvider implements LLMProvider {
         if (!res.ok) {
           const errJson = await res.json().catch(() => ({}));
           const message = errJson.error?.message || `Gemini API returned status ${res.status}`;
-          // If model not found or overloaded, try next model
-          if (res.status === 404 || res.status === 503) {
-            console.warn(`Gemini model ${model} returned ${res.status} (${message}), trying next candidate...`);
+          // If model not found (404), rate limited (429), or overloaded (503), back off and try next model
+          if (res.status === 404 || res.status === 429 || res.status === 503) {
+            console.warn(`Gemini model ${model} returned ${res.status} (${message}), backing off and trying next candidate...`);
             lastError = new Error(`Gemini error (${model}): ${message}`);
+            await new Promise((r) => setTimeout(r, 1500));
             continue;
           }
           throw new Error(`Gemini error: ${message}`);

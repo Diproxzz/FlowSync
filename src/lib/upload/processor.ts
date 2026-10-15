@@ -10,6 +10,10 @@ import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
 
 // In-memory set of actively executing jobs in this Node process
 const activeJobs = new Set<string>();
+let isWorkerRunning = false;
+
+// Strict ONE AT A TIME concurrency as requested
+const MAX_CONCURRENT = 1;
 
 export async function processUploadJob(jobId: string) {
   if (activeJobs.has(jobId)) return;
@@ -32,7 +36,7 @@ export async function processUploadJob(jobId: string) {
       data: { status: "PROCESSING", error: null },
     });
 
-    // 3. Check cancellation
+    // 3. Check cancellation helper
     const isCancelled = async () => {
       const current = await prisma.uploadJob.findUnique({
         where: { id: jobId },
@@ -162,7 +166,6 @@ export async function processUploadJob(jobId: string) {
     });
   } catch (err: any) {
     console.error(`Error processing upload job ${jobId}:`, err);
-    // Only set to FAILED if not already CANCELLED
     const current = await prisma.uploadJob.findUnique({
       where: { id: jobId },
       select: { status: true },
@@ -178,31 +181,56 @@ export async function processUploadJob(jobId: string) {
     }
   } finally {
     activeJobs.delete(jobId);
+    // Queue next job one at a time with a 500ms pacing delay
+    setTimeout(() => {
+      processNextQueuedJobs().catch(console.error);
+    }, 500);
   }
 }
 
-// Background scheduler to pick up any queued jobs (up to max concurrency)
-const MAX_CONCURRENT = 2;
-
+// Background scheduler: strictly ONE AT A TIME
 export async function processNextQueuedJobs() {
-  const activeCount = activeJobs.size;
-  if (activeCount >= MAX_CONCURRENT) return;
+  if (isWorkerRunning) return;
+  if (activeJobs.size >= MAX_CONCURRENT) return;
 
-  const availableSlots = MAX_CONCURRENT - activeCount;
+  isWorkerRunning = true;
+  try {
+    const nextJob = await prisma.uploadJob.findFirst({
+      where: {
+        status: "QUEUED",
+        id: { notIn: Array.from(activeJobs) },
+      },
+      orderBy: { created_at: "asc" },
+    });
 
-  const queuedJobs = await prisma.uploadJob.findMany({
-    where: {
-      status: "QUEUED",
-      id: { notIn: Array.from(activeJobs) },
-    },
-    orderBy: { created_at: "asc" },
-    take: availableSlots,
-  });
+    if (!nextJob) return;
 
-  for (const job of queuedJobs) {
-    // Fire and forget
-    processUploadJob(job.id).catch((err) =>
-      console.error(`Unhandled error in background job ${job.id}:`, err)
+    processUploadJob(nextJob.id).catch((err) =>
+      console.error(`Unhandled error in background job ${nextJob.id}:`, err)
     );
+  } finally {
+    isWorkerRunning = false;
   }
+}
+
+export async function retryUploadJob(jobId: string) {
+  await prisma.uploadJob.update({
+    where: { id: jobId },
+    data: {
+      status: "QUEUED",
+      error: null,
+    },
+  });
+  processNextQueuedJobs().catch(console.error);
+}
+
+export async function retryAllFailedJobs() {
+  await prisma.uploadJob.updateMany({
+    where: { status: { in: ["FAILED", "CANCELLED"] } },
+    data: {
+      status: "QUEUED",
+      error: null,
+    },
+  });
+  processNextQueuedJobs().catch(console.error);
 }
