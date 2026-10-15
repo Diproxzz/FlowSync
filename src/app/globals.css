@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #FAF8F5;
+    --surface: #FFFFFF;
+    --surface-2: #F2EEE8;
+    --border: #E2DCD3;
+    --border-strong: #C9C0B3;
+    --ink: #1C1917;
+    --ink-2: #57504A;
+    --ink-3: #7A7168;
+    --primary: #0F4C4A;
+    --primary-fg: #FFFFFF;
+    --primary-soft: #E1EEEC;
+    --accent: #9A5B24;
+    --success: #2F7D4F;
+    --success-bg: #E4F2EA;
+    --warning: #8A5A00;
+    --warning-bg: #FBF0D5;
+    --danger: #B3261E;
+    --danger-bg: #FBE5E3;
+    --info: #1F5FA8;
+    --info-bg: #E3EEF9;
+    --radius-sm: 6px;
+    --radius-lg: 10px;
+    --shadow-pop: 0 8px 24px rgb(28 25 23 / 0.14);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #14110F;
+    --surface: #1D1916;
+    --surface-2: #26211D;
+    --border: #3A332D;
+    --border-strong: #524A42;
+    --ink: #F3EFE9;
+    --ink-2: #BDB4A9;
+    --ink-3: #948A7F;
+    --primary: #4FB3AE;
+    --primary-fg: #0B1F1E;
+    --primary-soft: #17302F;
+    --accent: #D9A06B;
+    --success: #6CC391;
+    --success-bg: #16301F;
+    --warning: #E8B84F;
+    --warning-bg: #33270B;
+    --danger: #F28B82;
+    --danger-bg: #3A1512;
+    --info: #7AB2EC;
+    --info-bg: #13263B;
+    --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.4);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14110F;
+      --surface: #1D1916;
+      --surface-2: #26211D;
+      --border: #3A332D;
+      --border-strong: #524A42;
+      --ink: #F3EFE9;
+      --ink-2: #BDB4A9;
+      --ink-3: #948A7F;
+      --primary: #4FB3AE;
+      --primary-fg: #0B1F1E;
+      --primary-soft: #17302F;
+      --accent: #D9A06B;
+      --success: #6CC391;
+      --success-bg: #16301F;
+      --warning: #E8B84F;
+      --warning-bg: #33270B;
+      --danger: #F28B82;
+      --danger-bg: #3A1512;
+      --info: #7AB2EC;
+      --info-bg: #13263B;
+      --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.4);
+    }
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+.num {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom scrollbars matching design */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-sm);
+}
