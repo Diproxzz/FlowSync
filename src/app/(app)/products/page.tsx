@@ -269,8 +269,18 @@ export default function ProductsPage() {
               ) : (
                 products.map((p) => (
                   <tr key={p.id} className="hover:bg-surface-2/60 transition">
-                    <td className="py-2.5 px-3 font-mono font-semibold text-primary">{p.code}</td>
-                    <td className="py-2.5 px-3 text-ink">{p.name}</td>
+                    <td
+                      onClick={() => handleEditClick(p)}
+                      className="py-2.5 px-3 font-mono font-semibold text-primary cursor-pointer hover:underline"
+                    >
+                      {p.code}
+                    </td>
+                    <td
+                      onClick={() => handleEditClick(p)}
+                      className="py-2.5 px-3 text-ink cursor-pointer hover:underline"
+                    >
+                      {p.name}
+                    </td>
                     <td className="py-2.5 px-3 font-mono text-ink-3">{p.default_hsn || "—"}</td>
                     <td className="py-2.5 px-3 text-right num text-ink-2">
                       {p.pack_size_kg ? `${p.pack_size_kg} kg` : "—"}
