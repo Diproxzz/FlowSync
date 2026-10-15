@@ -14,6 +14,39 @@ export interface ProductResolution {
   suggestions?: Array<{ id: string; code: string; name: string; score: number }>;
 }
 
+const KNOWN_GROUP_WORDS = new Set([
+  "actoil",
+  "biocide",
+  "biocides",
+  "fatliquor",
+  "fatliquors",
+  "actract",
+  "actipact",
+  "sarculrol",
+  "synthetic",
+  "syntan",
+  "syntans",
+  "oil",
+  "oils",
+  "resin",
+  "resins",
+  "binder",
+  "binders",
+  "lacquer",
+  "lacquers",
+  "wax",
+  "waxes",
+  "polymer",
+  "polymers",
+]);
+
+function getOcrVariations(str: string): string[] {
+  const vars = new Set<string>([str]);
+  if (str.includes("1")) vars.add(str.replace(/1/g, "i"));
+  if (str.includes("i")) vars.add(str.replace(/i/g, "1"));
+  return Array.from(vars);
+}
+
 export async function resolveProduct(
   nameRaw: string,
   fuzzyThreshold = 0.85
@@ -40,6 +73,26 @@ export async function resolveProduct(
     };
   }
 
+  // Check alias with OCR 1 <-> i variations
+  const normVariations = getOcrVariations(norm);
+  for (const v of normVariations) {
+    if (v === norm) continue;
+    const byAliasVar = await prisma.productAlias.findUnique({
+      where: { alias_norm: v },
+      include: { product: true },
+    });
+    if (byAliasVar) {
+      return {
+        status: "MATCHED",
+        productId: byAliasVar.product.id,
+        productCode: byAliasVar.product.code,
+        productName: byAliasVar.product.name,
+        reason: "ALIAS",
+        confidence: 0.98,
+      };
+    }
+  }
+
   // Fetch all active products
   const products = await prisma.product.findMany({
     where: { is_active: true },
@@ -48,17 +101,49 @@ export async function resolveProduct(
 
   const tokens = norm.split(" ").filter(Boolean);
 
-  // 2. Check exact code match
-  const exactCode = products.find((p) => normalize(p.code) === norm);
-  if (exactCode) {
-    return {
-      status: "MATCHED",
-      productId: exactCode.id,
-      productCode: exactCode.code,
-      productName: exactCode.name,
-      reason: "CODE_EXACT",
-      confidence: 1.0,
-    };
+  // 2. Check exact code match (with OCR 1 <-> i variations)
+  for (const v of normVariations) {
+    const exactCode = products.find((p) => {
+      const pNorm = normalize(p.code);
+      return pNorm === v || getOcrVariations(pNorm).includes(v);
+    });
+    if (exactCode) {
+      return {
+        status: "MATCHED",
+        productId: exactCode.id,
+        productCode: exactCode.code,
+        productName: exactCode.name,
+        reason: "CODE_EXACT",
+        confidence: 1.0,
+      };
+    }
+  }
+
+  // 2.5 Group-name stripping rule:
+  // e.g. "C51 BIOCIDE" -> strip "biocide" -> "c51" -> matches code "C5I"
+  // e.g. "ACTOIL AA" -> strip "actoil" -> "aa" -> matches code "AA"
+  // e.g. "WAK ACTOIL" -> strip "actoil" -> "wak" -> matches code "WAK"
+  const strippedTokens = tokens.filter((t) => !KNOWN_GROUP_WORDS.has(t));
+  if (strippedTokens.length > 0 && strippedTokens.length < tokens.length) {
+    const strippedPhrase = strippedTokens.join(" ");
+    const strippedVars = getOcrVariations(strippedPhrase);
+
+    for (const v of strippedVars) {
+      const match = products.find((p) => {
+        const pNorm = normalize(p.code);
+        return pNorm === v || getOcrVariations(pNorm).includes(v);
+      });
+      if (match) {
+        return {
+          status: "MATCHED",
+          productId: match.id,
+          productCode: match.code,
+          productName: match.name,
+          reason: "CODE_EXACT",
+          confidence: 0.98,
+        };
+      }
+    }
   }
 
   // 3. Leading-code rule:

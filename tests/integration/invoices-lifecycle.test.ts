@@ -64,7 +64,12 @@ describe("Phase 5: Invoices Confirmation, Duplicates, Revisions, and Stock Lifec
     });
 
     await prisma.stockMovement.deleteMany({
-      where: { product: { code: { in: ["BESTRUB 108", "SILCOAT CS30"] } } },
+      where: {
+        OR: [
+          { product: { code: { in: ["BESTRUB 108", "SILCOAT CS30"] } } },
+          { product: { code: "KG" }, type: { not: "OPENING" } },
+        ],
+      },
     });
 
     await prisma.productAlias.deleteMany({

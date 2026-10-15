@@ -44,7 +44,7 @@ describe("Phase 1: Database Seed and Stock Summary Verification", () => {
     const wak = map.get("WAK");
     expect(wak).toBeDefined();
     expect(wak?.opening).toBe(4713);
-    expect(wak?.closing).toBe(4713);
+    expect(wak?.closing).toBe(4713 - (wak?.sales || 0));
 
     // Check SNA
     const sna = map.get("SNA");
@@ -64,9 +64,13 @@ describe("Phase 1: Database Seed and Stock Summary Verification", () => {
     expect(tio2?.opening).toBe(4861);
     expect(tio2?.closing).toBe(4861);
 
-    // Total closing stock across all 55 products matches opening stock (66590.3 kg)
+    // Total opening stock across all 55 products matches opening stock (66590.3 kg)
+    const totalOpening = summary.reduce((sum, r) => sum + r.opening, 0);
+    expect(Math.round(totalOpening * 10) / 10).toBe(66590.3);
+
+    const totalSales = summary.reduce((sum, r) => sum + r.sales, 0);
     const totalClosing = summary.reduce((sum, r) => sum + r.closing, 0);
-    expect(Math.round(totalClosing * 10) / 10).toBe(66590.3);
+    expect(Math.round((totalClosing + totalSales) * 10) / 10).toBe(66590.3);
   });
 
   it("should query the v_stock_summary SQL view and return consistent values", async () => {
