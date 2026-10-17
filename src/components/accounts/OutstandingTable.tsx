@@ -34,7 +34,7 @@ export function OutstandingTable({
   advance,
   closingBalance,
   closingSide,
-  creditDays = 30,
+  creditDays = 90,
 }: OutstandingTableProps) {
   const totalOutstanding = items.reduce((acc, it) => acc + it.outstandingAmount, 0);
 

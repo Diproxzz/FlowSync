@@ -47,7 +47,7 @@ export interface OpenItemsSummary {
 export function calculateOpenItems(
   entries: OpenItemEntry[],
   allocations: ExplicitAllocation[] = [],
-  creditDays: number = 30,
+  creditDays: number = 90,
   asOfDate: string | Date = new Date(),
   isCustomer: boolean = true
 ): OpenItemsSummary {

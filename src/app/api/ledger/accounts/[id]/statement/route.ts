@@ -85,7 +85,7 @@ export async function GET(
     const openItems = calculateOpenItems(
       allEntries as any,
       [],
-      account.credit_days || 30,
+      account.credit_days || 90,
       new Date(),
       isCustomer
     );
@@ -216,7 +216,7 @@ export async function GET(
       gstinSource: account.customer?.gstin_source || account.supplier?.gstin_source || null,
       address: account.customer?.address || account.supplier?.address || null,
       stateCode: account.customer?.state_code || account.supplier?.state_code || null,
-      creditDays: account.credit_days || 30,
+      creditDays: account.credit_days || 90,
       statementThroughDate: account.statement_through_date,
       openingBalanceSet: account.opening_balance_set,
     };

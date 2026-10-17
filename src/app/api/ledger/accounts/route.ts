@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       const openItems = calculateOpenItems(
         acc.entries as any,
         [],
-        acc.credit_days || 30,
+        acc.credit_days || 90,
         new Date(),
         acc.account_type === "CUSTOMER"
       );
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
         partyId: acc.customer_id || acc.supplier_id,
         gstin,
         gstinSource,
-        creditDays: acc.credit_days || 30,
+        creditDays: acc.credit_days || 90,
         openingBalance,
         openingSide,
         periodDebit: totals.periodDebit,

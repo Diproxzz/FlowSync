@@ -33,7 +33,7 @@ export async function GET(
     const openItemsSummary = calculateOpenItems(
       account.entries as any,
       [],
-      account.credit_days || 30,
+      account.credit_days || 90,
       asOf,
       account.account_type === "CUSTOMER"
     );

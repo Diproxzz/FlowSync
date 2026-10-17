@@ -40,7 +40,7 @@ export async function postSalesInvoiceToLedger(
         account_type: "CUSTOMER",
         customer_id: invoice.customer_id,
         display_name: cust?.name || "Customer",
-        credit_days: 30,
+        credit_days: 90,
       },
     });
   }
@@ -179,7 +179,7 @@ export async function postPurchaseInvoiceToLedger(
         account_type: "SUPPLIER",
         supplier_id: purchase.supplier_id,
         display_name: sup?.name || "Supplier",
-        credit_days: 30,
+        credit_days: 90,
       },
     });
   }

@@ -50,7 +50,7 @@ export function ManageStatementModal({
   currentOpeningSide,
   currentOpeningDate,
   currentThroughDate,
-  creditDays = 30,
+  creditDays = 90,
   importBatches = [],
   onSuccess,
 }: ManageStatementModalProps) {
@@ -67,7 +67,7 @@ export function ManageStatementModal({
   const [throughDate, setThroughDate] = useState<string>(
     currentThroughDate ? new Date(currentThroughDate).toISOString().split("T")[0] : ""
   );
-  const [termsDays, setTermsDays] = useState<string>(String(creditDays || 30));
+  const [termsDays, setTermsDays] = useState<string>(String(creditDays || 90));
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -91,7 +91,7 @@ export function ManageStatementModal({
           openingSide,
           openingDate: openingDate || undefined,
           statementThroughDate: throughDate || null,
-          creditDays: parseInt(termsDays) || 30,
+          creditDays: parseInt(termsDays) || 90,
         }),
       });
 

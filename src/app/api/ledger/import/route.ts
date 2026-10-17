@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
             display_name: partyDisplayName,
             statement_through_date: new Date(parsedDraft.periodTo),
             opening_balance_set: true,
-            credit_days: 30,
+            credit_days: 90,
           },
         });
       } else {

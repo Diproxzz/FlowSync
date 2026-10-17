@@ -424,7 +424,7 @@ model LedgerAccount {
   supplier_id            String?           @unique
   supplier               Supplier?         @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
   display_name           String
-  credit_days            Int?              @default(30)
+  credit_days            Int?              @default(90)
   statement_through_date DateTime?         @db.Date
   opening_balance_set    Boolean           @default(false)
   is_active              Boolean           @default(true)
