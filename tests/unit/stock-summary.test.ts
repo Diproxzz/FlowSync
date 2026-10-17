@@ -32,25 +32,25 @@ describe("Phase 1: Database Seed and Stock Summary Verification", () => {
     const kg = map.get("KG");
     expect(kg).toBeDefined();
     expect(kg?.opening).toBe(1980);
-    expect(kg?.closing).toBe(1980 - (kg?.sales || 0));
+    expect(kg?.closing).toBe(1980 + (kg?.purchases || 0) - (kg?.sales || 0));
 
     // Check AA
     const aa = map.get("AA");
     expect(aa).toBeDefined();
     expect(aa?.opening).toBe(973);
-    expect(aa?.closing).toBe(973 - (aa?.sales || 0));
+    expect(aa?.closing).toBe(973 + (aa?.purchases || 0) - (aa?.sales || 0));
 
     // Check WAK
     const wak = map.get("WAK");
     expect(wak).toBeDefined();
     expect(wak?.opening).toBe(4713);
-    expect(wak?.closing).toBe(4713 - (wak?.sales || 0));
+    expect(wak?.closing).toBe(4713 + (wak?.purchases || 0) - (wak?.sales || 0));
 
     // Check SNA
     const sna = map.get("SNA");
     expect(sna).toBeDefined();
     expect(sna?.opening).toBe(6707);
-    expect(sna?.closing).toBe(6707 - (sna?.sales || 0));
+    expect(sna?.closing).toBe(6707 + (sna?.purchases || 0) - (sna?.sales || 0));
 
     // Check SBL
     const sbl = map.get("SBL");

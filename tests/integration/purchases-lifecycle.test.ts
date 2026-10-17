@@ -55,7 +55,6 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
         OR: [
           { supplier_invoice_number: sharedInvoiceNumber },
           { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
-          { supplier: { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } } },
         ],
       },
     });
@@ -64,13 +63,10 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
       where: { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
     });
 
-    // Clean prior test suppliers by name or GSTIN
+    // Clean prior test suppliers by name
     await prisma.supplier.deleteMany({
       where: {
-        OR: [
-          { name: { in: [supplier1Name, supplier2Name] } },
-          { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } },
-        ],
+        name: { in: [supplier1Name, supplier2Name] },
       },
     });
   });
@@ -83,7 +79,6 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
           OR: [
             { supplier_invoice_number: sharedInvoiceNumber },
             { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
-            { supplier: { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } } },
           ],
         },
       });
@@ -106,10 +101,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
 
       await prisma.supplier.deleteMany({
         where: {
-          OR: [
-            { name: { in: [supplier1Name, supplier2Name] } },
-            { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } },
-          ],
+          name: { in: [supplier1Name, supplier2Name] },
         },
       });
     } finally {
@@ -126,7 +118,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
       },
       supplier: {
         name: supplier1Name,
-        gstin: "19AGDPA1084B1Z1",
+        gstin: "19AAAAA0000A1ZZ",
       },
       items: [
         {
@@ -206,7 +198,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
       },
       supplier: {
         name: supplier2Name,
-        gstin: "34AAECA6767B1ZV", // Maharashtra (Inter-state)
+        gstin: "34BBBBB0000B1ZY",
       },
       items: [
         {
@@ -245,7 +237,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
       supplierResolution: {
         action: "CREATE_NEW",
         supplierName: supplier2Name,
-        supplierGstin: "34AAECA6767B1ZV",
+        supplierGstin: "34BBBBB0000B1ZY",
       },
       productResolutions: [
         {

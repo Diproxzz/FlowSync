@@ -7,33 +7,33 @@ describe("Supplier Matching & Resolution (Phase 2)", () => {
   let createdCustomerId: string;
 
   beforeAll(async () => {
-    // Clean prior if any
+    // Clean prior test records if any
     await prisma.purchaseInvoice.deleteMany({
-      where: { supplier: { gstin: "34AAECA6767B1ZV" } },
+      where: { supplier: { gstin: "34CCCCC0000C1ZP" } },
     }).catch(() => {});
     await prisma.supplierAlias.deleteMany({
-      where: { supplier: { gstin: "34AAECA6767B1ZV" } },
+      where: { supplier: { gstin: "34CCCCC0000C1ZP" } },
     }).catch(() => {});
     await prisma.supplier.deleteMany({
-      where: { gstin: "34AAECA6767B1ZV" },
+      where: { gstin: "34CCCCC0000C1ZP" },
     }).catch(() => {});
     await prisma.customerAlias.deleteMany({
-      where: { customer: { gstin: "34AAECA6767B1ZV" } },
+      where: { customer: { gstin: "34CCCCC0000C1ZP" } },
     }).catch(() => {});
     await prisma.customer.deleteMany({
-      where: { gstin: "34AAECA6767B1ZV" },
+      where: { gstin: "34CCCCC0000C1ZP" },
     }).catch(() => {});
 
-    // Create a supplier with alias and GSTIN
+    // Create a mock supplier with alias and GSTIN
     const sup = await prisma.supplier.create({
       data: {
-        name: "ATC Chemicals India Private Limited",
-        name_norm: "atc chemicals india",
-        gstin: "34AAECA6767B1ZV",
+        name: "Mock Test Chemicals India Private Limited",
+        name_norm: "mock test chemicals india",
+        gstin: "34CCCCC0000C1ZP",
         address: "Puducherry",
         state_code: "34",
         aliases: {
-          create: [{ alias: "ATC Chemicals", alias_norm: "atc chemicals" }],
+          create: [{ alias: "Mock Test Chem", alias_norm: "mock test chem" }],
         },
       },
     });
@@ -42,9 +42,9 @@ describe("Supplier Matching & Resolution (Phase 2)", () => {
     // Create a customer with the same GSTIN to test "alsoCustomer" hint
     const cust = await prisma.customer.create({
       data: {
-        name: "ATC Chemicals Buyer Dept",
-        name_norm: "atc chemicals buyer dept",
-        gstin: "34AAECA6767B1ZV",
+        name: "Mock Test Chemicals Buyer Dept",
+        name_norm: "mock test chemicals buyer dept",
+        gstin: "34CCCCC0000C1ZP",
       },
     });
     createdCustomerId = cust.id;
@@ -61,8 +61,8 @@ describe("Supplier Matching & Resolution (Phase 2)", () => {
 
   it("resolves supplier by exact GSTIN first with confidence 1.0", async () => {
     const res = await resolveSupplier({
-      name: "ATC Chemicals Random Name",
-      gstin: "34AAECA6767B1ZV",
+      name: "Mock Test Chemicals Random Name",
+      gstin: "34CCCCC0000C1ZP",
     });
 
     expect(res.status).toBe("MATCHED");
@@ -75,7 +75,7 @@ describe("Supplier Matching & Resolution (Phase 2)", () => {
 
   it("resolves supplier by exact normalized name", async () => {
     const res = await resolveSupplier({
-      name: "ATC Chemicals India Private Limited",
+      name: "Mock Test Chemicals India Private Limited",
     });
 
     expect(res.status).toBe("MATCHED");
@@ -86,7 +86,7 @@ describe("Supplier Matching & Resolution (Phase 2)", () => {
 
   it("resolves supplier by alias", async () => {
     const res = await resolveSupplier({
-      name: "ATC Chemicals",
+      name: "Mock Test Chem",
     });
 
     expect(res.status).toBe("MATCHED");

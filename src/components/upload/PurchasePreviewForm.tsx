@@ -12,6 +12,7 @@ import {
   Calculator,
   UserCheck,
   Globe,
+  Check,
 } from "lucide-react";
 import {
   ExtractedPurchaseInvoice,
@@ -698,37 +699,43 @@ export function PurchasePreviewForm({
               </span>
 
               {/* Import Invoice Option */}
-              <label
+              <button
+                type="button"
+                onClick={() => {
+                  const nextImport = !draft.isImport;
+                  setDraft((prev) => ({
+                    ...prev,
+                    isImport: nextImport,
+                    supplier: {
+                      ...prev.supplier,
+                      gstin: nextImport ? null : prev.supplier.gstin,
+                    },
+                  }));
+                  if (nextImport) {
+                    handleToggleTaxMode("inter");
+                  }
+                }}
                 className={cn(
-                  "inline-flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-sm border transition select-none text-[11px] font-medium ml-2",
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border transition text-[11px] font-medium ml-2 cursor-pointer shadow-xs select-none",
                   draft.isImport
-                    ? "bg-accent/10 border-accent text-accent font-semibold"
-                    : "bg-surface border-border text-ink-2 hover:bg-surface-2"
+                    ? "bg-accent/15 border-accent text-accent font-semibold"
+                    : "bg-surface border-border text-ink-2 hover:bg-surface-2 hover:text-ink hover:border-ink-3"
                 )}
-                title="Check if this is an import invoice from an overseas vendor without Indian GSTIN"
+                title="Click to toggle Import Invoice (Overseas Supplier with no GSTIN)"
               >
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.isImport)}
-                  onChange={(e) => {
-                    const isImp = e.target.checked;
-                    setDraft((prev) => ({
-                      ...prev,
-                      isImport: isImp,
-                      supplier: {
-                        ...prev.supplier,
-                        gstin: isImp ? null : prev.supplier.gstin,
-                      },
-                    }));
-                    if (isImp) {
-                      handleToggleTaxMode("inter");
-                    }
-                  }}
-                  className="w-3.5 h-3.5 rounded-xs accent-accent cursor-pointer"
-                />
-                <Globe className="w-3.5 h-3.5" />
-                <span>Import Invoice (Overseas)</span>
-              </label>
+                <span
+                  className={cn(
+                    "w-3.5 h-3.5 rounded-xs border flex items-center justify-center transition-colors pointer-events-none",
+                    draft.isImport
+                      ? "bg-accent border-accent text-white"
+                      : "border-border bg-surface-2"
+                  )}
+                >
+                  {draft.isImport && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                </span>
+                <Globe className="w-3.5 h-3.5 pointer-events-none" />
+                <span className="pointer-events-none">Import Invoice (Overseas)</span>
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
