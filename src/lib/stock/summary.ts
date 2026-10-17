@@ -8,6 +8,8 @@ export interface StockSummaryRow {
   category: string | null;
   opening: number;
   purchases: number;
+  purchasesFromInvoices: number;
+  purchasesFromLegacy: number;
   sales: number;
   adjustments: number;
   closing: number;
@@ -33,14 +35,22 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
   return products.map((p) => {
     let opening = new Decimal(0);
     let purchases = new Decimal(0);
+    let purchasesFromInvoices = new Decimal(0);
+    let purchasesFromLegacy = new Decimal(0);
     let sales = new Decimal(0);
     let adjustments = new Decimal(0);
 
     for (const sm of p.stock_movements) {
       const q = new Decimal(sm.qty_kg.toString());
       if (sm.type === "OPENING") opening = opening.plus(q);
-      else if (sm.type === "PURCHASE") purchases = purchases.plus(q.abs());
-      else if (sm.type === "SALE") sales = sales.plus(q.abs());
+      else if (sm.type === "PURCHASE") {
+        purchases = purchases.plus(q.abs());
+        if (sm.source === "PURCHASE_INVOICE") {
+          purchasesFromInvoices = purchasesFromInvoices.plus(q.abs());
+        } else {
+          purchasesFromLegacy = purchasesFromLegacy.plus(q.abs());
+        }
+      } else if (sm.type === "SALE") sales = sales.plus(q.abs());
       else if (sm.type === "ADJUSTMENT") adjustments = adjustments.plus(q);
     }
 
@@ -65,6 +75,8 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
       category: p.category,
       opening: opening.toNumber(),
       purchases: purchases.toNumber(),
+      purchasesFromInvoices: purchasesFromInvoices.toNumber(),
+      purchasesFromLegacy: purchasesFromLegacy.toNumber(),
       sales: sales.toNumber(),
       adjustments: adjustments.toNumber(),
       closing: closing.toNumber(),
