@@ -327,11 +327,19 @@ export function PurchasePreviewForm({
     value: any
   ) => {
     const nextItems = [...draft.items];
+    const item = { ...nextItems[index], [field]: value };
+    const pRes = productResolutions[index];
+
     if (field === "unitPrinted") {
       item.unitPrinted = normalizeUnit(String(value));
     }
 
-    if (field === "qtyPrinted" || field === "unitPrinted" || field === "rate" || field === "discount") {
+    if (
+      field === "qtyPrinted" ||
+      field === "unitPrinted" ||
+      field === "rate" ||
+      field === "discount"
+    ) {
       const qPrinted = Number(item.qtyPrinted) || 0;
       const r = Number(item.rate) || 0;
       const d = Number(item.discount) || 0;
@@ -393,16 +401,32 @@ export function PurchasePreviewForm({
         item.sgstAmount = sAmt;
         item.lineTotal = Math.round((t + cAmt + sAmt) * 100) / 100;
       }
-    } else if (field === "unitPrinted") {
-      const conv = convertUnitToKg({
-        qtyPrinted: item.qtyPrinted,
-        unitPrinted: String(value),
-        packSizeKg: pRes?.packSizeKg,
-        manualQtyKg: pRes?.manualQtyKg,
-        rate: item.rate,
-      });
-      item.qtyKg = Number(conv.qtyKg);
-      item.ratePerKg = Number(conv.ratePerKg);
+    } else if (field === "cgstPct" || field === "sgstPct" || field === "igstPct") {
+      const p = Number(value) || 0;
+      if (field === "igstPct") {
+        item.igstPct = p;
+        item.cgstPct = 0;
+        item.sgstPct = 0;
+        item.cgstAmount = 0;
+        item.sgstAmount = 0;
+        const igstAmt = Math.round(((item.taxableAmount * p) / 100) * 100) / 100;
+        item.igstAmount = igstAmt;
+        item.lineTotal = Math.round((item.taxableAmount + igstAmt) * 100) / 100;
+      } else {
+        item.igstPct = 0;
+        item.igstAmount = 0;
+        if (field === "cgstPct") item.cgstPct = p;
+        if (field === "sgstPct") item.sgstPct = p;
+        const cPct = Number(item.cgstPct || 0);
+        const sPct = Number(item.sgstPct || 0);
+        const cAmt = Math.round(((item.taxableAmount * cPct) / 100) * 100) / 100;
+        const sAmt = Math.round(((item.taxableAmount * sPct) / 100) * 100) / 100;
+        item.cgstAmount = cAmt;
+        item.sgstAmount = sAmt;
+        item.lineTotal = Math.round((item.taxableAmount + cAmt + sAmt) * 100) / 100;
+      }
+    } else if (field === "lineTotal") {
+      item.lineTotal = Number(value) || 0;
     }
 
     nextItems[index] = item;

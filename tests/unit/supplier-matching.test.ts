@@ -7,6 +7,23 @@ describe("Supplier Matching & Resolution (Phase 2)", () => {
   let createdCustomerId: string;
 
   beforeAll(async () => {
+    // Clean prior if any
+    await prisma.purchaseInvoice.deleteMany({
+      where: { supplier: { gstin: "34AAECA6767B1ZV" } },
+    }).catch(() => {});
+    await prisma.supplierAlias.deleteMany({
+      where: { supplier: { gstin: "34AAECA6767B1ZV" } },
+    }).catch(() => {});
+    await prisma.supplier.deleteMany({
+      where: { gstin: "34AAECA6767B1ZV" },
+    }).catch(() => {});
+    await prisma.customerAlias.deleteMany({
+      where: { customer: { gstin: "34AAECA6767B1ZV" } },
+    }).catch(() => {});
+    await prisma.customer.deleteMany({
+      where: { gstin: "34AAECA6767B1ZV" },
+    }).catch(() => {});
+
     // Create a supplier with alias and GSTIN
     const sup = await prisma.supplier.create({
       data: {

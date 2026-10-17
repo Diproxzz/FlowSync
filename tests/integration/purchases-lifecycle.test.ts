@@ -52,8 +52,16 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
     // Clean prior test invoices if any
     await prisma.purchaseInvoice.deleteMany({
       where: {
-        supplier_invoice_number: sharedInvoiceNumber,
+        OR: [
+          { supplier_invoice_number: sharedInvoiceNumber },
+          { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
+          { supplier: { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } } },
+        ],
       },
+    });
+
+    await prisma.supplierAlias.deleteMany({
+      where: { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
     });
 
     // Clean prior test suppliers by name or GSTIN
@@ -69,38 +77,44 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
 
   afterAll(async () => {
     // Cleanup
-    await prisma.purchaseInvoice.deleteMany({
-      where: {
-        supplier_invoice_number: sharedInvoiceNumber,
-      },
-    });
+    try {
+      await prisma.purchaseInvoice.deleteMany({
+        where: {
+          OR: [
+            { supplier_invoice_number: sharedInvoiceNumber },
+            { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
+            { supplier: { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } } },
+          ],
+        },
+      });
 
-    await prisma.supplierAlias.deleteMany({
-      where: { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
-    });
+      await prisma.stockMovement.deleteMany({
+        where: { product_id: testProductId },
+      });
 
-    await prisma.supplier.deleteMany({
-      where: {
-        OR: [
-          { name: { in: [supplier1Name, supplier2Name] } },
-          { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } },
-        ],
-      },
-    });
+      await prisma.productAlias.deleteMany({
+        where: { product_id: testProductId },
+      });
 
-    await prisma.stockMovement.deleteMany({
-      where: { product_id: testProductId },
-    });
+      await prisma.product.deleteMany({
+        where: { id: testProductId },
+      });
 
-    await prisma.productAlias.deleteMany({
-      where: { product_id: testProductId },
-    });
+      await prisma.supplierAlias.deleteMany({
+        where: { supplier: { name: { in: [supplier1Name, supplier2Name] } } },
+      });
 
-    await prisma.product.deleteMany({
-      where: { id: testProductId },
-    });
-
-    await prisma.$disconnect();
+      await prisma.supplier.deleteMany({
+        where: {
+          OR: [
+            { name: { in: [supplier1Name, supplier2Name] } },
+            { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } },
+          ],
+        },
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 
   it("saves a purchase invoice from Supplier 1 and increases product closing stock", async () => {
