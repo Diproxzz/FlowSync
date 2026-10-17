@@ -85,10 +85,14 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
   return await prisma.$transaction(async (tx) => {
     // 2. Resolve or create Supplier
     let supplierId = supplierResolution.supplierId;
-    const cleanGstin = (supplierResolution.supplierGstin || draft.supplier.gstin || "")
-      .trim()
-      .toUpperCase() || null;
-    const stateCode = cleanGstin && /^\d{2}/.test(cleanGstin) ? cleanGstin.substring(0, 2) : null;
+    const cleanGstin = draft.isImport
+      ? null
+      : (supplierResolution.supplierGstin || draft.supplier.gstin || "").trim().toUpperCase() || null;
+    const stateCode = draft.isImport
+      ? "96"
+      : cleanGstin && /^\d{2}/.test(cleanGstin)
+      ? cleanGstin.substring(0, 2)
+      : null;
 
     if (cleanGstin) {
       const existingSupByGstin = await tx.supplier.findUnique({ where: { gstin: cleanGstin } });
@@ -324,7 +328,8 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
           financial_year: financialYear,
           supplier_id: supplierId,
           supplier_name_snapshot: draft.supplier.name,
-          supplier_gstin_snapshot: draft.supplier.gstin,
+          supplier_gstin_snapshot: draft.isImport ? null : draft.supplier.gstin,
+          is_import: Boolean(draft.isImport),
           buyer_gstin_snapshot: draft.buyer?.gstin || null,
           reference_no: draft.invoice.referenceNo || null,
           vehicle_no: draft.invoice.vehicleNo || null,
@@ -355,7 +360,8 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
           financial_year: financialYear,
           supplier_id: supplierId,
           supplier_name_snapshot: draft.supplier.name,
-          supplier_gstin_snapshot: draft.supplier.gstin,
+          supplier_gstin_snapshot: draft.isImport ? null : draft.supplier.gstin,
+          is_import: Boolean(draft.isImport),
           buyer_gstin_snapshot: draft.buyer?.gstin || null,
           reference_no: draft.invoice.referenceNo || null,
           vehicle_no: draft.invoice.vehicleNo || null,

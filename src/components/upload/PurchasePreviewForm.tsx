@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Calculator,
   UserCheck,
+  Globe,
 } from "lucide-react";
 import {
   ExtractedPurchaseInvoice,
@@ -221,6 +222,7 @@ export function PurchasePreviewForm({
 
   // Determine if IGST is active
   const isIgstActive =
+    Boolean(draft.isImport) ||
     (draft.totals.igstTotal !== null &&
       draft.totals.igstTotal !== undefined &&
       Number(draft.totals.igstTotal) > 0) ||
@@ -633,12 +635,19 @@ export function PurchasePreviewForm({
     if (!canSave) return;
 
     const payload = {
-      draft,
+      draft: {
+        ...draft,
+        isImport: Boolean(draft.isImport),
+        supplier: {
+          ...draft.supplier,
+          gstin: draft.isImport ? null : draft.supplier.gstin,
+        },
+      },
       supplierResolution: {
         action: supplierRes.supplierId ? "USE_MATCHED" : "CREATE_NEW",
         supplierId: supplierRes.supplierId,
         supplierName: draft.supplier.name,
-        supplierGstin: draft.supplier.gstin,
+        supplierGstin: draft.isImport ? null : draft.supplier.gstin,
         supplierAddress: draft.supplier.address,
       },
       productResolutions: draft.items.map((it, idx) => {
@@ -687,6 +696,39 @@ export function PurchasePreviewForm({
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F4E6D7] dark:bg-[#3A2A1C] text-accent">
                 Purchase
               </span>
+
+              {/* Import Invoice Option */}
+              <label
+                className={cn(
+                  "inline-flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-sm border transition select-none text-[11px] font-medium ml-2",
+                  draft.isImport
+                    ? "bg-accent/10 border-accent text-accent font-semibold"
+                    : "bg-surface border-border text-ink-2 hover:bg-surface-2"
+                )}
+                title="Check if this is an import invoice from an overseas vendor without Indian GSTIN"
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(draft.isImport)}
+                  onChange={(e) => {
+                    const isImp = e.target.checked;
+                    setDraft((prev) => ({
+                      ...prev,
+                      isImport: isImp,
+                      supplier: {
+                        ...prev.supplier,
+                        gstin: isImp ? null : prev.supplier.gstin,
+                      },
+                    }));
+                    if (isImp) {
+                      handleToggleTaxMode("inter");
+                    }
+                  }}
+                  className="w-3.5 h-3.5 rounded-xs accent-accent cursor-pointer"
+                />
+                <Globe className="w-3.5 h-3.5" />
+                <span>Import Invoice (Overseas)</span>
+              </label>
             </div>
 
             <div className="flex items-center gap-2">
@@ -740,59 +782,70 @@ export function PurchasePreviewForm({
 
             <div>
               <label className="block text-[11px] font-medium text-ink-2 mb-1">
-                Supplier GSTIN {draft.supplier.gstin ? "✓" : "(Optional)"}
+                {draft.isImport
+                  ? "Supplier GSTIN (Overseas · Not Applicable)"
+                  : `Supplier GSTIN ${draft.supplier.gstin ? "✓" : "(Optional)"}`}
               </label>
-              <input
-                type="text"
-                value={draft.supplier.gstin || ""}
-                onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
-                  const cleanG = val.trim();
-                  let matchedName = draft.supplier.name;
-                  if (cleanG) {
-                    const matchedSup = suppliersList.find(
-                      (s) => s.gstin && s.gstin.trim().toUpperCase() === cleanG
-                    );
-                    const matchedCust = customersList.find(
-                      (c) => c.gstin && c.gstin.trim().toUpperCase() === cleanG
-                    );
+              {draft.isImport ? (
+                <div className="w-full px-2.5 py-1.5 text-xs bg-surface-2 border border-dashed border-border rounded-sm text-ink-3 font-mono flex items-center justify-between">
+                  <span>Not Applicable (Foreign Supplier)</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-xs bg-accent/10 text-accent font-semibold border border-accent/20">
+                    Overseas · No GSTIN
+                  </span>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={draft.supplier.gstin || ""}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    const cleanG = val.trim();
+                    let matchedName = draft.supplier.name;
+                    if (cleanG) {
+                      const matchedSup = suppliersList.find(
+                        (s) => s.gstin && s.gstin.trim().toUpperCase() === cleanG
+                      );
+                      const matchedCust = customersList.find(
+                        (c) => c.gstin && c.gstin.trim().toUpperCase() === cleanG
+                      );
 
-                    if (matchedSup) {
-                      matchedName = matchedSup.name;
-                      setSupplierRes({
-                        status: "MATCHED",
-                        supplierId: matchedSup.id,
-                        supplierName: matchedSup.name,
-                        supplierGstin: matchedSup.gstin,
-                        reason: "GSTIN",
-                        confidence: 1.0,
-                        alsoCustomer: matchedCust ? { id: matchedCust.id, name: matchedCust.name } : undefined,
-                      });
-                    } else if (matchedCust) {
-                      matchedName = matchedCust.name;
-                      setSupplierRes({
-                        status: "MATCHED",
-                        supplierName: matchedCust.name,
-                        supplierGstin: matchedCust.gstin,
-                        reason: "GSTIN",
-                        confidence: 1.0,
-                        alsoCustomer: { id: matchedCust.id, name: matchedCust.name },
-                      });
+                      if (matchedSup) {
+                        matchedName = matchedSup.name;
+                        setSupplierRes({
+                          status: "MATCHED",
+                          supplierId: matchedSup.id,
+                          supplierName: matchedSup.name,
+                          supplierGstin: matchedSup.gstin,
+                          reason: "GSTIN",
+                          confidence: 1.0,
+                          alsoCustomer: matchedCust ? { id: matchedCust.id, name: matchedCust.name } : undefined,
+                        });
+                      } else if (matchedCust) {
+                        matchedName = matchedCust.name;
+                        setSupplierRes({
+                          status: "MATCHED",
+                          supplierName: matchedCust.name,
+                          supplierGstin: matchedCust.gstin,
+                          reason: "GSTIN",
+                          confidence: 1.0,
+                          alsoCustomer: { id: matchedCust.id, name: matchedCust.name },
+                        });
+                      }
                     }
-                  }
-                  setDraft({
-                    ...draft,
-                    supplier: {
-                      ...draft.supplier,
-                      gstin: val || null,
-                      name: matchedName,
-                    },
-                  });
-                }}
-                placeholder="15-character Supplier GSTIN"
-                className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono uppercase focus:outline-none focus:ring-1 focus:ring-accent"
-                maxLength={15}
-              />
+                    setDraft({
+                      ...draft,
+                      supplier: {
+                        ...draft.supplier,
+                        gstin: val || null,
+                        name: matchedName,
+                      },
+                    });
+                  }}
+                  placeholder="15-character Supplier GSTIN"
+                  className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono uppercase focus:outline-none focus:ring-1 focus:ring-accent"
+                  maxLength={15}
+                />
+              )}
             </div>
           </div>
 

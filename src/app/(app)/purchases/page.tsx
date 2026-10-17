@@ -18,6 +18,7 @@ import {
   Plus,
   ShoppingCart,
   Receipt,
+  Globe,
 } from "lucide-react";
 import { formatINR, formatDate } from "@/lib/format";
 
@@ -40,6 +41,7 @@ interface PurchaseInvoiceRecord {
   invoice_date: string;
   received_date: string | null;
   financial_year: string;
+  is_import?: boolean;
   supplier_name_snapshot: string;
   supplier_gstin_snapshot: string | null;
   taxable_total: string;
@@ -481,9 +483,15 @@ function PurchasesListContent() {
                       <td className="py-2.5 px-3">
                         <Link
                           href={`/purchases/${inv.id}`}
-                          className="font-mono font-semibold text-accent hover:underline flex items-center gap-1.5"
+                          className="font-mono font-semibold text-accent hover:underline flex items-center gap-1.5 flex-wrap"
                         >
                           <span>{inv.supplier_invoice_number}</span>
+                          {inv.is_import && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded-xs bg-accent/10 border border-accent/20 text-accent font-semibold inline-flex items-center gap-0.5">
+                              <Globe className="w-2.5 h-2.5" />
+                              Import
+                            </span>
+                          )}
                           {inv.version > 1 && (
                             <span className="text-[10px] px-1 py-0.2 rounded-xs bg-surface-2 border border-border text-ink-3">
                               v{inv.version}
@@ -496,15 +504,23 @@ function PurchasesListContent() {
                         <div className="font-medium text-ink truncate max-w-[220px]">
                           {inv.supplier_name_snapshot}
                         </div>
-                        {inv.supplier_gstin_snapshot && (
+                        {inv.is_import ? (
+                          <div className="text-[10px] text-accent font-mono">
+                            Overseas Vendor
+                          </div>
+                        ) : inv.supplier_gstin_snapshot ? (
                           <div className="text-[10px] text-ink-3 font-mono">
                             {inv.supplier_gstin_snapshot}
                           </div>
-                        )}
+                        ) : null}
                       </td>
 
                       <td className="py-2.5 px-3 text-center">
-                        {isIgst ? (
+                        {inv.is_import ? (
+                          <span className="px-1.5 py-0.5 rounded-xs bg-accent/10 text-accent font-mono text-[10px] font-semibold border border-accent/20">
+                            Import (IGST)
+                          </span>
+                        ) : isIgst ? (
                           <span className="px-1.5 py-0.5 rounded-xs bg-primary/10 text-primary font-mono text-[10px] font-semibold">
                             IGST
                           </span>

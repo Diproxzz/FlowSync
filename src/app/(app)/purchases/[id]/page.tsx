@@ -16,6 +16,7 @@ import {
   Boxes,
   Truck,
   Hash,
+  Globe,
 } from "lucide-react";
 import { formatINR, formatDate } from "@/lib/format";
 
@@ -67,6 +68,7 @@ interface PurchaseDetail {
   invoice_date: string;
   received_date: string | null;
   financial_year: string;
+  is_import: boolean;
   supplier_id: string;
   supplier_name_snapshot: string;
   supplier_gstin_snapshot: string | null;
@@ -204,6 +206,12 @@ export default function PurchaseDetailPage({
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F4E6D7] dark:bg-[#3A2A1C] text-accent">
               Purchase
             </span>
+            {purchase.is_import && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-accent/10 border border-accent/20 text-accent flex items-center gap-1">
+                <Globe className="w-3 h-3" />
+                Import (Overseas)
+              </span>
+            )}
             {purchase.version > 1 && (
               <span className="px-2 py-0.5 rounded-sm bg-surface-2 border border-border text-[11px] font-mono text-ink-2">
                 Version {purchase.version}
@@ -278,9 +286,16 @@ export default function PurchaseDetailPage({
             <div className="font-semibold text-ink text-sm">
               {purchase.supplier_name_snapshot}
             </div>
-            <div className="text-xs text-ink-3 font-mono mt-0.5">
-              GSTIN: {purchase.supplier_gstin_snapshot || "Unregistered"}
-            </div>
+            {purchase.is_import ? (
+              <div className="text-xs text-accent font-medium flex items-center gap-1 mt-0.5">
+                <Globe className="w-3 h-3" />
+                <span>Overseas Supplier (No Indian GSTIN)</span>
+              </div>
+            ) : (
+              <div className="text-xs text-ink-3 font-mono mt-0.5">
+                GSTIN: {purchase.supplier_gstin_snapshot || "Unregistered"}
+              </div>
+            )}
             {purchase.supplier?.address && (
               <div className="text-xs text-ink-2 mt-1 leading-relaxed">
                 {purchase.supplier.address}

@@ -248,6 +248,7 @@ model PurchaseInvoice {
   supplier                Supplier                  @relation(fields: [supplier_id], references: [id])
   supplier_name_snapshot  String
   supplier_gstin_snapshot String?
+  is_import               Boolean                   @default(false)
   buyer_gstin_snapshot    String?
   reference_no            String?
   vehicle_no              String?

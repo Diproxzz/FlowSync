@@ -44,22 +44,31 @@ export function validatePurchaseInvoice(
   }
 
   // Validate Supplier GSTIN
-  const gstinCheck = validateGstin(draft.supplier.gstin, companyGstin);
-  if (!gstinCheck.isValid && gstinCheck.code) {
-    if (gstinCheck.code === "GSTIN_IS_COMPANY") {
-      issues.push({
-        path: "supplier.gstin",
-        severity: "error",
-        code: "SUPPLIER_GSTIN_IS_COMPANY",
-        message: "Supplier GSTIN matches company GSTIN. Supplier must be the seller, not INDOBEST.",
-      });
-    } else {
-      issues.push({
-        path: "supplier.gstin",
-        severity: gstinCheck.code === "GSTIN_MISSING" ? "warning" : "error",
-        code: gstinCheck.code,
-        message: gstinCheck.message || "Invalid supplier GSTIN",
-      });
+  if (draft.isImport) {
+    issues.push({
+      path: "supplier.gstin",
+      severity: "info",
+      code: "IMPORT_SUPPLIER_NO_GSTIN",
+      message: "Import Invoice: Overseas supplier does not have an Indian GSTIN",
+    });
+  } else {
+    const gstinCheck = validateGstin(draft.supplier.gstin, companyGstin);
+    if (!gstinCheck.isValid && gstinCheck.code) {
+      if (gstinCheck.code === "GSTIN_IS_COMPANY") {
+        issues.push({
+          path: "supplier.gstin",
+          severity: "error",
+          code: "SUPPLIER_GSTIN_IS_COMPANY",
+          message: "Supplier GSTIN matches company GSTIN. Supplier must be the seller, not INDOBEST.",
+        });
+      } else {
+        issues.push({
+          path: "supplier.gstin",
+          severity: gstinCheck.code === "GSTIN_MISSING" ? "warning" : "error",
+          code: gstinCheck.code,
+          message: gstinCheck.message || "Invalid supplier GSTIN",
+        });
+      }
     }
   }
 

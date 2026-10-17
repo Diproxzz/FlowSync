@@ -250,4 +250,52 @@ describe("Purchase Invoice Validation (Phase 3)", () => {
     expect(res.isValid).toBe(true);
     expect(res.issues.some((i) => i.code === "LINE_TAXABLE_MISMATCH")).toBe(false);
   });
+
+  it("permits foreign overseas supplier without GSTIN when isImport is true", () => {
+    const importInvoice: ExtractedPurchaseInvoice = {
+      ...baseValidInvoice,
+      isImport: true,
+      supplier: {
+        name: "BASF SE Germany",
+        gstin: null, // Foreign supplier has no Indian GSTIN
+        address: "Ludwigshafen, Germany",
+      },
+      items: [
+        {
+          lineNo: 1,
+          productNameRaw: "Imported Specialty Chemical",
+          hsn: "29051100",
+          qtyPrinted: 100,
+          unitPrinted: "KG",
+          rate: 200,
+          discount: 0,
+          taxableAmount: 20000,
+          cgstPct: 0,
+          sgstPct: 0,
+          igstPct: 18,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          igstAmount: 3600,
+          lineTotal: 23600,
+        },
+      ],
+      totals: {
+        taxableSubtotal: 20000,
+        cgstTotal: 0,
+        sgstTotal: 0,
+        igstTotal: 3600,
+        otherCharges: 0,
+        tcs: 0,
+        roundOff: 0,
+        grandTotal: 23600,
+      },
+    };
+
+    const res = validatePurchaseInvoice(importInvoice);
+    expect(res.isValid).toBe(true);
+    expect(res.hasErrors).toBe(false);
+    expect(res.taxType).toBe("IGST");
+    expect(res.issues.some((i) => i.code.startsWith("GSTIN_"))).toBe(false);
+    expect(res.issues.some((i) => i.code === "IMPORT_SUPPLIER_NO_GSTIN")).toBe(true);
+  });
 });

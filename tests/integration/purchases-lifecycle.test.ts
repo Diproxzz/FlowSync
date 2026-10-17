@@ -432,6 +432,94 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
     expect(item?.closing).toBe(initialStock + 700);
   });
 
+  it("confirms an import purchase invoice from an overseas supplier without GSTIN", async () => {
+    const overseasSupplierName = "WACKER CHEMIE AG GERMANY";
+    const importInvoiceNum = "EXP-INV-DE-2026-99";
+
+    const resImport = await confirmPurchaseInvoice({
+      draft: {
+        isImport: true,
+        supplier: {
+          name: overseasSupplierName,
+          gstin: null,
+          address: "Munich, Germany",
+        },
+        buyer: {
+          name: "INDOBEST",
+          gstin: "19AVZPC2361G1ZA",
+        },
+        invoice: {
+          number: importInvoiceNum,
+          date: "2026-07-15",
+        },
+        items: [
+          {
+            lineNo: 1,
+            productNameRaw: "Imported Silicones",
+            hsn: "39100000",
+            qtyPrinted: 250,
+            unitPrinted: "KG",
+            rate: 400,
+            discount: 0,
+            taxableAmount: 100000,
+            cgstPct: 0,
+            sgstPct: 0,
+            igstPct: 18,
+            cgstAmount: 0,
+            sgstAmount: 0,
+            igstAmount: 18000,
+            lineTotal: 118000,
+          },
+        ],
+        totals: {
+          taxableSubtotal: 100000,
+          cgstTotal: 0,
+          sgstTotal: 0,
+          igstTotal: 18000,
+          otherCharges: 0,
+          tcs: 0,
+          roundOff: 0,
+          grandTotal: 118000,
+        },
+        uncertainFields: [],
+      },
+      supplierResolution: {
+        action: "CREATE_NEW",
+        supplierName: overseasSupplierName,
+        supplierGstin: null,
+        supplierAddress: "Munich, Germany",
+      },
+      productResolutions: [
+        {
+          lineNo: 1,
+          action: "USE_MATCHED",
+          productId: testProductId,
+          productCode: testProductCode,
+          productNameRaw: "Imported Silicones",
+          packSizeKg: 25,
+        },
+      ],
+      mode: "create",
+    });
+
+    expect(resImport.invoiceId).toBeDefined();
+
+    const created = await prisma.purchaseInvoice.findUnique({
+      where: { id: resImport.invoiceId },
+      include: { supplier: true },
+    });
+
+    expect(created).toBeDefined();
+    expect(created?.is_import).toBe(true);
+    expect(created?.supplier_gstin_snapshot).toBeNull();
+    expect(created?.supplier.gstin).toBeNull();
+    expect(created?.supplier.state_code).toBe("96");
+
+    // Clean up import invoice & supplier
+    await prisma.purchaseInvoice.delete({ where: { id: resImport.invoiceId } });
+    await prisma.supplier.deleteMany({ where: { name: overseasSupplierName } });
+  });
+
   it("deletes a purchase invoice, removes its movements, and restores stock level", async () => {
     const inv1 = await prisma.purchaseInvoice.findFirst({
       where: {

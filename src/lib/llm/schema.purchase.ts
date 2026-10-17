@@ -54,6 +54,7 @@ export const ExtractedPurchaseInvoiceSchema = z.object({
     roundOff: Money.nullable().optional(),
     grandTotal: Money,
   }),
+  isImport: z.boolean().default(false),
   uncertainFields: z.array(z.string()).default([]),
 });
 
