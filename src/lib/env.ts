@@ -27,6 +27,11 @@ const envSchema = z.object({
     .string()
     .transform((val) => val === "true")
     .default("true"),
+
+  FEATURE_PURCHASES: z
+    .string()
+    .transform((val) => val === "true" || val === "1")
+    .default("true"),
 });
 
 function parseEnv() {
