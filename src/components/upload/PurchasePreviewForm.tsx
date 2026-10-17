@@ -37,6 +37,12 @@ interface SupplierOption {
   address: string | null;
 }
 
+interface CustomerOption {
+  id: string;
+  name: string;
+  gstin: string | null;
+}
+
 interface PurchasePreviewFormProps {
   initialDraft: ExtractedPurchaseInvoice;
   supplierMatch?: SupplierResolution | null;
@@ -112,7 +118,11 @@ export function PurchasePreviewForm({
 }: PurchasePreviewFormProps) {
   const [draft, setDraft] = useState<ExtractedPurchaseInvoice>(() => {
     let base = { ...initialDraft };
-    if (supplierMatch?.status === "MATCHED" && supplierMatch.supplierName) {
+    if (
+      supplierMatch?.status === "MATCHED" &&
+      supplierMatch.supplierName &&
+      (supplierMatch.reason === "GSTIN" || initialDraft.supplier.gstin)
+    ) {
       base.supplier = {
         ...base.supplier,
         name: supplierMatch.supplierName,
@@ -144,19 +154,67 @@ export function PurchasePreviewForm({
   });
 
   const [suppliersList, setSuppliersList] = useState<SupplierOption[]>([]);
+  const [customersList, setCustomersList] = useState<CustomerOption[]>([]);
   const [productsList, setProductsList] = useState<ProductOption[]>([]);
   const [updateStdRates, setUpdateStdRates] = useState<Record<string, boolean>>({});
   const [liveDuplicate, setLiveDuplicate] = useState<any>(null);
 
-  // Load existing suppliers & products
+  // Load existing suppliers, customers & products
   useEffect(() => {
     Promise.all([
       fetch("/api/suppliers").then((r) => r.json()),
+      fetch("/api/customers").then((r) => r.json()),
       fetch("/api/products").then((r) => r.json()),
     ])
-      .then(([sData, pData]) => {
+      .then(([sData, cData, pData]) => {
         if (sData.suppliers) setSuppliersList(sData.suppliers);
+        if (cData.customers) setCustomersList(cData.customers);
         if (pData.products) setProductsList(pData.products);
+
+        const cleanG = draft.supplier.gstin ? draft.supplier.gstin.trim().toUpperCase() : null;
+        if (cleanG) {
+          const matchedSup = sData.suppliers?.find(
+            (s: SupplierOption) => s.gstin && s.gstin.trim().toUpperCase() === cleanG
+          );
+          const matchedCust = cData.customers?.find(
+            (c: CustomerOption) => c.gstin && c.gstin.trim().toUpperCase() === cleanG
+          );
+
+          if (matchedSup) {
+            setDraft((prev) => ({
+              ...prev,
+              supplier: {
+                ...prev.supplier,
+                name: matchedSup.name,
+              },
+            }));
+            setSupplierRes({
+              status: "MATCHED",
+              supplierId: matchedSup.id,
+              supplierName: matchedSup.name,
+              supplierGstin: matchedSup.gstin,
+              reason: "GSTIN",
+              confidence: 1.0,
+              alsoCustomer: matchedCust ? { id: matchedCust.id, name: matchedCust.name } : undefined,
+            });
+          } else if (matchedCust) {
+            setDraft((prev) => ({
+              ...prev,
+              supplier: {
+                ...prev.supplier,
+                name: matchedCust.name,
+              },
+            }));
+            setSupplierRes({
+              status: "MATCHED",
+              supplierName: matchedCust.name,
+              supplierGstin: matchedCust.gstin,
+              reason: "GSTIN",
+              confidence: 1.0,
+              alsoCustomer: { id: matchedCust.id, name: matchedCust.name },
+            });
+          }
+        }
       })
       .catch(console.error);
   }, []);
@@ -666,19 +724,33 @@ export function PurchasePreviewForm({
                   const cleanG = val.trim();
                   let matchedName = draft.supplier.name;
                   if (cleanG) {
-                    const matched = suppliersList.find(
-                      (s) =>
-                        s.gstin && s.gstin.trim().toUpperCase() === cleanG
+                    const matchedSup = suppliersList.find(
+                      (s) => s.gstin && s.gstin.trim().toUpperCase() === cleanG
                     );
-                    if (matched) {
-                      matchedName = matched.name;
+                    const matchedCust = customersList.find(
+                      (c) => c.gstin && c.gstin.trim().toUpperCase() === cleanG
+                    );
+
+                    if (matchedSup) {
+                      matchedName = matchedSup.name;
                       setSupplierRes({
                         status: "MATCHED",
-                        supplierId: matched.id,
-                        supplierName: matched.name,
-                        supplierGstin: matched.gstin,
+                        supplierId: matchedSup.id,
+                        supplierName: matchedSup.name,
+                        supplierGstin: matchedSup.gstin,
                         reason: "GSTIN",
                         confidence: 1.0,
+                        alsoCustomer: matchedCust ? { id: matchedCust.id, name: matchedCust.name } : undefined,
+                      });
+                    } else if (matchedCust) {
+                      matchedName = matchedCust.name;
+                      setSupplierRes({
+                        status: "MATCHED",
+                        supplierName: matchedCust.name,
+                        supplierGstin: matchedCust.gstin,
+                        reason: "GSTIN",
+                        confidence: 1.0,
+                        alsoCustomer: { id: matchedCust.id, name: matchedCust.name },
                       });
                     }
                   }

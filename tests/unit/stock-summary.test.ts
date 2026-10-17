@@ -56,13 +56,13 @@ describe("Phase 1: Database Seed and Stock Summary Verification", () => {
     const sbl = map.get("SBL");
     expect(sbl).toBeDefined();
     expect(sbl?.opening).toBe(4800);
-    expect(sbl?.closing).toBe(4800 - (sbl?.sales || 0));
+    expect(sbl?.closing).toBe(4800 + (sbl?.purchases || 0) - (sbl?.sales || 0));
 
     // Check TiO2
     const tio2 = map.get("TiO2");
     expect(tio2).toBeDefined();
     expect(tio2?.opening).toBe(4861);
-    expect(tio2?.closing).toBe(4861 - (tio2?.sales || 0));
+    expect(tio2?.closing).toBe(4861 + (tio2?.purchases || 0) - (tio2?.sales || 0));
 
     // Total opening stock across all 55 products matches opening stock (66590.3 kg)
     const totalOpening = summary.reduce((sum, r) => sum + r.opening, 0);

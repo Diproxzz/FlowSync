@@ -78,6 +78,31 @@ describe("Supplier Matching & Resolution (Phase 2)", () => {
     expect(res.confidence).toBeGreaterThanOrEqual(0.95);
   });
 
+  it("resolves and draws name from customer record when GSTIN exists in customers but not in suppliers", async () => {
+    const custOnly = await prisma.customer.create({
+      data: {
+        name: "Sole Customer Pvt Ltd",
+        name_norm: "sole customer",
+        gstin: "19AABCS1429B1Z1",
+      },
+    });
+
+    try {
+      const res = await resolveSupplier({
+        name: "Random Raw Name",
+        gstin: "19AABCS1429B1Z1",
+      });
+
+      expect(res.status).toBe("MATCHED");
+      expect(res.supplierName).toBe("Sole Customer Pvt Ltd");
+      expect(res.reason).toBe("GSTIN");
+      expect(res.confidence).toBe(1.0);
+      expect(res.alsoCustomer?.id).toBe(custOnly.id);
+    } finally {
+      await prisma.customer.delete({ where: { id: custOnly.id } }).catch(() => {});
+    }
+  });
+
   it("returns NEW for an unknown supplier", async () => {
     const res = await resolveSupplier({
       name: "Completely Unheard Supplier XYZ 123",

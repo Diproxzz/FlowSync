@@ -56,6 +56,18 @@ export async function resolveSupplier(
         alsoCustomer,
       };
     }
+
+    // If not in suppliers, but GSTIN already exists in the system (e.g. as a customer), draw name from there
+    if (alsoCustomer) {
+      return {
+        status: "MATCHED",
+        supplierName: alsoCustomer.name,
+        supplierGstin: cleanGstin,
+        reason: "GSTIN",
+        confidence: 1.0,
+        alsoCustomer,
+      };
+    }
   }
 
   // 2. Exact normalized name or alias
