@@ -38,7 +38,11 @@ export async function GET(
       account.account_type === "CUSTOMER"
     );
 
-    return NextResponse.json(openItemsSummary);
+    return NextResponse.json({
+      success: true,
+      data: openItemsSummary,
+      ...openItemsSummary,
+    });
   } catch (error: any) {
     console.error("Open items error:", error);
     return NextResponse.json(

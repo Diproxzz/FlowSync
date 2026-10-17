@@ -81,89 +81,126 @@ export async function GET(
 
     const openBills = openItems.items.filter((it) => it.status === "OPEN" || it.status === "PART");
     const oldestBill = openBills.length > 0 ? openBills[0].docNo : null;
+    const oldestBillDate = openBills.length > 0 ? openBills[0].entryDate : null;
+
+    const openingVal = periodOpening >= 0 ? periodOpening : -Math.abs(periodOpening);
+    const closingVal = margTotals.closingSide === "Dr" ? margTotals.closingBalance : -margTotals.closingBalance;
+
+    const summary = {
+      openingBalance: openingVal,
+      openingSide: (periodOpening >= 0 ? "Dr" : "Cr") as "Dr" | "Cr",
+      periodDebit: margTotals.periodDebit,
+      periodCredit: margTotals.periodCredit,
+      closingBalance: closingVal,
+      closingSide: margTotals.closingSide,
+      overdueAmount: openItems.totalOverdue,
+      oldestBillNo: oldestBill,
+      oldestBillDate,
+      totalDue: closingVal,
+    };
+
+    const formattedEntries = runningRows.map((r) => {
+      const particulars = formatParticularsText({
+        entryType: r.entry.entry_type as any,
+        docNo: r.entry.doc_no,
+        paymentMode: r.entry.payment_mode as any,
+        instrumentNo: r.entry.instrument_no,
+        instrumentDate: r.entry.instrument_date
+          ? r.entry.instrument_date.toISOString().slice(0, 10)
+          : null,
+        referencedDocs: r.entry.referenced_docs,
+        particularsRaw: r.entry.particulars_raw,
+        narration: r.entry.narration,
+      });
+
+      const entryDate = r.entry.entry_date.toISOString().slice(0, 10);
+      return {
+        id: r.entry.id,
+        entry_date: entryDate,
+        date: entryDate,
+        entry_type: r.entry.entry_type,
+        entryType: r.entry.entry_type,
+        doc_no: r.entry.doc_no,
+        docNo: r.entry.doc_no,
+        particulars,
+        particularsRaw: r.entry.particulars_raw,
+        paymentMode: r.entry.payment_mode,
+        instrumentNo: r.entry.instrument_no,
+        instrumentDate: r.entry.instrument_date ? r.entry.instrument_date.toISOString().slice(0, 10) : null,
+        referencedDocs: r.entry.referenced_docs,
+        referenced_docs: r.entry.referenced_docs,
+        priorYearRefs: r.entry.prior_year_refs,
+        prior_year_refs: r.entry.prior_year_refs,
+        referencesTruncated: r.entry.references_truncated,
+        references_truncated: r.entry.references_truncated,
+        debit: r.debit,
+        credit: r.credit,
+        running_balance: r.runningBalance,
+        runningBalance: r.runningBalance,
+        balance_side: r.balanceSide,
+        balanceSide: r.balanceSide,
+        formattedBalance: r.formattedBalance,
+        invoice_id: r.entry.invoice?.id || null,
+        invoiceId: r.entry.invoice?.id || null,
+        purchase_invoice_id: r.entry.purchase_invoice?.id || null,
+        purchaseInvoiceId: r.entry.purchase_invoice?.id || null,
+        source: r.entry.source,
+        is_void: r.entry.is_void,
+      };
+    });
+
+    const accountData = {
+      id: account.id,
+      displayName: account.display_name,
+      accountType: account.account_type,
+      gstin: account.customer?.gstin || account.supplier?.gstin || null,
+      gstinSource: account.customer?.gstin_source || account.supplier?.gstin_source || null,
+      address: account.customer?.address || account.supplier?.address || null,
+      stateCode: account.customer?.state_code || account.supplier?.state_code || null,
+      creditDays: account.credit_days || 30,
+      statementThroughDate: account.statement_through_date,
+      openingBalanceSet: account.opening_balance_set,
+    };
+
+    const periodData = {
+      from: fromDate.toISOString().slice(0, 10),
+      to: toDate.toISOString().slice(0, 10),
+    };
+
+    const periodOpeningData = {
+      balance: Math.abs(periodOpening),
+      side: (periodOpening >= 0 ? "Dr" : "Cr") as "Dr" | "Cr",
+    };
+
+    const totalDueData = {
+      balance: margTotals.closingBalance,
+      side: margTotals.closingSide,
+      meaning:
+        isCustomer
+          ? margTotals.closingSide === "Dr"
+            ? "party owes you"
+            : "advance / credit held (you owe party)"
+          : margTotals.closingSide === "Cr"
+          ? "you owe party"
+          : "advance paid (party owes you)",
+      overdueAmount: openItems.totalOverdue,
+      oldestBill,
+    };
+
+    const statementResult = {
+      account: accountData,
+      period: periodData,
+      periodOpening: periodOpeningData,
+      summary,
+      entries: formattedEntries,
+      margTotals,
+      totalDue: totalDueData,
+    };
 
     return NextResponse.json({
-      account: {
-        id: account.id,
-        displayName: account.display_name,
-        accountType: account.account_type,
-        gstin: account.customer?.gstin || account.supplier?.gstin || null,
-        gstinSource: account.customer?.gstin_source || account.supplier?.gstin_source || null,
-        address: account.customer?.address || account.supplier?.address || null,
-        stateCode: account.customer?.state_code || account.supplier?.state_code || null,
-        creditDays: account.credit_days || 30,
-        statementThroughDate: account.statement_through_date,
-      },
-      period: {
-        from: fromDate.toISOString().slice(0, 10),
-        to: toDate.toISOString().slice(0, 10),
-      },
-      periodOpening: {
-        balance: Math.abs(periodOpening),
-        side: periodOpening >= 0 ? "Dr" : "Cr",
-      },
-      entries: runningRows.map((r) => {
-        const particulars = formatParticularsText({
-          entryType: r.entry.entry_type as any,
-          docNo: r.entry.doc_no,
-          paymentMode: r.entry.payment_mode as any,
-          instrumentNo: r.entry.instrument_no,
-          instrumentDate: r.entry.instrument_date
-            ? r.entry.instrument_date.toISOString().slice(0, 10)
-            : null,
-          referencedDocs: r.entry.referenced_docs,
-          particularsRaw: r.entry.particulars_raw,
-          narration: r.entry.narration,
-        });
-
-        const entryDate = r.entry.entry_date.toISOString().slice(0, 10);
-        return {
-          id: r.entry.id,
-          entry_date: entryDate,
-          date: entryDate,
-          entry_type: r.entry.entry_type,
-          entryType: r.entry.entry_type,
-          doc_no: r.entry.doc_no,
-          docNo: r.entry.doc_no,
-          particulars,
-          particularsRaw: r.entry.particulars_raw,
-          paymentMode: r.entry.payment_mode,
-          instrumentNo: r.entry.instrument_no,
-          instrumentDate: r.entry.instrument_date ? r.entry.instrument_date.toISOString().slice(0, 10) : null,
-          referencedDocs: r.entry.referenced_docs,
-          referenced_docs: r.entry.referenced_docs,
-          priorYearRefs: r.entry.prior_year_refs,
-          prior_year_refs: r.entry.prior_year_refs,
-          referencesTruncated: r.entry.references_truncated,
-          references_truncated: r.entry.references_truncated,
-          debit: r.debit,
-          credit: r.credit,
-          running_balance: r.runningBalance,
-          runningBalance: r.runningBalance,
-          balance_side: r.balanceSide,
-          balanceSide: r.balanceSide,
-          formattedBalance: r.formattedBalance,
-          invoice_id: r.entry.invoice?.id || null,
-          invoiceId: r.entry.invoice?.id || null,
-          purchase_invoice_id: r.entry.purchase_invoice?.id || null,
-          purchaseInvoiceId: r.entry.purchase_invoice?.id || null,
-        };
-      }),
-      margTotals,
-      totalDue: {
-        balance: margTotals.closingBalance,
-        side: margTotals.closingSide,
-        meaning:
-          isCustomer
-            ? margTotals.closingSide === "Dr"
-              ? "party owes you"
-              : "advance / credit held (you owe party)"
-            : margTotals.closingSide === "Cr"
-            ? "you owe party"
-            : "advance paid (party owes you)",
-        overdueAmount: openItems.totalOverdue,
-        oldestBill,
-      },
+      success: true,
+      data: statementResult,
+      ...statementResult,
     });
   } catch (error: any) {
     console.error("Statement route error:", error);

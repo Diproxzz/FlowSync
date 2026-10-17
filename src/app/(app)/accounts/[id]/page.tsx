@@ -58,8 +58,9 @@ export default function AccountStatementPage() {
       const url = `/api/ledger/accounts/${accountId}/statement?from=${fromDate}&to=${toDate}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (json.success && json.data) {
-        setStatementData(json.data);
+      const payload = json.data || json;
+      if (payload && (payload.account || payload.entries)) {
+        setStatementData(payload);
       }
     } catch (err) {
       console.error("Failed to load statement:", err);
@@ -73,8 +74,9 @@ export default function AccountStatementPage() {
       const url = `/api/ledger/accounts/${accountId}/open-items?asOf=${toDate}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (json.success && json.data) {
-        setOpenItemsData(json.data);
+      const payload = json.data || json;
+      if (payload && (payload.items || payload.totalOverdue !== undefined)) {
+        setOpenItemsData(payload);
       }
     } catch (err) {
       console.error("Failed to load open items:", err);
@@ -273,10 +275,10 @@ export default function AccountStatementPage() {
 
       {/* 2. Summary Cards Component */}
       <SummaryCards
-        openingBalance={statementData.summary.openingBalance}
-        periodDebit={statementData.summary.periodDebit}
-        periodCredit={statementData.summary.periodCredit}
-        closingBalance={statementData.summary.closingBalance}
+        openingBalance={statementData.summary?.openingBalance ?? statementData.margTotals?.openingBalance ?? 0}
+        periodDebit={statementData.summary?.periodDebit ?? statementData.margTotals?.periodDebit ?? 0}
+        periodCredit={statementData.summary?.periodCredit ?? statementData.margTotals?.periodCredit ?? 0}
+        closingBalance={statementData.summary?.closingBalance ?? statementData.margTotals?.closingBalance ?? 0}
         accountType={account.accountType}
         openingBalanceSet={account.openingBalanceSet}
       />
@@ -329,8 +331,8 @@ export default function AccountStatementPage() {
         <OutstandingTable
           items={openItemsData?.items || []}
           advance={openItemsData?.advance || 0}
-          closingBalance={statementData.summary.closingBalance}
-          closingSide={statementData.summary.closingSide}
+          closingBalance={statementData.summary?.closingBalance ?? statementData.margTotals?.closingBalance ?? 0}
+          closingSide={statementData.summary?.closingSide ?? statementData.margTotals?.closingSide ?? "Dr"}
           creditDays={account.creditDays}
         />
       )}
@@ -339,11 +341,11 @@ export default function AccountStatementPage() {
       <div className="print:hidden">
         <TotalDueBanner
           partyName={account.displayName}
-          totalDue={statementData.summary.closingBalance}
+          totalDue={statementData.summary?.closingBalance ?? statementData.margTotals?.closingBalance ?? 0}
           accountType={account.accountType}
-          overdueAmount={statementData.summary.overdueAmount || 0}
-          oldestBillNo={statementData.summary.oldestBillNo}
-          oldestBillDate={statementData.summary.oldestBillDate}
+          overdueAmount={statementData.summary?.overdueAmount ?? openItemsData?.totalOverdue ?? 0}
+          oldestBillNo={statementData.summary?.oldestBillNo ?? statementData.totalDue?.oldestBill}
+          oldestBillDate={statementData.summary?.oldestBillDate}
           onAddReceipt={() => setIsReceiptModalOpen(true)}
           onPrint={() => window.print()}
         />
