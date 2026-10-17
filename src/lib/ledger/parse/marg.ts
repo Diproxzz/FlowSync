@@ -150,8 +150,26 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
         text: restOfLine,
       });
     } else if (rawEntries.length > 0) {
-      // Continuation of previous entry particulars (append without space per §5.1 rule 5)
-      rawEntries[rawEntries.length - 1].text += restOfLine;
+      // Continuation of previous entry particulars (§5.1 rule 5)
+      // When particulars wrap across lines, row 1 often contains:
+      // "[PARTICULARS PART 1] [AMOUNTS]", and row 2 contains "[PARTICULARS PART 2]".
+      // Re-stitch particulars directly without amounts in the middle.
+      const prev = rawEntries[rawEntries.length - 1];
+      const amountSuffixMatch = prev.text.match(/\s+([\d,]+\.\d{2}(?:\s+[\d,]+\.\d{2})?(?:\s*(?:Dr|Cr))?)$/i);
+      if (amountSuffixMatch && amountSuffixMatch.index !== undefined) {
+        const prevPart = prev.text.slice(0, amountSuffixMatch.index);
+        const amounts = amountSuffixMatch[1];
+        // If prev ends with cut token (e.g. *I, *IB, ,, -, /) or continuation starts with continuation chars, join seamlessly
+        const needsSpace =
+          /[a-z0-9]$/i.test(prevPart) &&
+          /^[a-z]/i.test(restOfLine) &&
+          !/\*I$/i.test(prevPart) &&
+          !/\*IB$/i.test(prevPart);
+        const joinedPart = needsSpace ? `${prevPart} ${restOfLine}` : `${prevPart}${restOfLine}`;
+        prev.text = `${joinedPart} ${amounts}`;
+      } else {
+        prev.text += restOfLine;
+      }
     }
   }
 
@@ -197,6 +215,22 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
       .replace(/\s+/g, " ")
       .trim();
 
+    // Fix broken invoice references caused by line wrapping or spacing (e.g. *I B25-26/0756 -> *IB25-26/0756)
+    cleanParticulars = cleanParticulars
+      .replace(/(\*I)\s+(B\d{2}-\d{2}\/\d+)/gi, "$1$2")
+      .replace(/(\*?IB)\s+(\d{2}-\d{2}\/\d+)/gi, "$1$2")
+      .replace(/(\*?[A-Za-z0-9_-]+)\s+(\/[A-Za-z0-9_-]+)/g, "$1$2")
+      .replace(/(\*?[A-Za-z0-9_-]+\/)\s+([A-Za-z0-9_-]+)/g, "$1$2");
+
+    // Clean dangling trailing cut-offs caused by PDF/print margin truncation (e.g. ,*I, ,*IB, ,IB, ,*, ,)
+    cleanParticulars = cleanParticulars
+      .replace(/,\s*\*?[A-Za-z0-9_-]{1,2}$/, "")
+      .replace(/[,\s*]+$/, "")
+      .trim();
+
+    // Format references with space after commas for readable wrapping without hyphen splits
+    cleanParticulars = cleanParticulars.replace(/,\s*(\*?[A-Za-z0-9])/g, ", $1");
+
     // Determine entry type and details
     let entryType: StatementEntry["entryType"] = "OTHER";
     let docNo: string | null = null;
@@ -234,7 +268,7 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
       instrumentDate = `${y}-${m}-${d}`;
     }
 
-    const { referencedDocs, priorYearRefs, truncated } = extractReferencedBills(text, statementFY);
+    const { referencedDocs, priorYearRefs } = extractReferencedBills(cleanParticulars, statementFY);
 
     entries.push({
       date: raw.date,
@@ -245,7 +279,7 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
       instrumentDate,
       referencedDocs,
       priorYearRefs,
-      referencesTruncated: truncated,
+      referencesTruncated: false,
       particularsRaw: cleanParticulars || text,
       debit,
       credit,

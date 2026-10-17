@@ -574,33 +574,33 @@ export function ImportPreview({
           <table className="w-full text-xs text-left">
             <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
               <tr>
-                <th className="py-2 px-3">Date</th>
-                <th className="py-2 px-3">Particulars / Doc No</th>
-                <th className="py-2 px-3 text-right">Debit (₹)</th>
-                <th className="py-2 px-3 text-right">Credit (₹)</th>
-                <th className="py-2 px-3 text-right">Balance</th>
-                <th className="py-2 px-3 text-center">Status</th>
+                <th className="py-2.5 px-3.5">Date</th>
+                <th className="py-2.5 px-3.5 min-w-[340px]">Particulars / Doc No</th>
+                <th className="py-2.5 px-3.5 text-right">Debit (₹)</th>
+                <th className="py-2.5 px-3.5 text-right">Credit (₹)</th>
+                <th className="py-2.5 px-3.5 text-right">Balance</th>
+                <th className="py-2.5 px-3.5 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 font-mono">
               {/* Line 1: Opening Balance */}
               <tr className="bg-muted/40 font-medium border-b border-border">
-                <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
+                <td className="py-2.5 px-3.5 text-muted-foreground whitespace-nowrap">
                   {formatDate(extracted.periodFrom)}
                 </td>
-                <td className="py-2 px-3 text-foreground font-sans font-semibold">
+                <td className="py-2.5 px-3.5 text-foreground font-sans font-semibold min-w-[340px]">
                   Opening Balance
                 </td>
-                <td className="py-2 px-3 text-right">
+                <td className="py-2.5 px-3.5 text-right">
                   {extracted.openingSide === "Dr" ? formatINR(extracted.openingBalance) : "—"}
                 </td>
-                <td className="py-2 px-3 text-right">
+                <td className="py-2.5 px-3.5 text-right">
                   {extracted.openingSide === "Cr" ? formatINR(extracted.openingBalance) : "—"}
                 </td>
-                <td className="py-2 px-3 text-right font-semibold">
+                <td className="py-2.5 px-3.5 text-right font-semibold">
                   {formatINR(extracted.openingBalance)} {extracted.openingSide}
                 </td>
-                <td className="py-2 px-3 text-center font-sans">
+                <td className="py-2.5 px-3.5 text-center font-sans">
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                     Opening
                   </span>
@@ -617,22 +617,17 @@ export function ImportPreview({
 
                 return (
                   <tr key={idx} className="hover:bg-muted/20">
-                    <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
+                    <td className="py-2.5 px-3.5 text-muted-foreground whitespace-nowrap">
                       {formatDate(rowDate)}
                     </td>
-                    <td className="py-2 px-3 text-foreground font-sans">
+                    <td className="py-2.5 px-3.5 text-foreground font-sans min-w-[340px] leading-relaxed break-words">
                       <div>
                         {row.particularsRaw || row.docNo || "Entry"}
-                        {row.referencesTruncated && (
-                          <span className="ml-2 text-[10px] text-amber-600 bg-amber-50 px-1 py-0.5 rounded">
-                            Truncated
-                          </span>
-                        )}
                       </div>
                     </td>
-                    <td className="py-2 px-3 text-right">{row.debit > 0 ? formatINR(row.debit) : "—"}</td>
-                    <td className="py-2 px-3 text-right">{row.credit > 0 ? formatINR(row.credit) : "—"}</td>
-                    <td className="py-2 px-3 text-right font-semibold">
+                    <td className="py-2.5 px-3.5 text-right">{row.debit > 0 ? formatINR(row.debit) : "—"}</td>
+                    <td className="py-2.5 px-3.5 text-right">{row.credit > 0 ? formatINR(row.credit) : "—"}</td>
+                    <td className="py-2.5 px-3.5 text-right font-semibold">
                       {row.printedBalance !== null && row.printedBalance !== undefined
                         ? formatINR(row.printedBalance)
                         : "—"}{" "}

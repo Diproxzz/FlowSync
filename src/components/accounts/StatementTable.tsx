@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { formatINR, formatDate } from "@/lib/format";
-import { AlertTriangle, FileText, ExternalLink, Ban, Edit2 } from "lucide-react";
+import { FileText, ExternalLink, Ban, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StatementRow {
@@ -51,7 +51,7 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: S
           <thead>
             <tr className="bg-muted/50 border-b border-border text-xs uppercase tracking-wider text-muted-foreground font-semibold print:bg-slate-100 print:text-black print:border-b-2 print:border-black">
               <th className="py-3 px-4 w-[110px] print:py-1.5 print:px-2 print:w-[90px] print:text-black">Date</th>
-              <th className="py-3 px-4 print:py-1.5 print:px-2 print:text-black">Particulars</th>
+              <th className="py-3 px-4 min-w-[280px] print:py-1.5 print:px-2 print:text-black">Particulars</th>
               <th className="py-3 px-4 text-right w-[140px] print:py-1.5 print:px-2 print:w-[110px] print:text-black">Debit</th>
               <th className="py-3 px-4 text-right w-[140px] print:py-1.5 print:px-2 print:w-[110px] print:text-black">Credit</th>
               <th className="py-3 px-4 text-right w-[150px] print:py-1.5 print:px-2 print:w-[120px] print:text-black">Balance</th>
@@ -96,7 +96,7 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: S
                     </td>
 
                     {/* Particulars */}
-                    <td className="py-2.5 px-4 text-foreground align-top">
+                    <td className="py-2.5 px-4 text-foreground align-top min-w-[280px]">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           {/* Invoice direct link */}
@@ -111,17 +111,6 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: S
                           ) : (
                             <span className={cn(isOpening ? "font-semibold text-foreground" : "font-mono text-xs")}>
                               {row.particulars}
-                            </span>
-                          )}
-
-                          {/* Truncation warning indicator */}
-                          {row.references_truncated && (
-                            <span
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-sans"
-                              title="Reference list was truncated in source statement"
-                            >
-                              <AlertTriangle className="w-3 h-3" />
-                              Ref truncated
                             </span>
                           )}
                         </div>

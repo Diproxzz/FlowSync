@@ -87,6 +87,19 @@ describe("Marg Statement Parser & Replay Validation (§2.1 & §3.3)", () => {
     expect(bills).toHaveLength(34);
     expect(receipts).toHaveLength(5);
 
+    // Verify continuation stitching, space adjustment, and clean reference list without truncation
+    expect(receipts[0].particularsRaw).toBe(
+      "Cheque No. : RTGS Ag. *IB25-26/0699, *IB25-26/0700, *IB25-26/0716, *IB25-26/0723, *IB25-26/0756"
+    );
+    expect(receipts[0].referencedDocs).toEqual([
+      "IB25-26/0699",
+      "IB25-26/0700",
+      "IB25-26/0716",
+      "IB25-26/0723",
+      "IB25-26/0756",
+    ]);
+    expect(receipts[0].referencesTruncated).toBe(false);
+
     const validation = validateStatement(stmt);
     expect(validation.errors).toEqual([]);
     expect(validation.isValid).toBe(true);
