@@ -48,9 +48,12 @@ export function computeRunningBalances(
     const deb = new Decimal(entry.debit?.toString() || 0);
     const cred = new Decimal(entry.credit?.toString() || 0);
 
-    // If it's an OPENING row and we already started with initialBalance 0,
-    // deb - cred sets the opening balance.
-    current = current.plus(deb).minus(cred);
+    if (entry.entry_type === "OPENING") {
+      // The opening balance entry defines the baseline balance; do not add on top of initialBalance
+      current = deb.minus(cred);
+    } else {
+      current = current.plus(deb).minus(cred);
+    }
 
     const numBal = current.toNumber();
     const side: "Dr" | "Cr" = current.isNegative() ? "Cr" : "Dr";
@@ -82,7 +85,14 @@ export function calculatePeriodOpening(
   for (const entry of entries) {
     if (entry.is_void) continue;
     const d = new Date(entry.entry_date);
-    if (d < from) {
+    if (entry.entry_type === "OPENING") {
+      // An opening balance entry dated on or before fromDate establishes the period baseline
+      if (d <= from) {
+        bal = bal.plus(new Decimal(entry.debit?.toString() || 0)).minus(
+          new Decimal(entry.credit?.toString() || 0)
+        );
+      }
+    } else if (d < from) {
       bal = bal.plus(new Decimal(entry.debit?.toString() || 0)).minus(
         new Decimal(entry.credit?.toString() || 0)
       );

@@ -149,6 +149,54 @@ export async function GET(
       };
     });
 
+    const hasOpeningRow = formattedEntries.some((e) => e.entry_type === "OPENING");
+    const finalEntries = [...formattedEntries];
+    if (!hasOpeningRow && periodOpening !== 0) {
+      const openingDate = fromDate.toISOString().slice(0, 10);
+      const isDr = periodOpening >= 0;
+      finalEntries.unshift({
+        id: "opening-balance-row",
+        entry_date: openingDate,
+        date: openingDate,
+        entry_type: "OPENING",
+        entryType: "OPENING",
+        doc_no: null,
+        docNo: null,
+        particulars: "Opening Balance",
+        particularsRaw: "Opening Balance",
+        paymentMode: null,
+        instrumentNo: null,
+        instrumentDate: null,
+        referencedDocs: [],
+        referenced_docs: [],
+        priorYearRefs: [],
+        prior_year_refs: [],
+        referencesTruncated: false,
+        references_truncated: false,
+        debit: isDr ? Math.abs(periodOpening) : 0,
+        credit: !isDr ? Math.abs(periodOpening) : 0,
+        running_balance: periodOpening,
+        runningBalance: periodOpening,
+        balance_side: isDr ? "Dr" : "Cr",
+        balanceSide: isDr ? "Dr" : "Cr",
+        formattedBalance: `${Math.abs(periodOpening).toFixed(2)} ${isDr ? "Dr" : "Cr"}`,
+        invoice_id: null,
+        invoiceId: null,
+        purchase_invoice_id: null,
+        purchaseInvoiceId: null,
+        source: "CALCULATED",
+        is_void: false,
+      });
+    }
+
+    const margTotalsPayload = {
+      ...margTotals,
+      debitTotal: margTotals.totalDebitWithOpening,
+      creditTotal: margTotals.totalCreditWithOpening,
+      closing: margTotals.closingBalance,
+      closingSide: margTotals.closingSide,
+    };
+
     const accountData = {
       id: account.id,
       displayName: account.display_name,
@@ -192,8 +240,8 @@ export async function GET(
       period: periodData,
       periodOpening: periodOpeningData,
       summary,
-      entries: formattedEntries,
-      margTotals,
+      entries: finalEntries,
+      margTotals: margTotalsPayload,
       totalDue: totalDueData,
     };
 
