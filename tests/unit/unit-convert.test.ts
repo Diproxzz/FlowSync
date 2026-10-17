@@ -11,7 +11,7 @@ describe("Unit Conversion (FR-PUR-UP-4)", () => {
     expect(normalizeUnit("Drums")).toBe("DRUM");
     expect(normalizeUnit("bag")).toBe("BAG");
     expect(normalizeUnit("ltrs")).toBe("LTR");
-    expect(normalizeUnit("pcs")).toBe("NOS");
+    expect(normalizeUnit("pcs")).toBe("PCS");
   });
 
   it("converts direct KG quantities without changes", () => {
@@ -51,27 +51,28 @@ describe("Unit Conversion (FR-PUR-UP-4)", () => {
     expect(res.ratePerKg.toNumber()).toBe(70); // 15400 / 220
   });
 
-  it("flags drum without pack size as needing manual kg input", () => {
+  it("allows drum without pack size without blocking saving", () => {
     const res = convertUnitToKg({
       qtyPrinted: 5,
       unitPrinted: "DRUM",
       packSizeKg: null,
       rate: 1000,
     });
-    expect(res.isConvertible).toBe(false);
-    expect(res.needsManualKg).toBe(true);
-    expect(res.error).toBeDefined();
+    expect(res.isConvertible).toBe(true);
+    expect(res.needsManualKg).toBe(false);
+    expect(res.qtyKg.toNumber()).toBe(5);
   });
 
-  it("flags litres/nos as unconvertible needing manual input", () => {
+  it("handles non-kg units (pcs, litres, nos) cleanly without blocking", () => {
     const res = convertUnitToKg({
       qtyPrinted: 100,
-      unitPrinted: "LITRES",
+      unitPrinted: "PCS",
       rate: 50,
     });
-    expect(res.isConvertible).toBe(false);
-    expect(res.needsManualKg).toBe(true);
-    expect(res.error).toContain("cannot be converted to kg automatically");
+    expect(res.isConvertible).toBe(true);
+    expect(res.needsManualKg).toBe(false);
+    expect(res.qtyKg.toNumber()).toBe(100);
+    expect(res.ratePerKg.toNumber()).toBe(50);
   });
 
   it("accepts manual kg entry for unconvertible units", () => {

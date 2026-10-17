@@ -103,6 +103,23 @@ function UploadPageContent() {
     return () => clearInterval(interval);
   }, [jobs, uploadingCount, fetchJobs]);
 
+  // Tab visibility wake-up: when switching back to browser tab, immediately refresh jobs
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchJobs();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [fetchJobs]);
+
   // Handle uploading files into PostgreSQL queue
   const handleFilesSelected = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -311,38 +328,36 @@ function UploadPageContent() {
 
   const isPurchasesEnabled = process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false";
 
-  if (isPurchasesEnabled && currentType === "PURCHASE") {
-    return (
-      <div className="space-y-3 flex flex-col h-[calc(100vh-5.5rem)]">
-        <div className="flex items-center justify-between pb-1 border-b border-border/60">
-          <DocumentTypeToggle currentType="PURCHASE" />
-        </div>
-        <PurchaseUploadView />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 flex flex-col h-[calc(100vh-5.5rem)]">
       {/* Document Type Toggle */}
       {isPurchasesEnabled && (
         <div className="flex items-center justify-between pb-1 border-b border-border/60">
-          <DocumentTypeToggle currentType="SALES" />
+          <DocumentTypeToggle currentType={currentType} />
         </div>
       )}
 
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept=".pdf,.png,.jpg,.jpeg"
-        onChange={(e) => {
-          handleFilesSelected(e.target.files);
-          if (fileInputRef.current) fileInputRef.current.value = "";
-        }}
-        className="hidden"
-      />
+      {/* Purchase Invoices View (Kept mounted across tab switches to preserve active queue) */}
+      {isPurchasesEnabled && (
+        <div className={currentType === "PURCHASE" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
+          <PurchaseUploadView />
+        </div>
+      )}
+
+      {/* Sales Invoices View (Kept mounted across tab switches to preserve active queue) */}
+      <div className={currentType === "SALES" ? "flex-1 flex flex-col min-h-0 space-y-4" : "hidden"}>
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.png,.jpg,.jpeg"
+          onChange={(e) => {
+            handleFilesSelected(e.target.files);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+          className="hidden"
+        />
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -913,6 +928,9 @@ function UploadPageContent() {
           )}
         </div>
       )}
+
+      {/* End of Sales Invoices View Container */}
+      </div>
 
       {/* Duplicate Dialog Modal */}
       {activeDuplicate && (

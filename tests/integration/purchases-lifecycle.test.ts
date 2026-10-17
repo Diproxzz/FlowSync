@@ -158,7 +158,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
       supplierResolution: {
         action: "CREATE_NEW",
         supplierName: supplier1Name,
-        supplierGstin: "19AGDPA1084B1Z1",
+        supplierGstin: "19AAAAA0000A1ZZ",
       },
       productResolutions: [
         {
@@ -277,7 +277,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
       },
       supplier: {
         name: supplier1Name,
-        gstin: "19AGDPA1084B1Z1",
+        gstin: "19AAAAA0000A1ZZ",
       },
       items: [
         {
@@ -313,7 +313,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
         supplierResolution: {
           action: "CREATE_NEW",
           supplierName: supplier1Name,
-          supplierGstin: "19AGDPA1084B1Z1",
+          supplierGstin: "19AAAAA0000A1ZZ",
         },
         productResolutions: [
           {
@@ -341,7 +341,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
       },
       supplier: {
         name: supplier1Name,
-        gstin: "19AGDPA1084B1Z1",
+        gstin: "19AAAAA0000A1ZZ",
       },
       items: [
         {
@@ -382,7 +382,7 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
         action: "USE_MATCHED",
         supplierId: sup1!.id,
         supplierName: supplier1Name,
-        supplierGstin: "19AGDPA1084B1Z1",
+        supplierGstin: "19AAAAA0000A1ZZ",
       },
       productResolutions: [
         {

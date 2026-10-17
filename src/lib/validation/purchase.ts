@@ -178,9 +178,9 @@ export function validatePurchaseInvoice(
     if (!conv.isConvertible) {
       issues.push({
         path: `${path}.unitPrinted`,
-        severity: "error",
+        severity: "info",
         code: "UNIT_UNCONVERTIBLE",
-        message: `Line ${item.lineNo}: ${conv.error || "Unit cannot be converted to kg automatically"}`,
+        message: `Line ${item.lineNo}: ${conv.error || "Unit not converted to kg"}`,
       });
     }
 

@@ -27,7 +27,8 @@ export function normalizeUnit(rawUnit: string): string {
   if (["CAN", "CANS", "CARBOY", "CARBOYS"].includes(u)) return "CAN";
   if (["PACK", "PACKS", "PKT", "PKTS", "PCK", "PACKAGE", "PACKAGES"].includes(u)) return "PACK";
   if (["L", "LTR", "LTRS", "LITRE", "LITRES", "LT"].includes(u)) return "LTR";
-  if (["NOS", "NO", "PCS", "PIECES", "PIECE", "PC"].includes(u)) return "NOS";
+  if (["PCS", "PIECES", "PIECE", "PC"].includes(u)) return "PCS";
+  if (["NOS", "NO"].includes(u)) return "NOS";
   if (["BOX", "BOXES", "CTN", "CARTON", "CARTONS"].includes(u)) return "BOX";
   return u || "KG";
 }
@@ -85,7 +86,7 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
     };
   }
 
-  // 3. Pack-based units (DRUM, BAG, CAN, PACK)
+  // 3. Pack-based units with packSizeKg (DRUM, BAG, CAN, PACK)
   if (["DRUM", "BAG", "CAN", "PACK"].includes(unitNorm)) {
     const packSizeDec = params.packSizeKg ? new Prisma.Decimal(params.packSizeKg) : null;
     if (packSizeDec && packSizeDec.greaterThan(0)) {
@@ -102,27 +103,17 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
         formulaDescription: `${qtyPrintedDec} ${unitNorm.toLowerCase()}s × ${packSizeDec} kg = ${qtyKg} kg`,
         unitNormalized: unitNorm,
       };
-    } else {
-      return {
-        qtyKg: new Prisma.Decimal(0),
-        ratePerKg: new Prisma.Decimal(0),
-        isConvertible: false,
-        needsManualKg: true,
-        formulaDescription: `Pack size unknown for ${unitNorm}. Enter kg quantity manually.`,
-        unitNormalized: unitNorm,
-        error: `Product has no pack size configured. Please enter the kg quantity manually.`,
-      };
     }
   }
 
-  // 4. Unconvertible units (LTR, NOS, BOX, etc.)
+  // 4. Units not converted to KG (PCS, NOS, BOX, LTR, or units without pack size)
+  // Do not force every unit to convert to KG or block saving; default to 1:1 printed qty and rate.
   return {
-    qtyKg: new Prisma.Decimal(0),
-    ratePerKg: new Prisma.Decimal(0),
-    isConvertible: false,
-    needsManualKg: true,
-    formulaDescription: `Cannot automatically convert unit '${params.unitPrinted}' to kg.`,
+    qtyKg: qtyPrintedDec,
+    ratePerKg: rateDec,
+    isConvertible: true,
+    needsManualKg: false,
+    formulaDescription: `${qtyPrintedDec} ${unitNorm}`,
     unitNormalized: unitNorm,
-    error: `Unit '${params.unitPrinted}' cannot be converted to kg automatically. Please enter kg manually.`,
   };
 }

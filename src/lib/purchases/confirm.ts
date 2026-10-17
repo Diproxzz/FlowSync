@@ -70,7 +70,6 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
         "SUPPLIER_GSTIN_IS_COMPANY",
         "NO_ITEMS",
         "DATE_INVALID",
-        "UNIT_UNCONVERTIBLE",
       ].includes(i.code)
   );
 

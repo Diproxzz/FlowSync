@@ -181,21 +181,21 @@ describe("Purchase Invoice Validation (Phase 3)", () => {
     expect(res.issues.some((i) => i.code === "GRAND_TOTAL_MISMATCH")).toBe(true);
   });
 
-  it("errors on unconvertible units without manual kg quantity (UNIT_UNCONVERTIBLE)", () => {
-    const unconvertibleUnit: ExtractedPurchaseInvoice = {
+  it("does not block saving on units like PCS or drum without pack size", () => {
+    const pcsUnit: ExtractedPurchaseInvoice = {
       ...baseValidInvoice,
       items: [
         {
           ...baseValidInvoice.items[0],
           qtyPrinted: 10,
-          unitPrinted: "DRUM", // pack size not provided
+          unitPrinted: "PCS",
         },
       ],
     };
 
-    const res = validatePurchaseInvoice(unconvertibleUnit);
-    expect(res.hasErrors).toBe(true);
-    expect(res.issues.some((i) => i.code === "UNIT_UNCONVERTIBLE")).toBe(true);
+    const res = validatePurchaseInvoice(pcsUnit);
+    expect(res.hasErrors).toBe(false);
+    expect(res.isValid).toBe(true);
   });
 
   it("passes when pack size or manual kg is provided for drum unit", () => {

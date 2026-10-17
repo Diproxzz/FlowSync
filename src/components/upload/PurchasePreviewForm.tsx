@@ -472,50 +472,115 @@ export function PurchasePreviewForm({
   };
 
   const handleToggleTaxMode = (targetMode: "intra" | "inter") => {
-    const nextItems = draft.items.map((it) => {
-      const totalTaxPct = Math.round(
-        (it.cgstPct || 0) + (it.sgstPct || 0) + (it.igstPct || 0)
-      );
-      if (targetMode === "inter") {
-        const igstAmt =
-          Math.round(((it.taxableAmount * totalTaxPct) / 100) * 100) / 100;
-        return {
-          ...it,
-          igstPct: totalTaxPct,
-          cgstPct: 0,
-          sgstPct: 0,
-          cgstAmount: 0,
-          sgstAmount: 0,
-          lineTotal: Math.round((it.taxableAmount + igstAmt) * 100) / 100,
-        };
-      } else {
-        const halfPct =
-          totalTaxPct === 5
-            ? 2.5
-            : totalTaxPct === 18
-            ? 9
-            : totalTaxPct > 0
-            ? totalTaxPct / 2
-            : 9;
-        const halfAmt =
-          Math.round(((it.taxableAmount * halfPct) / 100) * 100) / 100;
-        return {
-          ...it,
-          igstPct: 0,
-          cgstPct: halfPct,
-          sgstPct: halfPct,
-          cgstAmount: halfAmt,
-          sgstAmount: halfAmt,
-          lineTotal: Math.round((it.taxableAmount + halfAmt * 2) * 100) / 100,
-        };
-      }
-    });
+    setDraft((prev) => {
+      const nextItems = prev.items.map((it) => {
+        const totalTaxPct = Math.round(
+          (it.cgstPct || 0) + (it.sgstPct || 0) + (it.igstPct || 0)
+        );
+        if (targetMode === "inter") {
+          const igstAmt =
+            Math.round(((it.taxableAmount * totalTaxPct) / 100) * 100) / 100;
+          return {
+            ...it,
+            igstPct: totalTaxPct,
+            cgstPct: 0,
+            sgstPct: 0,
+            cgstAmount: 0,
+            sgstAmount: 0,
+            lineTotal: Math.round((it.taxableAmount + igstAmt) * 100) / 100,
+          };
+        } else {
+          const halfPct =
+            totalTaxPct === 5
+              ? 2.5
+              : totalTaxPct === 18
+              ? 9
+              : totalTaxPct > 0
+              ? totalTaxPct / 2
+              : 9;
+          const halfAmt =
+            Math.round(((it.taxableAmount * halfPct) / 100) * 100) / 100;
+          return {
+            ...it,
+            igstPct: 0,
+            cgstPct: halfPct,
+            sgstPct: halfPct,
+            cgstAmount: halfAmt,
+            sgstAmount: halfAmt,
+            lineTotal: Math.round((it.taxableAmount + halfAmt * 2) * 100) / 100,
+          };
+        }
+      });
 
-    const newTotals = recalculateTotals(nextItems, targetMode);
-    setDraft({
-      ...draft,
-      items: nextItems,
-      totals: newTotals,
+      const newTotals = recalculateTotals(nextItems, targetMode);
+      return {
+        ...prev,
+        items: nextItems,
+        totals: newTotals,
+      };
+    });
+  };
+
+  const handleToggleImport = () => {
+    setDraft((prev) => {
+      const nextImport = !prev.isImport;
+      const targetMode: "intra" | "inter" = nextImport
+        ? "inter"
+        : prev.supplier.gstin?.startsWith("19")
+        ? "intra"
+        : "inter";
+
+      const nextItems = prev.items.map((it) => {
+        const totalTaxPct = Math.round(
+          (it.cgstPct || 0) + (it.sgstPct || 0) + (it.igstPct || 0)
+        );
+        if (targetMode === "inter") {
+          const igstAmt =
+            Math.round(((it.taxableAmount * totalTaxPct) / 100) * 100) / 100;
+          return {
+            ...it,
+            igstPct: totalTaxPct,
+            cgstPct: 0,
+            sgstPct: 0,
+            cgstAmount: 0,
+            sgstAmount: 0,
+            lineTotal: Math.round((it.taxableAmount + igstAmt) * 100) / 100,
+          };
+        } else {
+          const halfPct =
+            totalTaxPct === 5
+              ? 2.5
+              : totalTaxPct === 18
+              ? 9
+              : totalTaxPct > 0
+              ? totalTaxPct / 2
+              : 9;
+          const halfAmt =
+            Math.round(((it.taxableAmount * halfPct) / 100) * 100) / 100;
+          return {
+            ...it,
+            igstPct: 0,
+            cgstPct: halfPct,
+            sgstPct: halfPct,
+            cgstAmount: halfAmt,
+            sgstAmount: halfAmt,
+            lineTotal: Math.round((it.taxableAmount + halfAmt * 2) * 100) / 100,
+          };
+        }
+      });
+
+      const newTotals = recalculateTotals(nextItems, targetMode);
+
+      return {
+        ...prev,
+        isImport: nextImport,
+        supplier: {
+          ...prev.supplier,
+          gstin: nextImport ? null : prev.supplier.gstin,
+        },
+        items: nextItems,
+        totals: newTotals,
+      };
     });
   };
 
@@ -626,7 +691,6 @@ export function PurchasePreviewForm({
         "SUPPLIER_GSTIN_IS_COMPANY",
         "NO_ITEMS",
         "DATE_INVALID",
-        "UNIT_UNCONVERTIBLE",
       ].includes(i.code)
   );
   const warnings = validation.issues.filter((i) => i.severity === "warning");
@@ -701,20 +765,7 @@ export function PurchasePreviewForm({
               {/* Import Invoice Option */}
               <button
                 type="button"
-                onClick={() => {
-                  const nextImport = !draft.isImport;
-                  setDraft((prev) => ({
-                    ...prev,
-                    isImport: nextImport,
-                    supplier: {
-                      ...prev.supplier,
-                      gstin: nextImport ? null : prev.supplier.gstin,
-                    },
-                  }));
-                  if (nextImport) {
-                    handleToggleTaxMode("inter");
-                  }
-                }}
+                onClick={handleToggleImport}
                 className={cn(
                   "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border transition text-[11px] font-medium ml-2 cursor-pointer shadow-xs select-none",
                   draft.isImport

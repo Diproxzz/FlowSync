@@ -52,6 +52,11 @@ export interface PurchaseUploadJob {
 
 const STORAGE_KEY = "invoicer_purchase_upload_queue";
 
+// Module-level in-memory stores that survive tab switching, unmounts, and background browser throttling
+const globalPurchaseFiles = new Map<string, File>();
+const globalPurchaseAbortControllers = new Map<string, AbortController>();
+let isGlobalPurchaseQueueRunning = false;
+
 export function PurchaseUploadView() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,10 +71,93 @@ export function PurchaseUploadView() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // In-memory file storage and abort controllers for active network extractions
-  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const filesStoreRef = useRef<Map<string, File>>(new Map());
-  const isRunningQueueRef = useRef(false);
+  // Synchronous helper to update both jobsRef.current and React state
+  const updateJobInState = useCallback((jobId: string, updates: Partial<PurchaseUploadJob>) => {
+    jobsRef.current = jobsRef.current.map((j) => (j.id === jobId ? { ...j, ...updates } : j));
+    setJobs([...jobsRef.current]);
+  }, []);
+
+  // Queue runner: processes one job at a time to protect local model/server resources
+  const runQueue = useCallback(async () => {
+    if (isGlobalPurchaseQueueRunning) return;
+    isGlobalPurchaseQueueRunning = true;
+
+    try {
+      while (true) {
+        // Find next queued job directly from the synchronous ref
+        const nextJob = jobsRef.current.find((j) => j.status === "QUEUED");
+        if (!nextJob) break;
+
+        const jobId = nextJob.id;
+        const file = globalPurchaseFiles.get(jobId);
+
+        if (!file) {
+          updateJobInState(jobId, {
+            status: "FAILED",
+            error: "File not in memory. Please re-upload.",
+          });
+          continue;
+        }
+
+        // Set status to PROCESSING synchronously
+        updateJobInState(jobId, { status: "PROCESSING", error: null });
+
+        const controller = new AbortController();
+        globalPurchaseAbortControllers.set(jobId, controller);
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const res = await fetch("/api/purchases/extract", {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+          });
+
+          const data = await res.json();
+
+          if (res.ok && data.draft) {
+            updateJobInState(jobId, {
+              status: "READY",
+              error: null,
+              extracted_data: {
+                draft: data.draft,
+                validation: data.validation,
+                supplierMatch: data.supplierMatch,
+                productMatches: data.productMatches,
+                duplicate: data.duplicate,
+                fileToken: data.fileToken,
+                fileHash: data.fileHash,
+                pages: data.pages || [],
+              },
+            });
+          } else {
+            updateJobInState(jobId, {
+              status: "FAILED",
+              error: data.error?.message || "Extraction failed",
+            });
+          }
+        } catch (err: any) {
+          if (err.name === "AbortError" || controller.signal.aborted) {
+            updateJobInState(jobId, {
+              status: "CANCELLED",
+              error: "Cancelled by user",
+            });
+          } else {
+            updateJobInState(jobId, {
+              status: "FAILED",
+              error: err.message || "Network error",
+            });
+          }
+        } finally {
+          globalPurchaseAbortControllers.delete(jobId);
+        }
+      }
+    } finally {
+      isGlobalPurchaseQueueRunning = false;
+    }
+  }, [updateJobInState]);
 
   // Restore jobs from sessionStorage on component mount
   useEffect(() => {
@@ -78,19 +166,54 @@ export function PurchaseUploadView() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Reset any dangling PROCESSING/QUEUED from previous sessions to CANCELLED
-          const sanitized = parsed.map((j: PurchaseUploadJob) =>
-            j.status === "PROCESSING" || j.status === "QUEUED"
-              ? { ...j, status: "CANCELLED" as const, error: "Interrupted session" }
-              : j
-          );
+          // If files are still in memory (e.g. user switched tabs), restore QUEUED state!
+          const sanitized = parsed.map((j: PurchaseUploadJob) => {
+            if (j.status === "PROCESSING" || j.status === "QUEUED") {
+              if (globalPurchaseFiles.has(j.id)) {
+                return { ...j, status: "QUEUED" as const, error: null };
+              }
+              return {
+                ...j,
+                status: "FAILED" as const,
+                error: "File not in memory after full browser reload. Please re-upload.",
+              };
+            }
+            return j;
+          });
+          jobsRef.current = sanitized;
           setJobs(sanitized);
+
+          // If any jobs are queued and queue is not running, start it
+          if (sanitized.some((j) => j.status === "QUEUED")) {
+            setTimeout(() => {
+              runQueue();
+            }, 100);
+          }
         }
       }
     } catch (e) {
       console.warn("Failed to restore purchase queue from sessionStorage:", e);
     }
-  }, []);
+  }, [runQueue]);
+
+  // Tab visibility wake-up: when switching back to browser tab, ensure queue continues
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (!isGlobalPurchaseQueueRunning && jobsRef.current.some((j) => j.status === "QUEUED")) {
+          runQueue();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [runQueue]);
 
   // Sync jobs to sessionStorage
   useEffect(() => {
@@ -123,116 +246,6 @@ export function PurchaseUploadView() {
     }
   }, [jobs]);
 
-  // Queue runner: processes one job at a time to protect local model/server resources
-  const runQueue = useCallback(async () => {
-    if (isRunningQueueRef.current) return;
-    isRunningQueueRef.current = true;
-
-    try {
-      while (true) {
-        const nextJob = jobsRef.current.find((j) => j.status === "QUEUED");
-        if (!nextJob) break;
-
-        const jobId = nextJob.id;
-        const file = filesStoreRef.current.get(jobId);
-
-        if (!file) {
-          setJobs((prev) =>
-            prev.map((j) =>
-              j.id === jobId
-                ? { ...j, status: "FAILED", error: "File not in memory. Please re-upload." }
-                : j
-            )
-          );
-          continue;
-        }
-
-        // Set status to PROCESSING
-        setJobs((prev) =>
-          prev.map((j) => (j.id === jobId ? { ...j, status: "PROCESSING", error: null } : j))
-        );
-
-        const controller = new AbortController();
-        abortControllersRef.current.set(jobId, controller);
-
-        const formData = new FormData();
-        formData.append("file", file);
-
-        try {
-          const res = await fetch("/api/purchases/extract", {
-            method: "POST",
-            body: formData,
-            signal: controller.signal,
-          });
-
-          const data = await res.json();
-
-          if (res.ok && data.draft) {
-            setJobs((prev) =>
-              prev.map((j) =>
-                j.id === jobId
-                  ? {
-                      ...j,
-                      status: "READY",
-                      error: null,
-                      extracted_data: {
-                        draft: data.draft,
-                        validation: data.validation,
-                        supplierMatch: data.supplierMatch,
-                        productMatches: data.productMatches,
-                        duplicate: data.duplicate,
-                        fileToken: data.fileToken,
-                        fileHash: data.fileHash,
-                        pages: data.pages || [],
-                      },
-                    }
-                  : j
-              )
-            );
-          } else {
-            setJobs((prev) =>
-              prev.map((j) =>
-                j.id === jobId
-                  ? {
-                      ...j,
-                      status: "FAILED",
-                      error: data.error?.message || "Extraction failed",
-                    }
-                  : j
-              )
-            );
-          }
-        } catch (err: any) {
-          if (err.name === "AbortError" || controller.signal.aborted) {
-            setJobs((prev) =>
-              prev.map((j) =>
-                j.id === jobId
-                  ? { ...j, status: "CANCELLED", error: "Cancelled by user" }
-                  : j
-              )
-            );
-          } else {
-            setJobs((prev) =>
-              prev.map((j) =>
-                j.id === jobId
-                  ? {
-                      ...j,
-                      status: "FAILED",
-                      error: err.message || "Network error",
-                    }
-                  : j
-              )
-            );
-          }
-        } finally {
-          abortControllersRef.current.delete(jobId);
-        }
-      }
-    } finally {
-      isRunningQueueRef.current = false;
-    }
-  }, []);
-
   // Handle file selection: immediately adds ALL files to the queue so user sees everything
   const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -240,7 +253,7 @@ export function PurchaseUploadView() {
     const fileList = Array.from(files);
     const newJobs: PurchaseUploadJob[] = fileList.map((file) => {
       const jobId = `pur_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      filesStoreRef.current.set(jobId, file);
+      globalPurchaseFiles.set(jobId, file);
       return {
         id: jobId,
         file_name: file.name,
@@ -249,7 +262,9 @@ export function PurchaseUploadView() {
       };
     });
 
-    setJobs((prev) => [...newJobs, ...prev]);
+    const updated = [...newJobs, ...jobsRef.current];
+    jobsRef.current = updated;
+    setJobs(updated);
 
     setTimeout(() => {
       runQueue();
@@ -258,47 +273,46 @@ export function PurchaseUploadView() {
 
   // Stop/Cancel a single job midway
   const handleStopJob = useCallback((jobId: string) => {
-    const controller = abortControllersRef.current.get(jobId);
+    const controller = globalPurchaseAbortControllers.get(jobId);
     if (controller) {
       controller.abort();
-      abortControllersRef.current.delete(jobId);
+      globalPurchaseAbortControllers.delete(jobId);
     }
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === jobId ? { ...j, status: "CANCELLED", error: "Cancelled by user" } : j
-      )
+    jobsRef.current = jobsRef.current.map((j) =>
+      j.id === jobId ? { ...j, status: "CANCELLED", error: "Cancelled by user" } : j
     );
+    setJobs([...jobsRef.current]);
   }, []);
 
   // Cancel all ongoing and queued jobs midway
   const handleCancelAll = useCallback(() => {
-    abortControllersRef.current.forEach((controller) => {
+    globalPurchaseAbortControllers.forEach((controller) => {
       try {
         controller.abort();
       } catch (_) {}
     });
-    abortControllersRef.current.clear();
+    globalPurchaseAbortControllers.clear();
 
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.status === "QUEUED" || j.status === "PROCESSING"
-          ? { ...j, status: "CANCELLED", error: "Cancelled by user" }
-          : j
-      )
+    jobsRef.current = jobsRef.current.map((j) =>
+      j.status === "QUEUED" || j.status === "PROCESSING"
+        ? { ...j, status: "CANCELLED", error: "Cancelled by user" }
+        : j
     );
+    setJobs([...jobsRef.current]);
   }, []);
 
   // Retry a failed or cancelled job
   const handleRetryJob = useCallback(
     (jobId: string) => {
-      const file = filesStoreRef.current.get(jobId);
+      const file = globalPurchaseFiles.get(jobId);
       if (!file) {
         alert("Original file is no longer available in memory. Please click 'Add Bills' to re-upload.");
         return;
       }
-      setJobs((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, status: "QUEUED", error: null } : j))
+      jobsRef.current = jobsRef.current.map((j) =>
+        j.id === jobId ? { ...j, status: "QUEUED", error: null } : j
       );
+      setJobs([...jobsRef.current]);
       setTimeout(() => {
         runQueue();
       }, 50);
@@ -309,15 +323,14 @@ export function PurchaseUploadView() {
   // Retry all failed and cancelled jobs
   const handleRetryAllFailed = useCallback(() => {
     let retriedCount = 0;
-    setJobs((prev) =>
-      prev.map((j) => {
-        if ((j.status === "FAILED" || j.status === "CANCELLED") && filesStoreRef.current.has(j.id)) {
-          retriedCount++;
-          return { ...j, status: "QUEUED", error: null };
-        }
-        return j;
-      })
-    );
+    jobsRef.current = jobsRef.current.map((j) => {
+      if ((j.status === "FAILED" || j.status === "CANCELLED") && globalPurchaseFiles.has(j.id)) {
+        retriedCount++;
+        return { ...j, status: "QUEUED", error: null };
+      }
+      return j;
+    });
+    setJobs([...jobsRef.current]);
 
     if (retriedCount > 0) {
       setTimeout(() => {
@@ -333,29 +346,32 @@ export function PurchaseUploadView() {
     (jobId: string) => {
       handleStopJob(jobId);
       if (activeJobId === jobId) setActiveJobId(null);
-      filesStoreRef.current.delete(jobId);
-      setJobs((prev) => prev.filter((j) => j.id !== jobId));
+      globalPurchaseFiles.delete(jobId);
+      jobsRef.current = jobsRef.current.filter((j) => j.id !== jobId);
+      setJobs([...jobsRef.current]);
     },
     [handleStopJob, activeJobId]
   );
 
   // Clear completed jobs
   const handleClearCompleted = useCallback(() => {
-    setJobs((prev) => prev.filter((j) => !["SAVED", "CANCELLED", "FAILED"].includes(j.status)));
+    jobsRef.current = jobsRef.current.filter((j) => !["SAVED", "CANCELLED", "FAILED"].includes(j.status));
+    setJobs([...jobsRef.current]);
   }, []);
 
   // Clear all jobs
   const handleClearAll = useCallback(() => {
-    const hasActive = jobs.some((j) => j.status === "PROCESSING" || j.status === "QUEUED");
+    const hasActive = jobsRef.current.some((j) => j.status === "PROCESSING" || j.status === "QUEUED");
     if (hasActive) {
       if (!confirm("There are active extractions in progress. Cancel and clear all?")) return;
       handleCancelAll();
     }
     setActiveJobId(null);
+    jobsRef.current = [];
     setJobs([]);
-    filesStoreRef.current.clear();
+    globalPurchaseFiles.clear();
     sessionStorage.removeItem(STORAGE_KEY);
-  }, [jobs, handleCancelAll]);
+  }, [handleCancelAll]);
 
   // Derived job states
   const activeJob = activeJobId ? jobs.find((j) => j.id === activeJobId) : null;

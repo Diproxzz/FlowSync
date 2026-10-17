@@ -104,7 +104,6 @@ export function PurchaseItemsTable({
               });
 
               const isDrumUnit = ["DRUM", "BAG", "CAN", "PACK"].includes(unitNorm);
-              const needsManual = unitNorm !== "KG" && conv.needsManualKg;
 
               return (
                 <tr key={index} className="hover:bg-surface-2/40 transition">
@@ -209,6 +208,7 @@ export function PurchaseItemsTable({
                         className="px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-ink font-mono uppercase focus:outline-none focus:ring-1 focus:ring-accent"
                       >
                         <option value="KG">KG</option>
+                        <option value="PCS">PCS</option>
                         <option value="DRUM">DRUM</option>
                         <option value="MT">MT</option>
                         <option value="BAG">BAG</option>
@@ -216,6 +216,7 @@ export function PurchaseItemsTable({
                         <option value="PACK">PACK</option>
                         <option value="LTR">LTR</option>
                         <option value="NOS">NOS</option>
+                        <option value="BOX">BOX</option>
                         <option value="OTHER">OTHER</option>
                       </select>
                     </div>
@@ -239,27 +240,6 @@ export function PurchaseItemsTable({
                           className="w-14 px-1 py-0.5 bg-bg border border-border rounded-xs text-[10px] text-right num font-mono"
                         />
                         <span className="text-ink-3">kg</span>
-                      </div>
-                    )}
-
-                    {/* Unconvertible unit manual kg entry */}
-                    {needsManual && (
-                      <div className="mt-1 flex items-center gap-1 text-[10px]">
-                        <span className="text-danger font-medium">Qty (kg):</span>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="Manual kg"
-                          value={pRes.manualQtyKg ?? ""}
-                          onChange={(e) =>
-                            onUpdateResolution(index, {
-                              manualQtyKg: e.target.value
-                                ? parseFloat(e.target.value)
-                                : null,
-                            })
-                          }
-                          className="w-16 px-1 py-0.5 bg-bg border border-danger rounded-xs text-[10px] text-right num font-mono text-danger"
-                        />
                       </div>
                     )}
 
