@@ -1,3 +1,5 @@
+import path from "path";
+import { pathToFileURL } from "url";
 import { ExtractedStatement, StatementEntry } from "./schema";
 import { extractReferencedBills } from "../particulars";
 
@@ -274,6 +276,13 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
  */
 export async function parseMargStatementPdf(pdfBuffer: Buffer): Promise<ExtractedStatement> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  try {
+    const workerFile = path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerFile).href;
+  } catch (err) {
+    // ignore
+  }
+
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(pdfBuffer),
     useSystemFonts: true,

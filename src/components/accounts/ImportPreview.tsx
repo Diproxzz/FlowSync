@@ -55,12 +55,18 @@ export function ImportPreview({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to save statement");
+        const errorMsg =
+          typeof data.error === "string"
+            ? data.error
+            : data.error?.message || data.message || "Failed to save statement";
+        throw new Error(errorMsg);
       }
 
       onSaveSuccess(data.data.accountId);
     } catch (err: any) {
-      setError(err.message || "An error occurred while saving the statement.");
+      setError(
+        typeof err?.message === "string" ? err.message : "An error occurred while saving the statement."
+      );
     } finally {
       setSaving(false);
     }
@@ -245,19 +251,20 @@ export function ImportPreview({
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
             <span className="text-xs text-muted-foreground block">Debit Total (Marg)</span>
             <span className="font-mono font-semibold text-sm text-foreground">
-              {formatINR(extracted.totals.debitTotal)}
+              {formatINR(extracted?.totals?.debitTotal ?? extracted?.printedTotals?.debit ?? 0)}
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
             <span className="text-xs text-muted-foreground block">Credit Total (Marg)</span>
             <span className="font-mono font-semibold text-sm text-foreground">
-              {formatINR(extracted.totals.creditTotal)}
+              {formatINR(extracted?.totals?.creditTotal ?? extracted?.printedTotals?.credit ?? 0)}
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
             <span className="text-xs text-muted-foreground block">Replayed Closing</span>
             <span className="font-mono font-semibold text-sm text-foreground">
-              {formatINR(extracted.totals.closing)} {extracted.totals.closingSide}
+              {formatINR(extracted?.totals?.closing ?? extracted?.printedTotals?.balance ?? 0)}{" "}
+              {extracted?.totals?.closingSide ?? extracted?.printedTotals?.balanceSide ?? "Dr"}
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">

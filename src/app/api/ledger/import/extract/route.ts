@@ -95,20 +95,38 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      draft: {
-        ...draft,
-        entries: enrichedEntries,
+      success: true,
+      data: {
+        extracted: {
+          ...draft,
+          totals: {
+            debitTotal: draft.printedTotals?.debit ?? 0,
+            creditTotal: draft.printedTotals?.credit ?? 0,
+            closing: draft.printedTotals?.balance ?? 0,
+            closingSide: draft.printedTotals?.balanceSide ?? "Dr",
+          },
+          entries: enrichedEntries,
+        },
+        validation,
+        partyMatch,
+        existingInvoicesFound: enrichedEntries
+          .filter((e: any) => e.linkedInvoice)
+          .map((e: any) => e.linkedInvoice),
+        fileHash,
+        fileName,
+        isDuplicateFile,
       },
-      validation,
-      partyMatch,
-      fileHash,
-      fileName,
-      isDuplicateFile,
     });
   } catch (error: any) {
     console.error("Statement extract error:", error);
     return NextResponse.json(
-      { error: { code: "PARSE_FAILED", message: error.message || "Failed to extract statement" } },
+      {
+        success: false,
+        error: {
+          code: "PARSE_FAILED",
+          message: error.message || "Failed to extract statement",
+        },
+      },
       { status: 500 }
     );
   }

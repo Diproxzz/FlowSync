@@ -70,13 +70,17 @@ export default function StatementImportPage() {
       });
 
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to extract statement");
+      if (!res.ok || json.success === false || json.error) {
+        const errorMsg =
+          typeof json.error === "string"
+            ? json.error
+            : json.error?.message || json.message || "Failed to extract statement";
+        throw new Error(errorMsg);
       }
 
-      setExtractResult(json.data);
+      setExtractResult(json.data || json);
     } catch (err: any) {
-      setError(err.message || "Failed to process statement PDF.");
+      setError(typeof err?.message === "string" ? err.message : "Failed to process statement PDF.");
     } finally {
       setExtracting(false);
     }
