@@ -70,14 +70,14 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
     const totalLine = lines[totalLineIndex];
     const totalAmounts = totalLine.match(/[\d,]+\.\d{2}(?:\s*(?:Dr|Cr))?/gi) || [];
 
-    if (totalAmounts.length >= 3) {
+    if (totalAmounts.length >= 3 && totalAmounts[0] && totalAmounts[1] && totalAmounts[2]) {
       // 3 amounts: Debit Total, Credit Total, Closing Balance
       printedDebitTotal = parseFloat(totalAmounts[0].replace(/,/g, ""));
       printedCreditTotal = parseFloat(totalAmounts[1].replace(/,/g, ""));
       const balStr = totalAmounts[2];
       printedClosingBalance = parseFloat(balStr.replace(/,/g, ""));
       if (/Cr/i.test(balStr)) printedClosingSide = "Cr";
-    } else if (totalAmounts.length === 2) {
+    } else if (totalAmounts.length === 2 && totalAmounts[0] && totalAmounts[1]) {
       const firstStr = totalAmounts[0];
       const secondStr = totalAmounts[1];
       const firstVal = parseFloat(firstStr.replace(/,/g, ""));

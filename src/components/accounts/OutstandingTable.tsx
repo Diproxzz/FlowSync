@@ -1,21 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { formatINR, formatDate } from "@/lib/format";
-import { AlertCircle, Clock, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Clock, CheckCircle2, Filter, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface OpenItemRow {
-  entryId: string;
+  id?: string;
+  entryId?: string;
   docNo: string | null;
-  invoiceId: string | null;
-  date: string;
-  dueDate: string | null;
-  originalAmount: number;
-  settledAmount: number;
-  outstandingAmount: number;
-  status: "OPEN" | "PARTIALLY_SETTLED" | "SETTLED";
+  invoiceId?: string | null;
+  date?: string;
+  entryDate?: string;
+  dueDate?: string | null;
+  amount?: number;
+  originalAmount?: number;
+  settled?: number;
+  settledAmount?: number;
+  outstanding?: number;
+  outstandingAmount?: number;
+  status: "OPEN" | "PART" | "PAID" | "PARTIALLY_SETTLED" | "SETTLED";
   ageDays: number | null;
   overdue: boolean;
   isOpening?: boolean;
@@ -36,11 +41,121 @@ export function OutstandingTable({
   closingSide,
   creditDays = 90,
 }: OutstandingTableProps) {
-  const totalOutstanding = items.reduce((acc, it) => acc + it.outstandingAmount, 0);
+  const [filterMode, setFilterMode] = useState<"PENDING_ONLY" | "ALL">("PENDING_ONLY");
+
+  const normalizedItems = useMemo(() => {
+    return items.map((item, idx) => {
+      const origAmt = item.originalAmount ?? item.amount ?? 0;
+      const setAmt = item.settledAmount ?? item.settled ?? 0;
+      const outAmt = item.outstandingAmount ?? item.outstanding ?? 0;
+      const dateVal = item.date || item.entryDate || "";
+      const rowId = item.entryId || item.id || `open-item-${idx}`;
+
+      const isPaid =
+        item.status === "SETTLED" ||
+        item.status === "PAID" ||
+        outAmt <= 0.005;
+
+      const isPart =
+        item.status === "PARTIALLY_SETTLED" ||
+        item.status === "PART" ||
+        (outAmt > 0.005 && setAmt > 0.005);
+
+      return {
+        raw: item,
+        id: rowId,
+        docNo: item.docNo,
+        invoiceId: item.invoiceId || null,
+        date: dateVal,
+        dueDate: item.dueDate,
+        originalAmount: origAmt,
+        settledAmount: setAmt,
+        outstandingAmount: outAmt,
+        isPaid,
+        isPart,
+        isOverdue: item.overdue && outAmt > 0.005,
+        ageDays: item.ageDays,
+        isOpening: item.isOpening || /opening/i.test(item.docNo || ""),
+      };
+    });
+  }, [items]);
+
+  const pendingItems = useMemo(
+    () => normalizedItems.filter((it) => it.outstandingAmount > 0.005),
+    [normalizedItems]
+  );
+
+  const displayedItems = filterMode === "PENDING_ONLY" ? pendingItems : normalizedItems;
+
+  const totalOutstanding = useMemo(
+    () => normalizedItems.reduce((acc, it) => acc + it.outstandingAmount, 0),
+    [normalizedItems]
+  );
+
+  const totalInvoiced = useMemo(
+    () => normalizedItems.reduce((acc, it) => acc + it.originalAmount, 0),
+    [normalizedItems]
+  );
+
+  const totalSettled = useMemo(
+    () => normalizedItems.reduce((acc, it) => acc + it.settledAmount, 0),
+    [normalizedItems]
+  );
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm flex flex-col">
-      <div className="overflow-x-auto">
+    <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm flex flex-col space-y-3 p-4">
+      {/* Top Filter and Stats Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+        {/* Toggle Pills */}
+        <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-lg text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setFilterMode("PENDING_ONLY")}
+            className={cn(
+              "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5",
+              filterMode === "PENDING_ONLY"
+                ? "bg-card text-foreground font-semibold shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Clock className="w-3.5 h-3.5 text-amber-600" />
+            <span>Pending Bills ({pendingItems.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterMode("ALL")}
+            className={cn(
+              "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5",
+              filterMode === "ALL"
+                ? "bg-card text-foreground font-semibold shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>All Bills ({normalizedItems.length})</span>
+          </button>
+        </div>
+
+        {/* Aggregate Stats */}
+        <div className="flex items-center gap-4 text-xs font-mono">
+          <div>
+            <span className="text-muted-foreground">Total Invoiced: </span>
+            <span className="font-semibold text-foreground">{formatINR(totalInvoiced)}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Settled: </span>
+            <span className="font-semibold text-emerald-600">{formatINR(totalSettled)}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Outstanding: </span>
+            <span className="font-bold text-rose-600">{formatINR(totalOutstanding)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm text-left border-collapse">
           <thead>
             <tr className="bg-muted/50 border-b border-border text-xs uppercase tracking-wider text-muted-foreground font-semibold">
@@ -55,29 +170,32 @@ export function OutstandingTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {items.length === 0 ? (
+            {displayedItems.length === 0 ? (
               <tr>
                 <td colSpan={8} className="py-10 text-center text-muted-foreground">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                    <p className="font-medium text-foreground">No outstanding bills</p>
+                    <p className="font-medium text-foreground">
+                      {filterMode === "PENDING_ONLY"
+                        ? "No pending bills"
+                        : "No bills on record"}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      All invoices and prior balance have been fully settled.
+                      {filterMode === "PENDING_ONLY"
+                        ? "All invoices and prior opening balance have been fully settled."
+                        : "No bills have been posted for this party."}
                     </p>
                   </div>
                 </td>
               </tr>
             ) : (
-              items.map((item) => {
-                const isPaid = item.status === "SETTLED";
-                const isPart = item.status === "PARTIALLY_SETTLED";
-
+              displayedItems.map((item) => {
                 return (
                   <tr
-                    key={item.entryId}
+                    key={item.id}
                     className={cn(
                       "hover:bg-muted/30 transition-colors",
-                      item.overdue && "bg-rose-50/30 dark:bg-rose-950/10"
+                      item.isOverdue && "bg-rose-50/40 dark:bg-rose-950/20"
                     )}
                   >
                     {/* Bill / Document */}
@@ -88,19 +206,27 @@ export function OutstandingTable({
                         </span>
                       ) : item.invoiceId ? (
                         <Link
-                          href={`/invoices?search=${encodeURIComponent(item.docNo || "")}`}
+                          href={`/invoices/${item.invoiceId}`}
+                          className="text-primary font-medium hover:underline flex items-center gap-1.5"
+                          title="View Invoice"
+                        >
+                          <span>Bill No. {item.docNo}</span>
+                        </Link>
+                      ) : item.docNo ? (
+                        <Link
+                          href={`/invoices?search=${encodeURIComponent(item.docNo)}`}
                           className="text-primary font-medium hover:underline"
                         >
                           Bill No. {item.docNo}
                         </Link>
                       ) : (
-                        <span>Bill No. {item.docNo || "—"}</span>
+                        <span>—</span>
                       )}
                     </td>
 
                     {/* Date */}
                     <td className="py-2.5 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDate(item.date)}
+                      {item.date ? formatDate(item.date) : "—"}
                     </td>
 
                     {/* Due Date */}
@@ -108,7 +234,7 @@ export function OutstandingTable({
                       {item.dueDate ? (
                         <span
                           className={cn(
-                            item.overdue
+                            item.isOverdue
                               ? "text-rose-600 dark:text-rose-400 font-semibold"
                               : "text-muted-foreground"
                           )}
@@ -137,20 +263,20 @@ export function OutstandingTable({
 
                     {/* Age */}
                     <td className="py-2.5 px-4 text-center font-mono text-xs text-muted-foreground">
-                      {item.ageDays !== null ? `${item.ageDays} d` : "—"}
+                      {item.ageDays !== null && item.ageDays !== undefined ? `${item.ageDays} d` : "—"}
                     </td>
 
                     {/* Status */}
                     <td className="py-2.5 px-4 text-center">
-                      {item.overdue ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
+                      {item.isPaid ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                          <CheckCircle2 className="w-3 h-3" /> Settled
+                        </span>
+                      ) : item.isOverdue ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
                           <AlertCircle className="w-3 h-3" /> Overdue
                         </span>
-                      ) : isPaid ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                          Settled
-                        </span>
-                      ) : isPart ? (
+                      ) : item.isPart ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                           <Clock className="w-3 h-3" /> Part Paid
                         </span>

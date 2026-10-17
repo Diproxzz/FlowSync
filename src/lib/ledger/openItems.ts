@@ -19,16 +19,23 @@ export interface ExplicitAllocation {
 
 export interface OpenItemResult {
   id: string;
+  entryId: string;
   entryType: string;
   docNo: string;
+  invoiceId?: string | null;
   entryDate: string;
+  date: string;
   amount: number;
+  originalAmount: number;
   settled: number;
+  settledAmount: number;
   outstanding: number;
+  outstandingAmount: number;
   status: "OPEN" | "PART" | "PAID";
   dueDate: string | null;
   overdue: boolean;
   ageDays: number | null;
+  isOpening?: boolean;
 }
 
 export interface OpenItemsSummary {
@@ -185,18 +192,26 @@ export function calculateOpenItems(
       ? "Opening balance (prior-year bills)"
       : e.doc_no || `${e.entry_type} #${e.id.slice(0, 8)}`;
 
+    const dateStr = entryDate.toISOString().slice(0, 10);
     resultItems.push({
       id: e.id,
+      entryId: e.id,
       entryType: e.entry_type,
       docNo,
-      entryDate: entryDate.toISOString().slice(0, 10),
+      invoiceId: (e as any).invoice_id || (e as any).invoice?.id || null,
+      date: dateStr,
+      entryDate: dateStr,
       amount: origAmt,
+      originalAmount: origAmt,
       settled: setAmt,
+      settledAmount: setAmt,
       outstanding: outAmt,
+      outstandingAmount: outAmt,
       status,
       dueDate: dueDateStr,
       overdue: isOverdue,
       ageDays,
+      isOpening,
     });
   }
 

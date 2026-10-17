@@ -16,6 +16,11 @@ export async function GET(
       include: {
         entries: {
           where: { is_void: false },
+          include: {
+            invoice: {
+              select: { id: true },
+            },
+          },
           orderBy: [{ entry_date: "asc" }, { sort_seq: "asc" }, { id: "asc" }],
         },
       },

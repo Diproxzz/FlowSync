@@ -342,7 +342,13 @@ export default function AccountStatementPage() {
             )}
           >
             <Clock className="w-4 h-4" />
-            <span>Outstanding Bills ({openItemsData?.items?.length || 0})</span>
+            <span>
+              Outstanding Bills (
+              {openItemsData?.items?.filter(
+                (it: any) => (it.outstandingAmount ?? it.outstanding ?? 0) > 0.005
+              ).length || 0}
+              )
+            </span>
           </button>
         </div>
       </div>
