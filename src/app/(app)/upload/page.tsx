@@ -331,7 +331,7 @@ export default function UploadPage() {
       {/* ========================================================================= */}
       {/* MODE 1: REVIEW MODE (Split View)                                          */}
       {/* ========================================================================= */}
-      {activeJob && activeJob.status === "READY" && activeJob.extracted_data ? (
+      {activeJob && activeJob.extracted_data && (activeJob.status === "READY" || activeJob.status === "FAILED") ? (
         <div className="flex-1 flex flex-col min-h-0 space-y-3">
           {/* Top Bar for Queue Navigation & Job Status */}
           <div className="bg-surface border border-border rounded-sm p-2.5 shadow-sm space-y-2">
@@ -410,9 +410,9 @@ export default function UploadPage() {
                   <button
                     key={job.id}
                     onClick={() => {
-                      if (isReady) setActiveJobId(job.id);
+                      if (isReady || (isFailed && job.extracted_data)) setActiveJobId(job.id);
                     }}
-                    disabled={!isReady && !isActive}
+                    disabled={!isReady && !isActive && !(isFailed && job.extracted_data)}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm border whitespace-nowrap transition text-[11px] font-medium ${
                       isActive
                         ? "bg-primary/10 border-primary text-primary font-semibold shadow-xs"
@@ -473,6 +473,24 @@ export default function UploadPage() {
             />
           )}
 
+          {activeJob.status === "FAILED" && (
+            <div className="p-3 bg-warning-bg/60 border border-warning/40 rounded-sm text-xs text-ink flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
+                <span>
+                  <strong>Manual Review Mode:</strong> AI extraction reached provider rate limits. You can fill in or adjust the invoice fields on the right while referencing the original document on the left.
+                </span>
+              </div>
+              <button
+                onClick={() => handleRetryJob(activeJob.id)}
+                className="px-3 py-1 bg-surface border border-warning text-ink rounded-sm font-semibold hover:bg-warning-bg transition flex items-center gap-1 text-[11px]"
+              >
+                <RotateCcw className="w-3 h-3 text-warning" />
+                <span>Retry AI</span>
+              </button>
+            </div>
+          )}
+
           {/* Split Screen Container */}
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
             {/* Left Column: Document Viewer */}
@@ -507,12 +525,12 @@ export default function UploadPage() {
             <div>
               <h2 className="text-xl font-semibold text-ink flex items-center gap-2">
                 <span>Upload Sales Invoices</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                  Independent Background Processing
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                  Automated Processing
                 </span>
               </h2>
-              <p className="text-xs text-ink-3 mt-0.5">
-                Uploads process independently in PostgreSQL. You can safely switch tabs or navigate away without losing progress.
+              <p className="text-xs text-ink-3 mt-1">
+                Upload invoices in PDF or image format for automated data extraction.
               </p>
             </div>
 
@@ -777,7 +795,7 @@ export default function UploadPage() {
                         {job.status === "QUEUED" && (
                           <span className="inline-flex items-center gap-1.5 text-ink-3 text-[11px] bg-surface-2 px-2.5 py-1 rounded-sm border border-border">
                             <Clock className="w-3.5 h-3.5" />
-                            <span>Queued (1 at a time)</span>
+                            <span>Queued</span>
                           </span>
                         )}
 
@@ -818,14 +836,26 @@ export default function UploadPage() {
 
                         {/* Retry button for failed or stopped jobs */}
                         {(job.status === "FAILED" || job.status === "CANCELLED") && (
-                          <button
-                            onClick={() => handleRetryJob(job.id)}
-                            className="px-2.5 py-1 bg-surface border border-danger/40 text-danger rounded-sm font-semibold text-[11px] hover:bg-danger-bg transition flex items-center gap-1"
-                            title="Retry extracting this invoice"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Retry</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {job.extracted_data && (
+                              <button
+                                onClick={() => setActiveJobId(job.id)}
+                                className="px-2.5 py-1 bg-surface border border-border text-ink hover:bg-surface-2 rounded-sm font-semibold text-[11px] transition flex items-center gap-1"
+                                title="Open Document Viewer and enter details manually"
+                              >
+                                <FileText className="w-3 h-3 text-ink-3" />
+                                <span>Enter Manually</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleRetryJob(job.id)}
+                              className="px-2.5 py-1 bg-surface border border-danger/40 text-danger rounded-sm font-semibold text-[11px] hover:bg-danger-bg transition flex items-center gap-1"
+                              title="Retry extracting this invoice"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Retry</span>
+                            </button>
+                          </div>
                         )}
 
                         {/* Manual STOP button: Allows user to cancel a queued or processing job */}

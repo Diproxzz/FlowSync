@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Upload, Tag, Edit2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Upload, Tag, Edit2, AlertCircle, CheckCircle2, GitMerge } from "lucide-react";
 import { formatINR, formatKg } from "@/lib/format";
 
 interface Product {
@@ -31,6 +31,11 @@ export default function ProductsPage() {
   const [isAliasOpen, setIsAliasOpen] = useState(false);
   const [newAlias, setNewAlias] = useState("");
   const [aliasError, setAliasError] = useState<string | null>(null);
+
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [targetProductId, setTargetProductId] = useState("");
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeMessage, setMergeMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -178,6 +183,38 @@ export default function ProductsPage() {
     }
   };
 
+  const handleMergeProducts = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct || !targetProductId) return;
+
+    try {
+      setIsMerging(true);
+      setMergeMessage(null);
+      const res = await fetch("/api/products/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceProductId: selectedProduct.id,
+          targetProductId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setMergeMessage({ type: "error", text: data.error?.message || "Failed to merge products" });
+        return;
+      }
+
+      setIsMergeOpen(false);
+      setMergeMessage({ type: "success", text: data.message });
+      loadProducts();
+    } catch {
+      setMergeMessage({ type: "error", text: "Failed to merge products" });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -235,6 +272,23 @@ export default function ProductsPage() {
           {products.length} {products.length === 1 ? "product" : "products"}
         </div>
       </div>
+
+      {mergeMessage && (
+        <div
+          className={`p-3 rounded-sm text-xs flex items-center gap-2 border ${
+            mergeMessage.type === "success"
+              ? "bg-success-bg text-success border-success/30"
+              : "bg-danger-bg text-danger border-danger/30"
+          }`}
+        >
+          {mergeMessage.type === "success" ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0" />
+          )}
+          <span>{mergeMessage.text}</span>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-surface border border-border rounded-sm overflow-hidden">
@@ -308,13 +362,24 @@ export default function ProductsPage() {
                         <span>{p.aliases.length}</span>
                       </button>
                     </td>
-                    <td className="py-2.5 px-3 text-right">
+                    <td className="py-2.5 px-3 text-right space-x-1">
                       <button
                         onClick={() => handleEditClick(p)}
                         className="p-1 text-ink-3 hover:text-ink hover:bg-surface-2 rounded-sm transition"
                         title="Edit product"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedProduct(p);
+                          setTargetProductId("");
+                          setIsMergeOpen(true);
+                        }}
+                        className="p-1 text-ink-3 hover:text-accent hover:bg-surface-2 rounded-sm transition"
+                        title="Merge product into another"
+                      >
+                        <GitMerge className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
@@ -582,6 +647,61 @@ export default function ProductsPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merge Product Modal */}
+      {isMergeOpen && selectedProduct && (
+        <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-lg shadow-pop w-full max-w-md p-6">
+            <h3 className="text-sm font-semibold text-ink mb-1">Merge Product Record</h3>
+            <p className="text-xs text-ink-3 mb-4">
+              Merge duplicate product <strong className="text-ink">{selectedProduct.code} ({selectedProduct.name})</strong> into another primary product record.
+              All invoices, stock movements, and aliases will be transferred.
+            </p>
+
+            <form onSubmit={handleMergeProducts} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-medium text-ink-2 mb-1">Target Product (Keep this record)</label>
+                <select
+                  value={targetProductId}
+                  onChange={(e) => setTargetProductId(e.target.value)}
+                  className="w-full px-2.5 py-2 text-xs bg-bg border border-border rounded-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                  required
+                >
+                  <option value="">Select target product...</option>
+                  {products
+                    .filter((p) => p.id !== selectedProduct.id)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code} — {p.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="p-3 bg-warning-bg/60 border border-warning/30 rounded-sm text-[11px] text-warning">
+                <strong>Warning:</strong> The source record ({selectedProduct.code}) will be deleted, and its name and code will be saved as aliases on the target product so future invoices map automatically.
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setIsMergeOpen(false)}
+                  className="px-3 py-1.5 rounded-sm border border-border text-xs text-ink-2 hover:bg-surface-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!targetProductId || isMerging}
+                  className="px-3.5 py-1.5 rounded-sm bg-accent text-primary-fg text-xs font-medium hover:opacity-90 disabled:opacity-50"
+                >
+                  {isMerging ? "Merging..." : "Confirm Merge"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

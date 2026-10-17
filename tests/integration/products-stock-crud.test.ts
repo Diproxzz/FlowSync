@@ -55,11 +55,11 @@ describe("Phase 3: Products, Customers, and Stock CRUD & Import Tests", () => {
     expect(kg?.status).toBe("LOW STOCK");
     expect(kg?.saleRate).toBe(115);
 
-    // Now lower reorder level back below closing stock (e.g. 1000 kg)
+    // Now reset reorder level back below closing stock
     await prisma.product.update({
       where: { id: testProductId },
       data: {
-        reorder_level_kg: 1000,
+        reorder_level_kg: null,
       },
     });
 

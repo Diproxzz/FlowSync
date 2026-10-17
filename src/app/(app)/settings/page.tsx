@@ -29,7 +29,7 @@ export default function SettingsPage() {
     fiscalYearStartMonth: 4,
     lapsedDays: 60,
     fuzzyThreshold: 0.85,
-    providerOrder: ["gemini", "openrouter", "groq", "ollama"],
+    providerOrder: ["groq", "gemini", "glm-ocr", "paddleocr-vl", "qwen2-vl", "openrouter", "ollama"],
   });
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);

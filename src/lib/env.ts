@@ -7,7 +7,7 @@ const envSchema = z.object({
   COMPANY_NAME: z.string().default("INDOBEST"),
   COMPANY_GSTIN: z.string().default("19AVZPC2361G1ZA"),
 
-  LLM_PROVIDER_ORDER: z.string().default("groq,gemini,openrouter,ollama"),
+  LLM_PROVIDER_ORDER: z.string().default("groq,gemini,glm-ocr,paddleocr-vl,qwen2-vl,openrouter,ollama"),
   GEMINI_API_KEY: z.string().optional().default(""),
   GEMINI_MODEL: z.string().optional().default("gemini-3.7-flash"),
   OPENROUTER_API_KEY: z.string().optional().default(""),

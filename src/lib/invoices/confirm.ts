@@ -82,53 +82,66 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
   // Execute in single Prisma Transaction
   return await prisma.$transaction(async (tx) => {
     // 3. Resolve Customer
+    const rawCustomerName = draft.customer.name?.trim();
     let customerId = customerResolution.customerId;
+    const cleanGstin = (customerResolution.customerGstin || draft.customer.gstin || "")
+      .trim()
+      .toUpperCase() || null;
 
-    if (customerResolution.action === "CREATE_NEW" || !customerId) {
-      const cleanName = customerResolution.customerName.trim();
-      const nameNorm = normalizeCustomerName(cleanName);
-      const cleanGstin = customerResolution.customerGstin
-        ? customerResolution.customerGstin.trim().toUpperCase()
-        : null;
+    // Check if GSTIN matches an existing customer in DB
+    const existingCustByGstin = cleanGstin
+      ? await tx.customer.findUnique({ where: { gstin: cleanGstin } })
+      : null;
 
-      // Check if GSTIN already exists
-      let cust = cleanGstin ? await tx.customer.findUnique({ where: { gstin: cleanGstin } }) : null;
-      if (!cust) {
-        cust = await tx.customer.create({
-          data: {
-            name: cleanName,
-            name_norm: nameNorm,
-            gstin: cleanGstin,
-            address: customerResolution.customerAddress || null,
-            state_code: cleanGstin ? cleanGstin.substring(0, 2) : null,
-          },
-        });
-        newCustomerCreated = true;
-      }
-      customerId = cust.id;
-    } else {
-      // If customer exists but has no GSTIN and draft has one, update it
+    if (existingCustByGstin) {
+      // If GSTIN matches an existing customer, use that customer and make name identical
+      customerId = existingCustByGstin.id;
+      customerResolution.customerId = existingCustByGstin.id;
+      customerResolution.customerName = existingCustByGstin.name;
+      draft.customer.name = existingCustByGstin.name;
+    } else if (customerId) {
       const currentCust = await tx.customer.findUnique({ where: { id: customerId } });
-      if (currentCust && !currentCust.gstin && customerResolution.customerGstin) {
-        await tx.customer.update({
-          where: { id: customerId },
-          data: {
-            gstin: customerResolution.customerGstin.trim().toUpperCase(),
-            state_code: customerResolution.customerGstin.trim().substring(0, 2),
-          },
-        });
+      if (currentCust) {
+        customerResolution.customerName = currentCust.name;
+        draft.customer.name = currentCust.name;
+        if (!currentCust.gstin && cleanGstin) {
+          await tx.customer.update({
+            where: { id: customerId },
+            data: {
+              gstin: cleanGstin,
+              state_code: cleanGstin.substring(0, 2),
+            },
+          });
+        }
       }
+    } else {
+      const cleanName = (customerResolution.customerName || draft.customer.name).trim();
+      const nameNorm = normalizeCustomerName(cleanName);
+      const cust = await tx.customer.create({
+        data: {
+          name: cleanName,
+          name_norm: nameNorm,
+          gstin: cleanGstin,
+          address: customerResolution.customerAddress || draft.customer.address || null,
+          state_code: cleanGstin ? cleanGstin.substring(0, 2) : null,
+        },
+      });
+      newCustomerCreated = true;
+      customerId = cust.id;
+      customerResolution.customerId = cust.id;
+      customerResolution.customerName = cust.name;
+      draft.customer.name = cust.name;
     }
 
-    // Learn Customer Alias
-    if (draft.customer.name) {
-      const aliasNorm = normalizeCustomerName(draft.customer.name);
+    // Learn Customer Alias (if raw extracted name differs from canonical name)
+    if (rawCustomerName && rawCustomerName.toLowerCase() !== draft.customer.name.toLowerCase()) {
+      const aliasNorm = normalizeCustomerName(rawCustomerName);
       const existingAlias = await tx.customerAlias.findUnique({ where: { alias_norm: aliasNorm } });
       if (!existingAlias) {
         await tx.customerAlias.create({
           data: {
             customer_id: customerId,
-            alias: draft.customer.name.trim(),
+            alias: rawCustomerName,
             alias_norm: aliasNorm,
           },
         });
@@ -213,11 +226,20 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
     const fyEnd = (fyStart + 1) % 100;
     const financialYear = `${fyStart}-${fyEnd < 10 ? "0" + fyEnd : fyEnd}`;
 
+    // Check if Inter-State (IGST) or Intra-State (CGST + SGST)
+    const isInterState =
+      Number(draft.totals.igstTotal || 0) > 0 ||
+      draft.items.some((it) => (it.igstPct || 0) > 0);
+
+    const cgstTotalDec = isInterState ? new Prisma.Decimal(0) : new Prisma.Decimal(draft.totals.cgstTotal);
+    const sgstTotalDec = isInterState ? new Prisma.Decimal(0) : new Prisma.Decimal(draft.totals.sgstTotal);
+    const igstTotalDec = isInterState ? new Prisma.Decimal(draft.totals.igstTotal || 0) : new Prisma.Decimal(0);
+
     // Derived round-off
     const exactSum = new Prisma.Decimal(draft.totals.taxableSubtotal)
-      .plus(draft.totals.cgstTotal)
-      .plus(draft.totals.sgstTotal)
-      .plus(draft.totals.igstTotal || 0);
+      .plus(cgstTotalDec)
+      .plus(sgstTotalDec)
+      .plus(igstTotalDec);
     const roundOff = new Prisma.Decimal(draft.totals.grandTotal).minus(exactSum);
 
     let savedInvoice: any;
@@ -252,9 +274,11 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
           customer_name_snapshot: draft.customer.name,
           customer_gstin_snapshot: draft.customer.gstin,
           taxable_total: new Prisma.Decimal(draft.totals.taxableSubtotal),
-          cgst_total: new Prisma.Decimal(draft.totals.cgstTotal),
-          sgst_total: new Prisma.Decimal(draft.totals.sgstTotal),
-          igst_total: new Prisma.Decimal(draft.totals.igstTotal || 0),
+          discount_total: draft.totals.discountTotal ? new Prisma.Decimal(draft.totals.discountTotal) : null,
+          discount_pct: draft.totals.discountPct ? new Prisma.Decimal(draft.totals.discountPct) : null,
+          cgst_total: cgstTotalDec,
+          sgst_total: sgstTotalDec,
+          igst_total: igstTotalDec,
           round_off: roundOff,
           grand_total: new Prisma.Decimal(draft.totals.grandTotal),
           source_file_hash: fileHash || existing.source_file_hash,
@@ -277,9 +301,11 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
           customer_name_snapshot: draft.customer.name,
           customer_gstin_snapshot: draft.customer.gstin,
           taxable_total: new Prisma.Decimal(draft.totals.taxableSubtotal),
-          cgst_total: new Prisma.Decimal(draft.totals.cgstTotal),
-          sgst_total: new Prisma.Decimal(draft.totals.sgstTotal),
-          igst_total: new Prisma.Decimal(draft.totals.igstTotal || 0),
+          discount_total: draft.totals.discountTotal ? new Prisma.Decimal(draft.totals.discountTotal) : null,
+          discount_pct: draft.totals.discountPct ? new Prisma.Decimal(draft.totals.discountPct) : null,
+          cgst_total: cgstTotalDec,
+          sgst_total: sgstTotalDec,
+          igst_total: igstTotalDec,
           round_off: roundOff,
           grand_total: new Prisma.Decimal(draft.totals.grandTotal),
           source_file_hash: fileHash || "manual",
@@ -296,6 +322,20 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
     for (const item of draft.items) {
       const prodId = lineProductMap.get(item.lineNo)!;
 
+      const itemCgstPct = isInterState ? new Prisma.Decimal(0) : new Prisma.Decimal(item.cgstPct || 0);
+      const itemSgstPct = isInterState ? new Prisma.Decimal(0) : new Prisma.Decimal(item.sgstPct || 0);
+      const itemIgstPct = isInterState ? new Prisma.Decimal(item.igstPct || 0) : new Prisma.Decimal(0);
+
+      const itemCgstAmount = isInterState
+        ? new Prisma.Decimal(0)
+        : new Prisma.Decimal(item.cgstAmount ?? Math.round(((item.taxableAmount * Number(item.cgstPct || 0)) / 100) * 100) / 100);
+      const itemSgstAmount = isInterState
+        ? new Prisma.Decimal(0)
+        : new Prisma.Decimal(item.sgstAmount ?? Math.round(((item.taxableAmount * Number(item.sgstPct || 0)) / 100) * 100) / 100);
+      const itemIgstAmount = isInterState
+        ? new Prisma.Decimal(Math.round(((item.taxableAmount * Number(item.igstPct || 0)) / 100) * 100) / 100)
+        : new Prisma.Decimal(0);
+
       const createdItem = await tx.invoiceItem.create({
         data: {
           invoice_id: savedInvoice.id,
@@ -306,13 +346,15 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
           qty_kg: new Prisma.Decimal(item.qtyKg),
           pack_size_kg: item.packSizeKg ? new Prisma.Decimal(item.packSizeKg) : null,
           rate: new Prisma.Decimal(item.rate),
+          discount_pct: item.discountPct ? new Prisma.Decimal(item.discountPct) : null,
+          discount_amount: item.discountAmount ? new Prisma.Decimal(item.discountAmount) : null,
           taxable_amount: new Prisma.Decimal(item.taxableAmount),
-          cgst_pct: new Prisma.Decimal(item.cgstPct),
-          sgst_pct: new Prisma.Decimal(item.sgstPct),
-          igst_pct: new Prisma.Decimal(item.igstPct || 0),
-          cgst_amount: new Prisma.Decimal(item.cgstAmount ?? 0),
-          sgst_amount: new Prisma.Decimal(item.sgstAmount ?? 0),
-          igst_amount: new Prisma.Decimal(0),
+          cgst_pct: itemCgstPct,
+          sgst_pct: itemSgstPct,
+          igst_pct: itemIgstPct,
+          cgst_amount: itemCgstAmount,
+          sgst_amount: itemSgstAmount,
+          igst_amount: itemIgstAmount,
           line_total: new Prisma.Decimal(item.lineTotal),
         },
       });

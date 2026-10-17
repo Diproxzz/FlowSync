@@ -7,7 +7,8 @@ import fixture473 from "../fixtures/inv-473.json";
 
 describe("Phase 6: Analytics Engine and PRD Acceptance Test 7", () => {
   let createdInvoiceId: string;
-  let testCustomerName = "RAHMAN INDUSTRIES LTD.";
+  let testCustomerName = "TEST ANALYTICS CUSTOMER 999";
+  const testInvoiceNum = "IB26-27/TEST-ANALYTICS-999";
   let kgProductId: string;
 
   beforeAll(async () => {
@@ -15,13 +16,17 @@ describe("Phase 6: Analytics Engine and PRD Acceptance Test 7", () => {
     const prod = await prisma.product.findUnique({ where: { code: "KG" } });
     if (prod) kgProductId = prod.id;
 
-    // Clean up any existing 473
+    // Clean up any existing test invoice
     await prisma.invoice.deleteMany({
-      where: { invoice_number_norm: "ib26-27/0473" },
+      where: { invoice_number_norm: testInvoiceNum.toLowerCase() },
     });
 
-    // Create invoice 473 using confirmInvoice
-    const draft: any = { ...fixture473 };
+    // Create test invoice using confirmInvoice
+    const draft: any = {
+      ...fixture473,
+      invoice: { ...fixture473.invoice, number: testInvoiceNum },
+      customer: { ...fixture473.customer, name: testCustomerName },
+    };
     const res = await confirmInvoice({
       draft,
       customerResolution: {

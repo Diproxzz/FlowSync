@@ -7,12 +7,33 @@ import { GeminiProvider } from "./providers/gemini";
 import { OpenRouterProvider } from "./providers/openrouter";
 import { GroqProvider } from "./providers/groq";
 import { OllamaProvider } from "./providers/ollama";
+import { GlmOcrProvider } from "./providers/glm-ocr";
+import { PaddleOcrVlProvider } from "./providers/paddleocr-vl";
+import { Qwen2VlProvider } from "./providers/qwen2-vl";
 
 export interface ExtractionResult {
   draft: ExtractedInvoice;
   provider: ProviderId;
   model: string;
   latencyMs: number;
+}
+
+export function formatExtractionErrorMessage(providerErrors: Array<{ provider: ProviderId; error: string }>): string {
+  if (!providerErrors || providerErrors.length === 0) {
+    return "All configured AI extraction providers failed. Check your API keys and quotas in Settings.";
+  }
+  const parts = providerErrors.map((pe) => {
+    let msg = pe.error;
+    if (msg.includes("tokens per day (TPD)")) {
+      const waitMatch = msg.match(/try again in ([^.]+s)/i);
+      msg = `Daily token limit reached (200,000 tokens/day on free tier)${waitMatch ? ` — please wait ${waitMatch[1]} or add an extra API key` : ""}`;
+    } else if (msg.includes("Quota exceeded for metric")) {
+      const retryMatch = msg.match(/Please retry in ([^.]+s)/i);
+      msg = `Daily free tier quota (20 requests/day) exceeded${retryMatch ? ` — resets in ${retryMatch[1]}` : ""}`;
+    }
+    return `[${pe.provider.toUpperCase()}]: ${msg}`;
+  });
+  return `Extraction failed: ${parts.join(" | ")}`;
 }
 
 export class ExtractionError extends Error {
@@ -37,9 +58,12 @@ export function stripFences(text: string): string {
 }
 
 const PROVIDER_REGISTRY: Record<ProviderId, LLMProvider> = {
-  gemini: new GeminiProvider(),
-  openrouter: new OpenRouterProvider(),
   groq: new GroqProvider(),
+  gemini: new GeminiProvider(),
+  "glm-ocr": new GlmOcrProvider(),
+  "paddleocr-vl": new PaddleOcrVlProvider(),
+  "qwen2-vl": new Qwen2VlProvider(),
+  openrouter: new OpenRouterProvider(),
   ollama: new OllamaProvider(),
 };
 
@@ -81,7 +105,7 @@ export async function extractInvoiceData(input: {
 
       try {
         const timeoutController = new AbortController();
-        const timeoutId = setTimeout(() => timeoutController.abort(), 60000); // 60s timeout
+        const timeoutId = setTimeout(() => timeoutController.abort(), 120000); // 120s timeout
 
         const response = await provider.extract({
           systemPrompt: getInvoiceSystemPrompt(),
@@ -172,5 +196,5 @@ export async function extractInvoiceData(input: {
     },
   }).catch((err) => console.error("Failed to write extraction log:", err));
 
-  throw new ExtractionError("All configured AI extraction providers failed", providerErrors);
+  throw new ExtractionError(formatExtractionErrorMessage(providerErrors), providerErrors);
 }

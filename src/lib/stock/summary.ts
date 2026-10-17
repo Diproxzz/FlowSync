@@ -39,8 +39,8 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
     for (const sm of p.stock_movements) {
       const q = new Decimal(sm.qty_kg.toString());
       if (sm.type === "OPENING") opening = opening.plus(q);
-      else if (sm.type === "PURCHASE") purchases = purchases.plus(q);
-      else if (sm.type === "SALE") sales = sales.plus(q);
+      else if (sm.type === "PURCHASE") purchases = purchases.plus(q.abs());
+      else if (sm.type === "SALE") sales = sales.plus(q.abs());
       else if (sm.type === "ADJUSTMENT") adjustments = adjustments.plus(q);
     }
 

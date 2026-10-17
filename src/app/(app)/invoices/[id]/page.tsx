@@ -26,11 +26,15 @@ interface InvoiceItem {
   qty_kg: string;
   pack_size_kg: string | null;
   rate: string;
+  discount_pct: string | null;
+  discount_amount: string | null;
   taxable_amount: string;
   cgst_pct: string;
   sgst_pct: string;
   cgst_amount: string;
   sgst_amount: string;
+  igst_pct?: string | null;
+  igst_amount?: string | null;
   line_total: string;
   product: {
     id: string;
@@ -57,6 +61,8 @@ interface InvoiceDetail {
   customer_name_snapshot: string;
   customer_gstin_snapshot: string | null;
   taxable_total: string;
+  discount_total: string | null;
+  discount_pct: string | null;
   cgst_total: string;
   sgst_total: string;
   igst_total: string;
@@ -333,103 +339,169 @@ export default function InvoiceDetailPage({
         </h3>
         <div className="bg-surface border border-border rounded-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-surface-2 text-ink-2 font-medium border-b border-border">
-                  <th className="py-2.5 px-3 w-10">#</th>
-                  <th className="py-2.5 px-3">Description on Bill</th>
-                  <th className="py-2.5 px-3">Mapped Product</th>
-                  <th className="py-2.5 px-3">HSN</th>
-                  <th className="py-2.5 px-3 text-right">Quantity</th>
-                  <th className="py-2.5 px-3 text-right">Unit Rate</th>
-                  <th className="py-2.5 px-3 text-right">Taxable</th>
-                  <th className="py-2.5 px-3 text-right">GST %</th>
-                  <th className="py-2.5 px-3 text-right font-semibold text-ink">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {invoice.items.map((item) => (
-                  <tr key={item.id} className="hover:bg-surface-2/60 transition">
-                    <td className="py-2.5 px-3 font-mono text-ink-3">{item.line_no}</td>
-                    <td className="py-2.5 px-3 font-medium text-ink">
-                      {item.product_name_raw}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-semibold text-primary px-1.5 py-0.5 rounded-sm bg-primary/10 text-[11px]">
-                          {item.product.code}
-                        </span>
-                        <span className="text-ink-2 truncate max-w-[200px]" title={item.product.name}>
-                          {item.product.name}
+            {(() => {
+              const isIgst = Number(invoice.igst_total || 0) > 0;
+              const hasLineDiscount = invoice.items.some(
+                (item) => item.discount_pct && Number(item.discount_pct) > 0
+              );
+              const hasOverallDiscount =
+                Boolean(invoice.discount_total && Number(invoice.discount_total) > 0) ||
+                Boolean(invoice.discount_pct && Number(invoice.discount_pct) > 0);
+
+              const fallbackIgstPct =
+                isIgst && Number(invoice.taxable_total) > 0
+                  ? Math.round((Number(invoice.igst_total) / Number(invoice.taxable_total)) * 100)
+                  : 0;
+
+              return (
+                <>
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-surface-2 text-ink-2 font-medium border-b border-border">
+                        <th className="py-2.5 px-3 w-10">#</th>
+                        <th className="py-2.5 px-3">Description on Bill</th>
+                        <th className="py-2.5 px-3">Mapped Product</th>
+                        <th className="py-2.5 px-3">HSN</th>
+                        <th className="py-2.5 px-3 text-right">Quantity</th>
+                        <th className="py-2.5 px-3 text-right">Unit Rate</th>
+                        {hasLineDiscount && <th className="py-2.5 px-3 text-right">Disc %</th>}
+                        <th className="py-2.5 px-3 text-right">Taxable</th>
+                        <th className="py-2.5 px-3 text-right">{isIgst ? "IGST %" : "GST %"}</th>
+                        <th className="py-2.5 px-3 text-right font-semibold text-ink">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {invoice.items.map((item) => {
+                        const itemGstPct =
+                          Number(item.igst_pct || 0) > 0
+                            ? Number(item.igst_pct)
+                            : (Number(item.cgst_pct || 0) + Number(item.sgst_pct || 0) > 0
+                                ? Number(item.cgst_pct || 0) + Number(item.sgst_pct || 0)
+                                : fallbackIgstPct);
+
+                        return (
+                          <tr key={item.id} className="hover:bg-surface-2/60 transition">
+                            <td className="py-2.5 px-3 font-mono text-ink-3">{item.line_no}</td>
+                            <td className="py-2.5 px-3 font-medium text-ink">
+                              {item.product_name_raw}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-semibold text-primary px-1.5 py-0.5 rounded-sm bg-primary/10 text-[11px]">
+                                  {item.product.code}
+                                </span>
+                                <span className="text-ink-2 truncate max-w-[200px]" title={item.product.name}>
+                                  {item.product.name}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-ink-3">
+                              {item.hsn || item.product.hsn_code || "—"}
+                            </td>
+                            <td className="py-2.5 px-3 text-right num text-ink font-medium">
+                              {formatKg(Number(item.qty_kg))}
+                            </td>
+                            <td className="py-2.5 px-3 text-right num text-ink-2">
+                              ₹{Number(item.rate).toFixed(2)}
+                            </td>
+                            {hasLineDiscount && (
+                              <td className="py-2.5 px-3 text-right num text-ink-2">
+                                {item.discount_pct && Number(item.discount_pct) > 0 ? (
+                                  <span className="font-mono font-medium text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[11px]">
+                                    {Number(item.discount_pct)}%
+                                  </span>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                            )}
+                            <td className="py-2.5 px-3 text-right num text-ink-2">
+                              {formatINR(Number(item.taxable_amount))}
+                            </td>
+                            <td className="py-2.5 px-3 text-right num text-ink-3">
+                              {itemGstPct}%
+                            </td>
+                            <td className="py-2.5 px-3 text-right num font-semibold text-ink">
+                              {formatINR(Number(item.line_total))}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* Breakdown & Totals Box */}
+                  <div className="p-4 bg-surface-2/40 border-t border-border flex flex-col sm:flex-row justify-between gap-6">
+                    <div className="text-xs text-ink-3 space-y-1">
+                      <p>• All line items deduct stock directly from inventory via transaction ledger.</p>
+                      {isIgst ? (
+                        <p>
+                          • GST rate: Inter-State IGST{" "}
+                          {Number(invoice.items[0]?.igst_pct || 0) > 0
+                            ? invoice.items[0]?.igst_pct
+                            : fallbackIgstPct}
+                          %.
+                        </p>
+                      ) : (
+                        <p>
+                          • GST rates: Intra-State CGST {invoice.items[0]?.cgst_pct || "9"}% + SGST{" "}
+                          {invoice.items[0]?.sgst_pct || "9"}%.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="w-full sm:w-72 space-y-1.5 text-xs">
+                      <div className="flex justify-between py-1 text-ink-2">
+                        <span>Taxable Subtotal:</span>
+                        <span className="num font-mono">{formatINR(Number(invoice.taxable_total))}</span>
+                      </div>
+                      {hasOverallDiscount && (
+                        <div className="flex justify-between py-1 text-emerald-600 font-medium">
+                          <span>
+                            Trade Discount{invoice.discount_pct ? ` (${Number(invoice.discount_pct)}%)` : ""}:
+                          </span>
+                          <span className="num font-mono">
+                            {invoice.discount_total ? `-${formatINR(Number(invoice.discount_total))}` : `${Number(invoice.discount_pct)}%`}
+                          </span>
+                        </div>
+                      )}
+                      {isIgst ? (
+                        <div className="flex justify-between py-1 text-ink-3">
+                          <span>IGST Subtotal:</span>
+                          <span className="num font-mono">{formatINR(Number(invoice.igst_total))}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-between py-1 text-ink-3">
+                            <span>CGST Subtotal:</span>
+                            <span className="num font-mono">{formatINR(Number(invoice.cgst_total))}</span>
+                          </div>
+                          <div className="flex justify-between py-1 text-ink-3">
+                            <span>SGST Subtotal:</span>
+                            <span className="num font-mono">{formatINR(Number(invoice.sgst_total))}</span>
+                          </div>
+                        </>
+                      )}
+                      {Number(invoice.round_off) !== 0 && (
+                        <div className="flex justify-between py-1 text-ink-3">
+                          <span>Round Off:</span>
+                          <span className="num font-mono">
+                            {Number(invoice.round_off) > 0 ? "+" : ""}
+                            {Number(invoice.round_off).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between py-2 border-t border-border text-sm font-bold text-ink">
+                        <span>Grand Total:</span>
+                        <span className="num font-mono text-primary">
+                          {formatINR(Number(invoice.grand_total))}
                         </span>
                       </div>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-ink-3">
-                      {item.hsn || item.product.hsn_code || "—"}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink font-medium">
-                      {formatKg(Number(item.qty_kg))}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">
-                      ₹{Number(item.rate).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">
-                      {formatINR(Number(item.taxable_amount))}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-3">
-                      {Number(item.cgst_pct) + Number(item.sgst_pct)}%
-                    </td>
-                    <td className="py-2.5 px-3 text-right num font-semibold text-ink">
-                      {formatINR(Number(item.line_total))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Breakdown & Totals Box */}
-          <div className="p-4 bg-surface-2/40 border-t border-border flex flex-col sm:flex-row justify-between gap-6">
-            <div className="text-xs text-ink-3 space-y-1">
-              <p>• All line items deduct stock directly from inventory via transaction ledger.</p>
-              <p>• GST rates: CGST {invoice.items[0]?.cgst_pct || "9"}% + SGST {invoice.items[0]?.sgst_pct || "9"}%.</p>
-            </div>
-
-            <div className="w-full sm:w-72 space-y-1.5 text-xs">
-              <div className="flex justify-between py-1 text-ink-2">
-                <span>Taxable Subtotal:</span>
-                <span className="num font-mono">{formatINR(Number(invoice.taxable_total))}</span>
-              </div>
-              <div className="flex justify-between py-1 text-ink-3">
-                <span>CGST Subtotal:</span>
-                <span className="num font-mono">{formatINR(Number(invoice.cgst_total))}</span>
-              </div>
-              <div className="flex justify-between py-1 text-ink-3">
-                <span>SGST Subtotal:</span>
-                <span className="num font-mono">{formatINR(Number(invoice.sgst_total))}</span>
-              </div>
-              {Number(invoice.igst_total) > 0 && (
-                <div className="flex justify-between py-1 text-ink-3">
-                  <span>IGST Subtotal:</span>
-                  <span className="num font-mono">{formatINR(Number(invoice.igst_total))}</span>
-                </div>
-              )}
-              {Number(invoice.round_off) !== 0 && (
-                <div className="flex justify-between py-1 text-ink-3">
-                  <span>Round Off:</span>
-                  <span className="num font-mono">
-                    {Number(invoice.round_off) > 0 ? "+" : ""}
-                    {Number(invoice.round_off).toFixed(2)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between py-2 border-t border-border text-sm font-bold text-ink">
-                <span>Grand Total:</span>
-                <span className="num font-mono text-primary">
-                  {formatINR(Number(invoice.grand_total))}
-                </span>
-              </div>
-            </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

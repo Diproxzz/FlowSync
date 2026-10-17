@@ -9,7 +9,7 @@ interface DocumentViewerProps {
 
 export function DocumentViewer({ pages }: DocumentViewerProps) {
   const [currentPage, setCurrentPage] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.8);
 
   if (!pages || pages.length === 0) {
     return (
@@ -74,9 +74,9 @@ export function DocumentViewer({ pages }: DocumentViewerProps) {
           </button>
           <button
             type="button"
-            onClick={() => setZoom(1)}
+            onClick={() => setZoom(0.8)}
             className="p-1 rounded-sm hover:bg-border text-ink-2 transition"
-            title="Reset zoom"
+            title="Reset zoom (80%)"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>

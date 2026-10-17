@@ -49,10 +49,15 @@ function LoginForm() {
   return (
     <div className="w-full max-w-sm bg-surface border border-border rounded-lg shadow-pop p-8">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-sm bg-primary-soft text-primary mb-3">
-          <Lock className="w-6 h-6" />
+        <div className="inline-flex items-center justify-center mb-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpg"
+            alt="Indobest"
+            className="w-16 h-16 object-contain rounded-md border border-border shadow-xs bg-[#fbf9f5]"
+          />
         </div>
-        <h1 className="text-xl font-semibold text-ink tracking-tight">Indobest Insights</h1>
+        <h1 className="text-xl font-bold text-ink tracking-tight">Indobest Insights</h1>
         <p className="text-xs text-ink-3 mt-1">Single-owner GST Invoice & Stock Intelligence</p>
       </div>
 

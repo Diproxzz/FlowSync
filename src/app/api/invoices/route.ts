@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
   const financialYear = searchParams.get("financialYear")?.trim();
   const minAmount = searchParams.get("minAmount")?.trim();
   const maxAmount = searchParams.get("maxAmount")?.trim();
-  const sortBy = searchParams.get("sortBy")?.trim() || "date";
-  const sortOrder = (searchParams.get("sortOrder")?.trim() || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+  const sortBy = searchParams.get("sortBy")?.trim() || "number";
+  const sortOrder = (searchParams.get("sortOrder")?.trim() || "asc").toLowerCase() === "desc" ? "desc" : "asc";
   const limit = parseInt(searchParams.get("limit") || "50", 10);
   const page = parseInt(searchParams.get("page") || "1", 10);
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   };
 
   // Determine sorting order
-  let orderBy: Prisma.InvoiceOrderByWithRelationInput = { invoice_date: sortOrder };
+  let orderBy: Prisma.InvoiceOrderByWithRelationInput = { invoice_number: sortOrder };
   if (sortBy === "number" || sortBy === "invoice_number") {
     orderBy = { invoice_number: sortOrder };
   } else if (sortBy === "customer" || sortBy === "customer_name") {
@@ -51,11 +51,13 @@ export async function GET(request: NextRequest) {
     orderBy = { taxable_total: sortOrder };
   } else if (sortBy === "created" || sortBy === "created_at") {
     orderBy = { created_at: sortOrder };
-  } else {
+  } else if (sortBy === "date" || sortBy === "invoice_date") {
     orderBy = { invoice_date: sortOrder };
+  } else {
+    orderBy = { invoice_number: sortOrder };
   }
 
-  const [invoices, total] = await Promise.all([
+  const [invoices, total, allInvoiceNumbers] = await Promise.all([
     prisma.invoice.findMany({
       where,
       include: {
@@ -69,10 +71,89 @@ export async function GET(request: NextRequest) {
       take: limit,
     }),
     prisma.invoice.count({ where }),
+    prisma.invoice.findMany({
+      select: { invoice_number: true },
+      orderBy: { invoice_number: "asc" },
+    }),
   ]);
+
+  // Compute missing invoice numbers across sequence prefixes
+  const prefixGroups = new Map<string, { num: number; pad: number; raw: string }[]>();
+  for (const inv of allInvoiceNumbers) {
+    const match = inv.invoice_number.match(/^(.*?)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const numStr = match[2];
+      const num = parseInt(numStr, 10);
+      const pad = numStr.length;
+      if (!prefixGroups.has(prefix)) {
+        prefixGroups.set(prefix, []);
+      }
+      prefixGroups.get(prefix)!.push({ num, pad, raw: inv.invoice_number });
+    }
+  }
+
+  const missingInvoices: { prefix: string; numbers: string[]; ranges: string[] }[] = [];
+  const allMissingNumbers: string[] = [];
+
+  for (const [prefix, entries] of Array.from(prefixGroups.entries())) {
+    if (entries.length < 2) continue;
+    entries.sort((a, b) => a.num - b.num);
+    const minNum = entries[0].num;
+    const maxNum = entries[entries.length - 1].num;
+    const pad = entries[0].pad;
+    const existingSet = new Set(entries.map((e) => e.num));
+
+    const missing: string[] = [];
+    const ranges: string[] = [];
+    let rangeStart: number | null = null;
+    let rangeEnd: number | null = null;
+
+    for (let n = minNum + 1; n < maxNum; n++) {
+      if (!existingSet.has(n)) {
+        const formatted = `${prefix}${String(n).padStart(pad, "0")}`;
+        missing.push(formatted);
+        allMissingNumbers.push(formatted);
+
+        if (rangeStart === null) {
+          rangeStart = n;
+          rangeEnd = n;
+        } else {
+          rangeEnd = n;
+        }
+      } else {
+        if (rangeStart !== null && rangeEnd !== null) {
+          if (rangeStart === rangeEnd) {
+            ranges.push(`${prefix}${String(rangeStart).padStart(pad, "0")}`);
+          } else {
+            ranges.push(
+              `${prefix}${String(rangeStart).padStart(pad, "0")} – ${prefix}${String(rangeEnd).padStart(pad, "0")}`
+            );
+          }
+          rangeStart = null;
+          rangeEnd = null;
+        }
+      }
+    }
+    if (rangeStart !== null && rangeEnd !== null) {
+      if (rangeStart === rangeEnd) {
+        ranges.push(`${prefix}${String(rangeStart).padStart(pad, "0")}`);
+      } else {
+        ranges.push(
+          `${prefix}${String(rangeStart).padStart(pad, "0")} – ${prefix}${String(rangeEnd).padStart(pad, "0")}`
+        );
+      }
+    }
+
+    if (missing.length > 0) {
+      missingInvoices.push({ prefix, numbers: missing, ranges });
+    }
+  }
 
   return NextResponse.json({
     invoices,
+    missingInvoices,
+    allMissingNumbers,
     pagination: {
       page,
       limit,

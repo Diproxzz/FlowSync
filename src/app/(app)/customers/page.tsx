@@ -1,7 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Search, GitMerge, Edit2, CheckCircle2, AlertCircle } from "lucide-react";
+import Link from "next/link";
+import {
+  Plus,
+  Search,
+  GitMerge,
+  Edit2,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  ExternalLink,
+  Receipt,
+  Package,
+  Calendar,
+  Building2,
+  ChevronRight,
+  ArrowUpRight,
+} from "lucide-react";
+import { formatINR, formatKg, formatDate } from "@/lib/format";
 
 interface Customer {
   id: string;
@@ -24,6 +42,12 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [targetCustomerId, setTargetCustomerId] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Customer Detail Drawer state (Debtor List & Products Portfolio)
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailCustomer, setDetailCustomer] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailTab, setDetailTab] = useState<"monthly" | "products">("monthly");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -131,6 +155,66 @@ export default function CustomersPage() {
     }
   };
 
+  const handleDeleteCustomer = async (c: Customer) => {
+    if ((c._count?.invoices ?? 0) > 0) {
+      setMessage({
+        type: "error",
+        text: `Cannot delete customer "${c.name}" because they have ${c._count?.invoices} associated invoice(s). Merge the customer or delete associated invoices first.`,
+      });
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete customer "${c.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setMessage(null);
+      const res = await fetch(`/api/customers/${c.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage({
+          type: "error",
+          text: data.error?.message || "Failed to delete customer",
+        });
+        return;
+      }
+
+      setMessage({
+        type: "success",
+        text: `Customer "${c.name}" deleted successfully.`,
+      });
+      if (selectedCustomer?.id === c.id) {
+        setIsDetailOpen(false);
+        setIsEditOpen(false);
+        setSelectedCustomer(null);
+      }
+      loadCustomers();
+    } catch {
+      setMessage({ type: "error", text: "Failed to connect to server" });
+    }
+  };
+
+  const handleOpenDetail = async (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsDetailOpen(true);
+    setLoadingDetail(true);
+    setDetailTab("monthly");
+    try {
+      const res = await fetch(`/api/customers/${customer.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setDetailCustomer(data);
+      }
+    } catch (err) {
+      console.error("Failed to load customer details:", err);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -216,8 +300,17 @@ export default function CustomersPage() {
                 </tr>
               ) : (
                 customers.map((c) => (
-                  <tr key={c.id} className="hover:bg-surface-2/60 transition">
-                    <td className="py-2.5 px-3 font-semibold text-ink">{c.name}</td>
+                  <tr
+                    key={c.id}
+                    onClick={() => handleOpenDetail(c)}
+                    className="hover:bg-surface-2/80 transition cursor-pointer group"
+                  >
+                    <td className="py-2.5 px-3">
+                      <div className="font-semibold text-ink group-hover:text-primary transition flex items-center gap-1.5">
+                        <span>{c.name}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
+                      </div>
+                    </td>
                     <td className="py-2.5 px-3 font-mono">
                       {c.gstin ? (
                         <span className="px-1.5 py-0.5 rounded-sm bg-surface-2 text-ink-2 border border-border">
@@ -235,7 +328,14 @@ export default function CustomersPage() {
                     <td className="py-2.5 px-3 text-right num text-ink-3">
                       {c.aliases.length}
                     </td>
-                    <td className="py-2.5 px-3 text-right space-x-1">
+                    <td className="py-2.5 px-3 text-right space-x-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleOpenDetail(c)}
+                        className="p-1 text-ink-3 hover:text-primary hover:bg-surface-2 rounded-sm transition"
+                        title="View Debtor Breakdown & Products"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                      </button>
                       <button
                         onClick={() => {
                           setSelectedCustomer(c);
@@ -261,6 +361,13 @@ export default function CustomersPage() {
                         title="Merge customer"
                       >
                         <GitMerge className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCustomer(c)}
+                        className="p-1 text-ink-3 hover:text-danger hover:bg-danger-bg rounded-sm transition"
+                        title="Delete customer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
@@ -310,20 +417,30 @@ export default function CustomersPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border mt-4">
+              <div className="flex items-center justify-between pt-3 border-t border-border mt-4">
                 <button
                   type="button"
-                  onClick={() => setIsEditOpen(false)}
-                  className="px-3 py-1.5 rounded-sm border border-border text-xs text-ink-2 hover:bg-surface-2"
+                  onClick={() => selectedCustomer && handleDeleteCustomer(selectedCustomer)}
+                  className="px-2.5 py-1.5 rounded-sm bg-danger-bg border border-danger/30 text-xs text-danger hover:bg-danger/20 transition flex items-center gap-1.5"
                 >
-                  Cancel
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Customer</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-3.5 py-1.5 rounded-sm bg-primary text-primary-fg text-xs font-medium hover:opacity-90"
-                >
-                  Save Changes
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen(false)}
+                    className="px-3 py-1.5 rounded-sm border border-border text-xs text-ink-2 hover:bg-surface-2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-1.5 rounded-sm bg-primary text-primary-fg text-xs font-medium hover:opacity-90"
+                  >
+                    Save Changes
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -442,6 +559,292 @@ export default function CustomersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Detail Drawer / Debtor & Products Modal */}
+      {isDetailOpen && selectedCustomer && (
+        <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-surface border border-border rounded-lg shadow-pop w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-border bg-surface-2/40 flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h3 className="text-lg font-bold text-ink tracking-tight flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    <span>{selectedCustomer.name}</span>
+                  </h3>
+                  {selectedCustomer.gstin ? (
+                    <span className="px-2 py-0.5 rounded-sm bg-primary/10 border border-primary/20 text-primary font-mono text-[11px] font-semibold">
+                      GSTIN: {selectedCustomer.gstin}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-sm bg-warning/10 border border-warning/30 text-warning text-[11px] font-medium">
+                      Unregistered Customer
+                    </span>
+                  )}
+                  {selectedCustomer.state_code && (
+                    <span className="px-1.5 py-0.5 rounded-sm bg-surface border border-border text-ink-3 text-[10px] font-mono">
+                      State: {selectedCustomer.state_code}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-ink-3">
+                  {selectedCustomer.address || "No postal address recorded"}
+                </p>
+                {selectedCustomer.aliases && selectedCustomer.aliases.length > 0 && (
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-3">
+                    <span className="font-medium text-ink-2">Known Aliases:</span>
+                    <span>{selectedCustomer.aliases.map((a: any) => a.alias).join(", ")}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDeleteCustomer(selectedCustomer)}
+                  className="px-2.5 py-1.5 rounded-sm bg-danger-bg border border-danger/30 text-xs text-danger hover:bg-danger/20 transition flex items-center gap-1.5"
+                  title="Delete Customer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+                <Link
+                  href={`/invoices?customerId=${encodeURIComponent(selectedCustomer.id)}`}
+                  className="px-2.5 py-1.5 rounded-sm bg-surface border border-border text-xs text-ink-2 hover:bg-surface-2 transition flex items-center gap-1.5"
+                  title="View all invoices in Invoices directory"
+                >
+                  <Receipt className="w-3.5 h-3.5 text-primary" />
+                  <span>Invoices</span>
+                  <ArrowUpRight className="w-3 h-3 text-ink-3" />
+                </Link>
+                <button
+                  onClick={() => setIsDetailOpen(false)}
+                  className="p-1.5 rounded-sm hover:bg-surface-2 text-ink-3 hover:text-ink transition"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Stat Cards */}
+            <div className="p-5 border-b border-border bg-bg/50 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-sm bg-surface border border-primary/30 shadow-xs">
+                <span className="text-[11px] font-medium text-primary block mb-0.5">Total Outstanding (Debtor)</span>
+                <span className="text-lg font-bold text-ink num">
+                  {loadingDetail ? "..." : formatINR(detailCustomer?.customer?.totalOutstanding || 0)}
+                </span>
+                <span className="text-[10px] text-ink-3 block mt-0.5">Grand total across all invoices</span>
+              </div>
+
+              <div className="p-3 rounded-sm bg-surface border border-border shadow-xs">
+                <span className="text-[11px] font-medium text-ink-3 block mb-0.5">Total Invoices</span>
+                <span className="text-lg font-bold text-ink num">
+                  {loadingDetail ? "..." : `${detailCustomer?.customer?.invoicesCount ?? selectedCustomer._count?.invoices ?? 0}`}
+                </span>
+                <span className="text-[10px] text-ink-3 block mt-0.5">Billed tax invoices</span>
+              </div>
+
+              <div className="p-3 rounded-sm bg-surface border border-border shadow-xs">
+                <span className="text-[11px] font-medium text-ink-3 block mb-0.5">Chemicals Purchased</span>
+                <span className="text-lg font-bold text-ink num">
+                  {loadingDetail ? "..." : formatKg(detailCustomer?.customer?.totalVolumeKg || 0)}
+                </span>
+                <span className="text-[10px] text-ink-3 block mt-0.5">Total weight delivered</span>
+              </div>
+
+              <div className="p-3 rounded-sm bg-surface border border-border shadow-xs">
+                <span className="text-[11px] font-medium text-ink-3 block mb-0.5">Products Bought</span>
+                <span className="text-lg font-bold text-ink num">
+                  {loadingDetail ? "..." : `${detailCustomer?.productsBought?.length || 0} items`}
+                </span>
+                <span className="text-[10px] text-ink-3 block mt-0.5">Chemical items portfolio</span>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-5 border-b border-border bg-surface flex items-center justify-between">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setDetailTab("monthly")}
+                  className={`py-3 text-xs font-semibold border-b-2 flex items-center gap-2 transition ${
+                    detailTab === "monthly"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-ink-3 hover:text-ink"
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Monthly Outstanding (Debtor List)</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-surface-2 border border-border text-ink-2">
+                    {detailCustomer?.monthlyBreakdown?.length || 0} mos
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setDetailTab("products")}
+                  className={`py-3 text-xs font-semibold border-b-2 flex items-center gap-2 transition ${
+                    detailTab === "products"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-ink-3 hover:text-ink"
+                  }`}
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Products Bought Portfolio</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-surface-2 border border-border text-ink-2">
+                    {detailCustomer?.productsBought?.length || 0}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Contents */}
+            <div className="p-5 flex-1 overflow-y-auto space-y-4">
+              {loadingDetail ? (
+                <div className="py-16 text-center text-ink-3 text-xs flex flex-col items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Loading customer debtor & purchase history...</span>
+                </div>
+              ) : detailTab === "monthly" ? (
+                /* Monthly Outstanding Debtor List */
+                detailCustomer?.monthlyBreakdown?.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-ink-3 bg-surface-2/40 border border-border rounded-sm">
+                    No billing history or invoices found for this customer.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {detailCustomer?.monthlyBreakdown?.map((month: any) => (
+                      <div
+                        key={month.monthKey}
+                        className="bg-surface border border-border rounded-sm overflow-hidden shadow-xs"
+                      >
+                        {/* Month Header Banner */}
+                        <div className="p-3 bg-surface-2/70 border-b border-border flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3.5 h-3.5 text-accent" />
+                            <span className="font-bold text-xs text-ink">{month.monthLabel}</span>
+                            <span className="text-[11px] text-ink-3">
+                              ({month.invoicesCount} invoice{month.invoicesCount === 1 ? "" : "s"})
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[11px] text-ink-3 mr-2 font-mono">Month Billed:</span>
+                            <span className="text-xs font-bold text-primary font-mono">
+                              {formatINR(month.grandTotal)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Invoices Table for this Month */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-bg/40 text-ink-3 text-[11px] border-b border-border font-medium">
+                                <th className="py-2 px-3">Invoice No.</th>
+                                <th className="py-2 px-3">Date</th>
+                                <th className="py-2 px-3">Products Included</th>
+                                <th className="py-2 px-3 text-right">Taxable</th>
+                                <th className="py-2 px-3 text-right">Outstanding (Total)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              {month.invoices.map((inv: any) => (
+                                <tr key={inv.id} className="hover:bg-surface-2/40 transition">
+                                  <td className="py-2 px-3 font-mono font-semibold text-primary">
+                                    <Link
+                                      href={`/invoices/${inv.id}`}
+                                      className="hover:underline flex items-center gap-1 group"
+                                      title={`Open invoice #${inv.invoiceNumber}`}
+                                    >
+                                      <span>{inv.invoiceNumber}</span>
+                                      <ExternalLink className="w-3 h-3 text-ink-3 group-hover:text-primary transition" />
+                                    </Link>
+                                  </td>
+                                  <td className="py-2 px-3 text-ink-2 font-mono">{formatDate(inv.invoiceDate)}</td>
+                                  <td className="py-2 px-3 text-ink-3 text-[11px] max-w-sm truncate" title={inv.itemsSummary}>
+                                    {inv.itemsSummary || "—"}
+                                  </td>
+                                  <td className="py-2 px-3 text-right num text-ink-2">
+                                    {formatINR(inv.taxableTotal)}
+                                  </td>
+                                  <td className="py-2 px-3 text-right num font-bold text-ink">
+                                    {formatINR(inv.grandTotal)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                /* Products Bought Portfolio */
+                detailCustomer?.productsBought?.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-ink-3 bg-surface-2/40 border border-border rounded-sm">
+                    No chemical purchases recorded for this customer yet.
+                  </div>
+                ) : (
+                  <div className="bg-surface border border-border rounded-sm overflow-hidden shadow-xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-surface-2 text-ink-2 font-medium border-b border-border">
+                            <th className="py-2.5 px-3">Chemical Product</th>
+                            <th className="py-2.5 px-3 text-right">Total Quantity (kg)</th>
+                            <th className="py-2.5 px-3 text-right">Last Purchase Rate</th>
+                            <th className="py-2.5 px-3 text-right">Avg Rate</th>
+                            <th className="py-2.5 px-3 text-right">Total Spend (₹)</th>
+                            <th className="py-2.5 px-3 text-right">Last Purchase Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {detailCustomer?.productsBought?.map((prod: any) => (
+                            <tr key={prod.productId} className="hover:bg-surface-2/40 transition">
+                              <td className="py-2.5 px-3">
+                                <div className="font-semibold text-ink">{prod.name}</div>
+                                <div className="text-[10px] text-ink-3 font-mono">Code: {prod.code}</div>
+                              </td>
+                              <td className="py-2.5 px-3 text-right num font-semibold text-ink">
+                                {formatKg(prod.totalQtyKg)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right num font-mono text-ink-2">
+                                {formatINR(prod.lastRate)} / kg
+                              </td>
+                              <td className="py-2.5 px-3 text-right num font-mono text-ink-3">
+                                {formatINR(prod.avgRate)} / kg
+                              </td>
+                              <td className="py-2.5 px-3 text-right num font-bold text-primary">
+                                {formatINR(prod.totalAmount)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right num text-ink-3 font-mono">
+                                {formatDate(prod.lastDate)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border bg-surface-2/30 flex items-center justify-between">
+              <div className="text-xs text-ink-3">
+                Debtor Tracker · Month-by-month reconciliation
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDetailOpen(false)}
+                className="px-4 py-1.5 rounded-sm bg-surface border border-border text-ink text-xs font-medium hover:bg-surface-2 transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

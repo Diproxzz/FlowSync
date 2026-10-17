@@ -115,15 +115,20 @@ export function validateInvoice(
     const taxable = toDecimal(item.taxableAmount);
     const lineTotal = toDecimal(item.lineTotal);
 
-    // Taxable = Qty × Rate (±₹0.01)
-    const expectedTaxable = roundMoney(qty.times(rate));
+    // Taxable = Qty × Rate (accounting for discount if present) (±₹0.01)
+    const discountMultiplier = item.discountPct
+      ? new Decimal(1).minus(new Decimal(item.discountPct).dividedBy(100))
+      : new Decimal(1);
+    const expectedTaxable = roundMoney(qty.times(rate).times(discountMultiplier));
     const taxableDiff = taxable.minus(expectedTaxable).abs();
     if (taxableDiff.greaterThan(0.01)) {
       issues.push({
         path: `${p}.taxableAmount`,
         severity: "warning",
         code: "LINE_TAXABLE_MISMATCH",
-        message: `Line ${item.lineNo}: Taxable ₹${taxable.toFixed(2)} ≠ Qty (${qty}) × Rate (₹${rate}) = ₹${expectedTaxable.toFixed(2)}`,
+        message: item.discountPct
+          ? `Line ${item.lineNo}: Taxable ₹${taxable.toFixed(2)} ≠ Qty (${qty}) × Rate (₹${rate}) less ${item.discountPct}% = ₹${expectedTaxable.toFixed(2)}`
+          : `Line ${item.lineNo}: Taxable ₹${taxable.toFixed(2)} ≠ Qty (${qty}) × Rate (₹${rate}) = ₹${expectedTaxable.toFixed(2)}`,
       });
     }
 
@@ -203,6 +208,18 @@ export function validateInvoice(
       severity: "warning",
       code: "SGST_TOTAL_MISMATCH",
       message: `SGST total ₹${declaredSgst.toFixed(2)} does not match line SGST sum (₹${sumSgst.toFixed(2)})`,
+    });
+  }
+
+  // Indian GST compliance: IGST and (CGST + SGST) are strictly mutually exclusive
+  const hasCgstOrSgst = declaredCgst.greaterThan(0) || declaredSgst.greaterThan(0);
+  const hasIgst = declaredIgst.greaterThan(0);
+  if (hasIgst && hasCgstOrSgst) {
+    issues.push({
+      path: "totals",
+      severity: "warning",
+      code: "GST_TAX_EXCLUSIVE_CONFLICT",
+      message: "An invoice cannot include both IGST and CGST/SGST simultaneously. Under GST law, sales are either Inter-State (IGST) or Intra-State (CGST + SGST).",
     });
   }
 

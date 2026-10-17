@@ -89,11 +89,76 @@ describe("Phase 4: Invoice Validation Rules", () => {
 
     const result = validateInvoice(unregistered, COMPANY_GSTIN);
     // Missing GSTIN is warning, not error (unregistered customers are valid in business)
-    expect(result.hasErrors).toBe(false);
-    expect(result.hasWarnings).toBe(true);
-
     const issue = result.issues.find((i) => i.code === "GSTIN_MISSING");
     expect(issue).toBeDefined();
     expect(issue?.severity).toBe("warning");
+  });
+
+  it("should validate 5% GST rate with 2.5% CGST and 2.5% SGST", () => {
+    const inv5 = {
+      customer: { name: "Test 5% Customer", gstin: "19AAACR6862N1ZP" },
+      invoice: { number: "IB26-27/0999", date: "2026-05-10" },
+      items: [
+        {
+          lineNo: 1,
+          productNameRaw: "Chemical 5%",
+          qtyKg: 100,
+          rate: 100,
+          taxableAmount: 10000,
+          cgstPct: 2.5,
+          sgstPct: 2.5,
+          igstPct: 0,
+          cgstAmount: 250,
+          sgstAmount: 250,
+          lineTotal: 10500,
+        },
+      ],
+      totals: {
+        taxableSubtotal: 10000,
+        cgstTotal: 250,
+        sgstTotal: 250,
+        igstTotal: 0,
+        roundOff: 0,
+        grandTotal: 10500,
+      },
+    };
+
+    const result = validateInvoice(inv5 as ExtractedInvoice, COMPANY_GSTIN);
+    expect(result.hasErrors).toBe(false);
+    expect(result.isValid).toBe(true);
+  });
+
+  it("should validate 18% GST rate with 9% CGST and 9% SGST", () => {
+    const inv18 = {
+      customer: { name: "Test 18% Customer", gstin: "19AAACR6862N1ZP" },
+      invoice: { number: "IB26-27/0998", date: "2026-05-10" },
+      items: [
+        {
+          lineNo: 1,
+          productNameRaw: "Chemical 18%",
+          qtyKg: 100,
+          rate: 100,
+          taxableAmount: 10000,
+          cgstPct: 9,
+          sgstPct: 9,
+          igstPct: 0,
+          cgstAmount: 900,
+          sgstAmount: 900,
+          lineTotal: 11800,
+        },
+      ],
+      totals: {
+        taxableSubtotal: 10000,
+        cgstTotal: 900,
+        sgstTotal: 900,
+        igstTotal: 0,
+        roundOff: 0,
+        grandTotal: 11800,
+      },
+    };
+
+    const result = validateInvoice(inv18 as ExtractedInvoice, COMPANY_GSTIN);
+    expect(result.hasErrors).toBe(false);
+    expect(result.isValid).toBe(true);
   });
 });

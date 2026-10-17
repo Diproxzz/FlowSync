@@ -66,16 +66,26 @@ export class GroqProvider implements LLMProvider {
           const errJson = await res.json().catch(() => ({}));
           const message = errJson.error?.message || `Groq returned status ${res.status}`;
 
-          // If rate limited (429), parse delay or wait and retry
-          if (res.status === 429 && attempt < maxRetries) {
+          // If rate limited (429)
+          if (res.status === 429) {
             let waitSeconds = 4;
-            const match = message.match(/try again in ([\d.]+)s/i);
-            if (match && match[1]) {
-              waitSeconds = Math.max(Math.ceil(parseFloat(match[1])), 2) + 1;
+            const match = message.match(/try again in (?:(\d+)m)?([\d.]+)s/i);
+            if (match) {
+              const mins = match[1] ? parseInt(match[1], 10) : 0;
+              const secs = parseFloat(match[2]);
+              waitSeconds = mins * 60 + Math.ceil(secs);
             }
-            console.warn(`[Groq] Rate limit reached. Pacing request: pausing for ${waitSeconds}s before retry ${attempt}/${maxRetries}...`);
-            await new Promise((r) => setTimeout(r, waitSeconds * 1000));
-            continue;
+
+            // If it's a long delay (e.g. daily quota / minutes), fail fast so caller can switch provider or inform user
+            if (waitSeconds > 15) {
+              throw new Error(`Groq rate limit reached (resets in ${Math.ceil(waitSeconds / 60)}m): ${message}`);
+            }
+
+            if (attempt < maxRetries) {
+              console.warn(`[Groq] Rate limit reached. Pacing request: pausing for ${waitSeconds}s before retry ${attempt}/${maxRetries}...`);
+              await new Promise((r) => setTimeout(r, waitSeconds * 1000));
+              continue;
+            }
           }
 
           throw new Error(`Groq error: ${message}`);

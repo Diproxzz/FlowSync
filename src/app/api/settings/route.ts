@@ -12,22 +12,42 @@ export async function GET() {
   // Combine DB settings with environment provider status (keys are NEVER exposed to browser)
   const providers = [
     {
+      id: "groq",
+      name: "Groq (qwen-3.8)",
+      isConfigured: Boolean(env.GROQ_API_KEY && env.GROQ_API_KEY.trim()),
+      model: env.GROQ_MODEL || "qwen/qwen3.8-27b",
+    },
+    {
       id: "gemini",
-      name: "Google Gemini",
+      name: "Google Gemini (3.7)",
       isConfigured: Boolean(env.GEMINI_API_KEY && env.GEMINI_API_KEY.trim()),
-      model: env.GEMINI_MODEL || "gemini-1.5-flash",
+      model: env.GEMINI_MODEL || "gemini-3.7-flash",
+    },
+    {
+      id: "glm-ocr",
+      name: "GLM-OCR (0.9B)",
+      isConfigured: true,
+      model: "glm-ocr-0.9b (Ollama / Local)",
+      baseUrl: env.OLLAMA_BASE_URL,
+    },
+    {
+      id: "paddleocr-vl",
+      name: "PaddleOCR-VL (0.9B)",
+      isConfigured: true,
+      model: "paddleocr-vl-0.9b (Python / Local)",
+    },
+    {
+      id: "qwen2-vl",
+      name: "Qwen2-VL-2B (Quantized INT4)",
+      isConfigured: true,
+      model: "qwen2-vl-2b-int4 (Ollama / Transformers)",
+      baseUrl: env.OLLAMA_BASE_URL,
     },
     {
       id: "openrouter",
       name: "OpenRouter",
       isConfigured: Boolean(env.OPENROUTER_API_KEY && env.OPENROUTER_API_KEY.trim()),
       model: env.OPENROUTER_MODEL || "meta-llama/llama-3.2-11b-vision-instruct:free",
-    },
-    {
-      id: "groq",
-      name: "Groq",
-      isConfigured: Boolean(env.GROQ_API_KEY && env.GROQ_API_KEY.trim()),
-      model: env.GROQ_MODEL || "llama-3.2-11b-vision-preview",
     },
     {
       id: "ollama",
@@ -48,7 +68,15 @@ export async function GET() {
       fiscalYearStartMonth: settingsMap.fiscal_year_start_month ?? 4,
       lapsedDays: settingsMap.lapsed_days ?? 60,
       fuzzyThreshold: settingsMap.fuzzy_threshold ?? 0.85,
-      providerOrder: settingsMap.provider_order ?? ["gemini", "openrouter", "groq", "ollama"],
+      providerOrder: settingsMap.provider_order ?? [
+        "groq",
+        "gemini",
+        "glm-ocr",
+        "paddleocr-vl",
+        "qwen2-vl",
+        "openrouter",
+        "ollama",
+      ],
     },
     providers,
   });

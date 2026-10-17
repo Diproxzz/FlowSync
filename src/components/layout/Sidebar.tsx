@@ -10,9 +10,13 @@ import {
   Users,
   Boxes,
   Settings,
-  Sparkles,
+  Calendar,
+  Pin,
+  PinOff,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "./SidebarContext";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -26,17 +30,68 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const {
+    isOpen,
+    isPinned,
+    togglePinned,
+    handleMouseEnter,
+    handleMouseLeave,
+    closeSidebar,
+  } = useSidebar();
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-surface border-r border-border flex flex-col h-screen sticky top-0">
+    <aside
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={cn(
+        "w-60 bg-surface border-r border-border flex flex-col h-screen fixed inset-y-0 left-0 transition-transform duration-200 ease-out",
+        isPinned
+          ? "z-40 translate-x-0"
+          : cn(
+              "z-50 shadow-2xl",
+              isOpen
+                ? "translate-x-0 pointer-events-auto"
+                : "-translate-x-full pointer-events-none"
+            )
+      )}
+    >
       {/* Brand Header */}
-      <div className="h-14 px-5 border-b border-border flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-sm bg-primary text-primary-fg flex items-center justify-center font-bold text-xs tracking-wider">
-          IB
+      <div className="h-14 px-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpg"
+            alt="Indobest"
+            className="w-8 h-8 object-contain rounded-sm border border-border shadow-xs bg-[#fbf9f5]"
+          />
+          <div className="flex flex-col">
+            <span className="font-bold text-sm leading-tight text-ink tracking-tight">Indobest</span>
+            <span className="text-[10px] text-ink-3 uppercase tracking-wider font-mono">Leather Chemicals</span>
+          </div>
         </div>
-        <div className="flex flex-col">
-          <span className="font-semibold text-sm leading-tight text-ink">Indobest</span>
-          <span className="text-[10px] text-ink-3 uppercase tracking-wider font-mono">Insights</span>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={togglePinned}
+            type="button"
+            title={isPinned ? "Unpin (collapse when working on other side)" : "Pin sidebar open"}
+            className={cn(
+              "p-1.5 rounded-sm text-ink-3 hover:text-ink hover:bg-surface-2 transition",
+              isPinned ? "text-primary bg-primary/10" : "hover:text-primary"
+            )}
+          >
+            {isPinned ? <Pin className="w-3.5 h-3.5 rotate-45 text-primary" /> : <PinOff className="w-3.5 h-3.5" />}
+          </button>
+          {!isPinned && (
+            <button
+              onClick={closeSidebar}
+              type="button"
+              title="Close sidebar"
+              className="p-1.5 rounded-sm text-ink-3 hover:text-danger hover:bg-surface-2 transition"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -50,6 +105,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={closeSidebar}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-sm text-xs font-medium transition",
                 isActive
@@ -66,9 +122,9 @@ export function Sidebar() {
 
       {/* Footer Info */}
       <div className="p-3 border-t border-border bg-surface-2/40">
-        <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-ink-3">
-          <Sparkles className="w-3.5 h-3.5 text-accent" />
-          <span>FY 2026-27 Active</span>
+        <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-ink-2">
+          <Calendar className="w-3.5 h-3.5 text-accent" />
+          <span className="font-medium">FY 2026-27 Active</span>
         </div>
       </div>
     </aside>

@@ -1,4 +1,11 @@
-export type ProviderId = "gemini" | "openrouter" | "groq" | "ollama";
+export type ProviderId =
+  | "groq"
+  | "gemini"
+  | "glm-ocr"
+  | "paddleocr-vl"
+  | "qwen2-vl"
+  | "openrouter"
+  | "ollama";
 
 export interface ProviderImage {
   mime: "image/png" | "image/jpeg";

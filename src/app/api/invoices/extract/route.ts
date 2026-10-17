@@ -11,7 +11,7 @@ import { resolveProduct } from "@/lib/matching/product";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
 import { storage } from "@/lib/storage/adapter";
 
-export const maxDuration = 60; // 60s max execution for extraction
+export const maxDuration = 180; // 180s max execution for extraction (supports local OCR fallback)
 
 export async function POST(request: NextRequest) {
   try {
@@ -82,6 +82,11 @@ export async function POST(request: NextRequest) {
 
     // Customer resolution
     const customerMatch = await resolveCustomer(draft.customer);
+    if (customerMatch.status === "MATCHED" && customerMatch.customerName) {
+      if (customerMatch.reason === "GSTIN" || draft.customer.gstin) {
+        draft.customer.name = customerMatch.customerName;
+      }
+    }
 
     // Product resolution for each item
     const productMatches = await Promise.all(

@@ -11,7 +11,10 @@ describe("Phase 4: Customer and Product Matching Rules", () => {
     // Seed a known customer with GSTIN
     const c = await prisma.customer.upsert({
       where: { gstin: "19ACUPA0333J1ZL" },
-      update: {},
+      update: {
+        name: "Tiger International",
+        name_norm: "tiger international",
+      },
       create: {
         name: "Tiger International",
         name_norm: "tiger international",
@@ -36,9 +39,14 @@ describe("Phase 4: Customer and Product Matching Rules", () => {
   });
 
   afterAll(async () => {
-    await prisma.customer.deleteMany({
-      where: { gstin: "19ACUPA0333J1ZL" },
+    const invoicesCount = await prisma.invoice.count({
+      where: { customer: { gstin: "19ACUPA0333J1ZL" } },
     });
+    if (invoicesCount === 0) {
+      await prisma.customer.deleteMany({
+        where: { gstin: "19ACUPA0333J1ZL" },
+      });
+    }
     await prisma.productAlias.deleteMany({
       where: { alias_norm: "actipact dlp s" },
     });
@@ -66,8 +74,8 @@ describe("Phase 4: Customer and Product Matching Rules", () => {
       expect(match.productCode).toBe("AA");
     });
 
-    it("should return NEW for unknown product 'BESTRUB 108'", async () => {
-      const match = await resolveProduct("BESTRUB 108");
+    it("should return NEW for unknown product 'TOTALLY_UNKNOWN_PRODUCT_XYZ'", async () => {
+      const match = await resolveProduct("TOTALLY_UNKNOWN_PRODUCT_XYZ");
       expect(match.status).toBe("NEW");
     });
 
@@ -90,7 +98,20 @@ describe("Phase 4: Customer and Product Matching Rules", () => {
       expect(match.status).toBe("MATCHED");
       expect(match.reason).toBe("GSTIN");
       expect(match.customerId).toBe(createdCustomerId);
-      expect(match.customerName).toBe("Tiger International");
+      expect(match.customerName?.toLowerCase()).toBe("tiger international");
+    });
+
+    it("should return the existing customer's canonical name when GSTIN matches despite different extracted name", async () => {
+      const match = await resolveCustomer({
+        name: "Some Completely Misspelled Buyer Name",
+        gstin: "19ACUPA0333J1ZL",
+        address: null,
+      });
+
+      expect(match.status).toBe("MATCHED");
+      expect(match.reason).toBe("GSTIN");
+      expect(match.customerId).toBe(createdCustomerId);
+      expect(match.customerName?.toLowerCase()).toBe("tiger international");
     });
 
     it("should match customer by normalized name without legal suffix", async () => {

@@ -18,6 +18,8 @@ const MAX_CONCURRENT = 1;
 export async function processUploadJob(jobId: string) {
   if (activeJobs.has(jobId)) return;
   activeJobs.add(jobId);
+  let rasterizedPages: Array<{ pageNumber: number; pngBase64: string }> = [];
+  let currentFileToken: string | undefined = undefined;
 
   try {
     // 1. Fetch job from PostgreSQL
@@ -55,11 +57,13 @@ export async function processUploadJob(jobId: string) {
     const ext = path.extname(job.file_name).toLowerCase();
 
     let pages: Array<{ pageNumber: number; pngBase64: string; text?: string }> = [];
+    let extractedText = "";
 
     if (ext === ".pdf") {
       const tempPdfPath = path.resolve(process.cwd(), "storage/temp", job.file_token);
       const pdfInspection = await inspectAndRasterizePdf(tempPdfPath);
       pages = pdfInspection.pages;
+      extractedText = pdfInspection.extractedText || "";
     } else if ([".png", ".jpg", ".jpeg"].includes(ext)) {
       pages = [
         {
@@ -72,12 +76,15 @@ export async function processUploadJob(jobId: string) {
       throw new Error(`Unsupported file type: ${ext}. Please upload a PDF, PNG, or JPG file.`);
     }
 
+    rasterizedPages = pages.map((p) => ({ pageNumber: p.pageNumber, pngBase64: p.pngBase64 }));
+    currentFileToken = job.file_token;
+
     if (await isCancelled()) {
       activeJobs.delete(jobId);
       return;
     }
 
-    // 5. Call LLM extraction orchestrator with images
+    // 5. Call LLM extraction orchestrator with images and text
     const images = pages.map((p) => ({
       mime: "image/png" as const,
       base64: p.pngBase64,
@@ -85,6 +92,7 @@ export async function processUploadJob(jobId: string) {
 
     const extraction = await extractInvoiceData({
       images,
+      text: extractedText,
       fileHash: job.file_hash,
     });
 
@@ -100,6 +108,11 @@ export async function processUploadJob(jobId: string) {
 
     // 7. Customer resolution
     const customerMatch = await resolveCustomer(draft.customer);
+    if (customerMatch.status === "MATCHED" && customerMatch.customerName) {
+      if (customerMatch.reason === "GSTIN" || draft.customer.gstin) {
+        draft.customer.name = customerMatch.customerName;
+      }
+    }
 
     // 8. Product resolution for each item
     const productMatches = await Promise.all(
@@ -193,11 +206,30 @@ export async function processUploadJob(jobId: string) {
       select: { status: true },
     });
     if (current?.status !== "CANCELLED") {
+      const fallbackData =
+        rasterizedPages.length > 0
+          ? {
+              draft: {
+                invoice: { number: "", date: new Date().toISOString().split("T")[0] },
+                customer: { name: "", gstin: null, address: null },
+                items: [],
+                totals: { subTotal: 0, cgstTotal: 0, sgstTotal: 0, igstTotal: 0, grandTotal: 0 },
+              },
+              validation: { isValid: false, issues: [] },
+              customerMatch: null,
+              productMatches: [],
+              pages: rasterizedPages,
+              fileToken: currentFileToken,
+              isManualFallback: true,
+            }
+          : null;
+
       await prisma.uploadJob.update({
         where: { id: jobId },
         data: {
           status: "FAILED",
           error: err.message || "Extraction failed",
+          ...(fallbackData ? { extracted_data: fallbackData as any } : {}),
         },
       });
     }
