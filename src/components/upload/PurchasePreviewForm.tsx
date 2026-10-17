@@ -27,7 +27,7 @@ import {
   ProductOption,
   PurchaseItemResolution,
 } from "./PurchaseItemsTable";
-import { convertUnitToKg } from "@/lib/units/convert";
+import { convertUnitToKg, normalizeUnit } from "@/lib/units/convert";
 import { cn } from "@/lib/utils";
 
 interface SupplierOption {
@@ -327,10 +327,11 @@ export function PurchasePreviewForm({
     value: any
   ) => {
     const nextItems = [...draft.items];
-    const item = { ...nextItems[index], [field]: value };
-    const pRes = productResolutions[index];
+    if (field === "unitPrinted") {
+      item.unitPrinted = normalizeUnit(String(value));
+    }
 
-    if (field === "qtyPrinted" || field === "rate" || field === "discount") {
+    if (field === "qtyPrinted" || field === "unitPrinted" || field === "rate" || field === "discount") {
       const qPrinted = Number(item.qtyPrinted) || 0;
       const r = Number(item.rate) || 0;
       const d = Number(item.discount) || 0;

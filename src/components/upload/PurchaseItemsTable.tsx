@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ExtractedPurchaseInvoiceItem } from "@/lib/llm/schema.purchase";
-import { convertUnitToKg } from "@/lib/units/convert";
+import { convertUnitToKg, normalizeUnit } from "@/lib/units/convert";
 import { cn } from "@/lib/utils";
 
 export interface ProductOption {
@@ -94,18 +94,17 @@ export function PurchaseItemsTable({
               };
 
               // Unit conversion check
+              const unitNorm = normalizeUnit(item.unitPrinted);
               const conv = convertUnitToKg({
                 qtyPrinted: item.qtyPrinted,
-                unitPrinted: item.unitPrinted,
+                unitPrinted: unitNorm,
                 packSizeKg: pRes.packSizeKg,
                 manualQtyKg: pRes.manualQtyKg,
                 rate: item.rate,
               });
 
-              const isDrumUnit = ["DRUM", "BAG", "CAN", "PACK"].includes(
-                conv.unitNormalized
-              );
-              const needsManual = conv.needsManualKg;
+              const isDrumUnit = ["DRUM", "BAG", "CAN", "PACK"].includes(unitNorm);
+              const needsManual = unitNorm !== "KG" && conv.needsManualKg;
 
               return (
                 <tr key={index} className="hover:bg-surface-2/40 transition">
@@ -203,9 +202,9 @@ export function PurchaseItemsTable({
                         className="w-16 px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-right num text-ink focus:outline-none focus:ring-1 focus:ring-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <select
-                        value={item.unitPrinted.toUpperCase()}
+                        value={unitNorm}
                         onChange={(e) =>
-                          onUpdateItem(index, "unitPrinted", e.target.value)
+                          onUpdateItem(index, "unitPrinted", normalizeUnit(e.target.value))
                         }
                         className="px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-ink font-mono uppercase focus:outline-none focus:ring-1 focus:ring-accent"
                       >
@@ -264,7 +263,7 @@ export function PurchaseItemsTable({
                       </div>
                     )}
 
-                    {item.unitPrinted.toUpperCase() !== "KG" && conv.isConvertible && (
+                    {unitNorm !== "KG" && conv.isConvertible && (
                       <div className="mt-0.5 text-[10px] text-accent font-mono truncate max-w-[150px]">
                         = {Number(conv.qtyKg).toFixed(2)} kg
                       </div>
@@ -282,7 +281,7 @@ export function PurchaseItemsTable({
                       }
                       className="w-full min-w-[85px] px-2 py-1.5 bg-bg border border-border rounded-sm text-xs text-right num text-ink focus:outline-none focus:ring-1 focus:ring-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    {item.unitPrinted.toUpperCase() !== "KG" && Number(conv.ratePerKg) > 0 && (
+                    {unitNorm !== "KG" && Number(conv.ratePerKg) > 0 && (
                       <div className="mt-0.5 text-[10px] text-ink-3 font-mono">
                         (₹{Number(conv.ratePerKg).toFixed(2)}/kg)
                       </div>

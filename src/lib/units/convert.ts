@@ -20,16 +20,16 @@ export interface UnitConversionResult {
 
 export function normalizeUnit(rawUnit: string): string {
   const u = (rawUnit || "").trim().toUpperCase().replace(/[^A-Z]/g, "");
-  if (["KG", "KGS", "KILOGRAM", "KILOGRAMS"].includes(u)) return "KG";
-  if (["MT", "TON", "TONS", "TONNE", "TONNES", "METRICTON", "METRICTONS", "METRICTONNE", "METRICTONNES"].includes(u)) return "MT";
-  if (["DRUM", "DRUMS"].includes(u)) return "DRUM";
-  if (["BAG", "BAGS"].includes(u)) return "BAG";
-  if (["CAN", "CANS"].includes(u)) return "CAN";
-  if (["PACK", "PACKS", "PKT", "PKTS"].includes(u)) return "PACK";
-  if (["L", "LTR", "LTRS", "LITRE", "LITRES"].includes(u)) return "LTR";
-  if (["NOS", "NO", "PCS", "PIECES"].includes(u)) return "NOS";
-  if (["BOX", "BOXES"].includes(u)) return "BOX";
-  return u || "UNKNOWN";
+  if (["KG", "KGS", "KILOGRAM", "KILOGRAMS", "KILOGRAMME", "KILOGRAMMES", "KGM"].includes(u)) return "KG";
+  if (["MT", "TON", "TONS", "TONNE", "TONNES", "METRICTON", "METRICTONS", "METRICTONNE", "METRICTONNES", "MTS"].includes(u)) return "MT";
+  if (["DRUM", "DRUMS", "DRM", "DRMS"].includes(u)) return "DRUM";
+  if (["BAG", "BAGS", "BGS", "BG"].includes(u)) return "BAG";
+  if (["CAN", "CANS", "CARBOY", "CARBOYS"].includes(u)) return "CAN";
+  if (["PACK", "PACKS", "PKT", "PKTS", "PCK", "PACKAGE", "PACKAGES"].includes(u)) return "PACK";
+  if (["L", "LTR", "LTRS", "LITRE", "LITRES", "LT"].includes(u)) return "LTR";
+  if (["NOS", "NO", "PCS", "PIECES", "PIECE", "PC"].includes(u)) return "NOS";
+  if (["BOX", "BOXES", "CTN", "CARTON", "CARTONS"].includes(u)) return "BOX";
+  return u || "KG";
 }
 
 /**

@@ -9,6 +9,7 @@ import { validatePurchaseInvoice } from "@/lib/validation/purchase";
 import { resolveSupplier } from "@/lib/matching/supplier";
 import { resolveProduct } from "@/lib/matching/product";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
+import { normalizeUnit } from "@/lib/units/convert";
 import { storage } from "@/lib/storage/adapter";
 
 export const maxDuration = 180;
@@ -68,6 +69,9 @@ export async function POST(request: NextRequest) {
     });
 
     const draft = extraction.draft;
+    for (const item of draft.items) {
+      item.unitPrinted = normalizeUnit(item.unitPrinted);
+    }
 
     // Supplier resolution
     const supplierMatch = await resolveSupplier(draft.supplier);
