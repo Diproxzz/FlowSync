@@ -10,15 +10,51 @@ export async function GET(
   const product = await prisma.product.findUnique({
     where: { id },
     include: {
-      aliases: true,
+      aliases: {
+        orderBy: { created_at: "desc" },
+      },
       stock_movements: {
         orderBy: { movement_date: "desc" },
-        take: 50,
+      },
+      purchase_items: {
+        include: {
+          purchase_invoice: {
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  name: true,
+                  gstin: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          purchase_invoice: {
+            invoice_date: "desc",
+          },
+        },
       },
       invoice_items: {
-        include: { invoice: { include: { customer: true } } },
-        orderBy: { invoice: { invoice_date: "desc" } },
-        take: 50,
+        include: {
+          invoice: {
+            include: {
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                  gstin: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          invoice: {
+            invoice_date: "desc",
+          },
+        },
       },
     },
   });
@@ -30,7 +66,94 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ product });
+  // Calculate rich aggregated analytics for this product
+  let openingStock = 0;
+  let purchasesQty = 0;
+  let salesQty = 0;
+  let adjustmentsQty = 0;
+
+  for (const sm of product.stock_movements) {
+    const q = Number(sm.qty_kg);
+    if (sm.type === "OPENING") openingStock += q;
+    else if (sm.type === "PURCHASE") purchasesQty += Math.abs(q);
+    else if (sm.type === "SALE") salesQty += Math.abs(q);
+    else if (sm.type === "ADJUSTMENT") adjustmentsQty += q;
+  }
+
+  const currentStock = openingStock + purchasesQty - salesQty - adjustmentsQty;
+
+  // Purchase stats
+  let totalPurchaseValue = 0;
+  let totalPurchaseQty = 0;
+  let latestPurchase: any = null;
+
+  for (const pi of product.purchase_items) {
+    const qty = Number(pi.qty_kg) || 0;
+    const rate = Number(pi.rate_per_kg) || Number(pi.rate) || 0;
+    const taxable = Number(pi.taxable_amount) || qty * rate;
+    totalPurchaseQty += qty;
+    totalPurchaseValue += taxable;
+    if (!latestPurchase && pi.purchase_invoice) {
+      latestPurchase = {
+        invoiceDate: pi.purchase_invoice.invoice_date,
+        invoiceNumber: pi.purchase_invoice.supplier_invoice_number,
+        invoiceId: pi.purchase_invoice.id,
+        supplierName: pi.purchase_invoice.supplier?.name || pi.purchase_invoice.supplier_name_snapshot,
+        rate: rate,
+        qty: qty,
+        unit: pi.unit_printed,
+      };
+    }
+  }
+  const avgPurchaseRate = totalPurchaseQty > 0 ? totalPurchaseValue / totalPurchaseQty : (Number(product.std_purchase_rate) || 0);
+
+  // Sales stats
+  let totalSalesValue = 0;
+  let totalSalesQty = 0;
+  let latestSale: any = null;
+
+  for (const si of product.invoice_items) {
+    const qty = Number(si.qty_kg) || 0;
+    const rate = Number(si.rate) || 0;
+    const taxable = Number(si.taxable_amount) || qty * rate;
+    totalSalesQty += qty;
+    totalSalesValue += taxable;
+    if (!latestSale && si.invoice) {
+      latestSale = {
+        invoiceDate: si.invoice.invoice_date,
+        invoiceNumber: si.invoice.invoice_number,
+        invoiceId: si.invoice.id,
+        customerName: si.invoice.customer?.name || si.invoice.customer_name_snapshot,
+        rate: rate,
+        qty: qty,
+      };
+    }
+  }
+  const avgSaleRate = totalSalesQty > 0 ? totalSalesValue / totalSalesQty : (Number(product.std_sale_rate) || 0);
+
+  const packSize = Number(product.pack_size_kg) || null;
+  const currentDrums = packSize && packSize > 0 ? currentStock / packSize : 0;
+
+  const stats = {
+    currentStock,
+    currentDrums,
+    openingStock,
+    totalPurchaseQty,
+    totalPurchaseValue,
+    avgPurchaseRate,
+    latestPurchase,
+    totalSalesQty,
+    totalSalesValue,
+    avgSaleRate,
+    latestSale,
+    marginAmount: avgSaleRate - avgPurchaseRate,
+    marginPct: avgPurchaseRate > 0 ? ((avgSaleRate - avgPurchaseRate) / avgPurchaseRate) * 100 : 0,
+  };
+
+  return NextResponse.json({
+    product,
+    stats,
+  });
 }
 
 export async function PATCH(

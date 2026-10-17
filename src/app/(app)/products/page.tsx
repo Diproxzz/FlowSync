@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Upload, Tag, Edit2, AlertCircle, CheckCircle2, GitMerge } from "lucide-react";
+import { Plus, Search, Upload, Tag, Edit2, AlertCircle, CheckCircle2, GitMerge, Eye } from "lucide-react";
 import { formatINR, formatKg } from "@/lib/format";
+import { ProductDetailView } from "@/components/products/ProductDetailView";
 
 interface Product {
   id: string;
@@ -36,6 +37,32 @@ export default function ProductsPage() {
   const [targetProductId, setTargetProductId] = useState("");
   const [isMerging, setIsMerging] = useState(false);
   const [mergeMessage, setMergeMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Product Detail Modal state (Purchases & Sales History)
+  const [detailProduct, setDetailProduct] = useState<any | null>(null);
+  const [detailStats, setDetailStats] = useState<any | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const handleProductClick = async (p: Product) => {
+    setSelectedProduct(p);
+    setIsDetailOpen(true);
+    setLoadingDetail(true);
+    setDetailProduct(null);
+    setDetailStats(null);
+    try {
+      const res = await fetch(`/api/products/${p.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setDetailProduct(data.product);
+        setDetailStats(data.stats);
+      }
+    } catch (err) {
+      console.error("Failed to load product details", err);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -322,17 +349,15 @@ export default function ProductsPage() {
                 </tr>
               ) : (
                 products.map((p) => (
-                  <tr key={p.id} className="hover:bg-surface-2/60 transition">
-                    <td
-                      onClick={() => handleEditClick(p)}
-                      className="py-2.5 px-3 font-mono font-semibold text-primary cursor-pointer hover:underline"
-                    >
+                  <tr
+                    key={p.id}
+                    onClick={() => handleProductClick(p)}
+                    className="hover:bg-surface-2/60 transition cursor-pointer group"
+                  >
+                    <td className="py-2.5 px-3 font-mono font-semibold text-primary group-hover:underline">
                       {p.code}
                     </td>
-                    <td
-                      onClick={() => handleEditClick(p)}
-                      className="py-2.5 px-3 text-ink cursor-pointer hover:underline"
-                    >
+                    <td className="py-2.5 px-3 text-ink group-hover:text-primary font-medium">
                       {p.name}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-ink-3">{p.default_hsn || "—"}</td>
@@ -348,7 +373,7 @@ export default function ProductsPage() {
                     <td className="py-2.5 px-3 text-right num text-ink-3">
                       {p.reorder_level_kg ? `${p.reorder_level_kg} kg` : "—"}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => {
                           setSelectedProduct(p);
@@ -362,11 +387,18 @@ export default function ProductsPage() {
                         <span>{p.aliases.length}</span>
                       </button>
                     </td>
-                    <td className="py-2.5 px-3 text-right space-x-1">
+                    <td className="py-2.5 px-3 text-right space-x-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleProductClick(p)}
+                        className="p-1 text-ink-3 hover:text-primary hover:bg-surface-2 rounded-sm transition"
+                        title="View purchases and sales history"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
                       <button
                         onClick={() => handleEditClick(p)}
                         className="p-1 text-ink-3 hover:text-ink hover:bg-surface-2 rounded-sm transition"
-                        title="Edit product"
+                        title="Edit product master"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -702,6 +734,33 @@ export default function ProductsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Product Purchases & Sales Detail Modal */}
+      {isDetailOpen && selectedProduct && (
+        <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+          <div className="bg-bg border border-border rounded-lg shadow-pop w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="overflow-y-auto p-4 sm:p-6 flex-1">
+              {loadingDetail || !detailProduct ? (
+                <div className="py-24 text-center text-ink-3 text-xs flex flex-col items-center justify-center gap-3">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Loading purchase and sale history for {selectedProduct.name}...</span>
+                </div>
+              ) : (
+                <ProductDetailView
+                  product={detailProduct}
+                  stats={detailStats}
+                  isModal={true}
+                  onClose={() => setIsDetailOpen(false)}
+                  onEdit={(prod) => {
+                    setIsDetailOpen(false);
+                    handleEditClick(prod);
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
