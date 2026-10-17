@@ -17,6 +17,11 @@ export interface StockSummaryRow {
   drums: number;
   purchaseRate: number | null;
   saleRate: number | null;
+  lastPurchaseRate: number | null;
+  lastPurchaseDate: string | null;
+  lastPurchaseSupplier: string | null;
+  reorderSuggestionKg: number;
+  reorderSuggestionDrums: number;
   stockValue: number;
   salesValue: number;
   reorderLevelKg: number | null;
@@ -28,6 +33,19 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
     where: { is_active: true },
     include: {
       stock_movements: true,
+      purchase_items: {
+        include: {
+          purchase_invoice: {
+            select: {
+              invoice_date: true,
+              supplier_invoice_number: true,
+              supplier: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { purchase_invoice: { invoice_date: "desc" } },
+        take: 1,
+      },
     },
     orderBy: { code: "asc" },
   });
@@ -68,6 +86,29 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
     const reorderLevel = p.reorder_level_kg ? new Decimal(p.reorder_level_kg.toString()) : null;
     const isLowStock = reorderLevel && !reorderLevel.isZero() && closing.lessThanOrEqualTo(reorderLevel);
 
+    // Last purchase details
+    const lastPurchase = p.purchase_items?.[0] || null;
+    const lastPurchaseRate = lastPurchase ? new Decimal(lastPurchase.rate_per_kg.toString()).toNumber() : null;
+    const lastPurchaseDate = lastPurchase?.purchase_invoice?.invoice_date
+      ? lastPurchase.purchase_invoice.invoice_date.toISOString().split("T")[0]
+      : null;
+    const lastPurchaseSupplier = lastPurchase?.purchase_invoice?.supplier?.name || null;
+
+    // Reorder Suggestion: max(0, reorder_level * 2 - closing) rounded up to pack size
+    let reorderSuggestionKg = 0;
+    let reorderSuggestionDrums = 0;
+    if (reorderLevel && !reorderLevel.isZero()) {
+      const targetKg = reorderLevel.times(2).minus(closing);
+      if (targetKg.greaterThan(0)) {
+        if (packSize && !packSize.isZero()) {
+          reorderSuggestionDrums = Math.ceil(targetKg.dividedBy(packSize).toNumber());
+          reorderSuggestionKg = new Decimal(reorderSuggestionDrums).times(packSize).toNumber();
+        } else {
+          reorderSuggestionKg = Math.ceil(targetKg.toNumber());
+        }
+      }
+    }
+
     return {
       productId: p.id,
       code: p.code,
@@ -84,6 +125,11 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
       drums: Math.round(drums * 100) / 100,
       purchaseRate: purchaseRate ? purchaseRate.toNumber() : null,
       saleRate: saleRate ? saleRate.toNumber() : null,
+      lastPurchaseRate,
+      lastPurchaseDate,
+      lastPurchaseSupplier,
+      reorderSuggestionKg,
+      reorderSuggestionDrums,
       stockValue: Math.round(stockValue * 100) / 100,
       salesValue: Math.round(salesValue * 100) / 100,
       reorderLevelKg: reorderLevel ? reorderLevel.toNumber() : null,

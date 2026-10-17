@@ -55,6 +55,16 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
         supplier_invoice_number: sharedInvoiceNumber,
       },
     });
+
+    // Clean prior test suppliers by name or GSTIN
+    await prisma.supplier.deleteMany({
+      where: {
+        OR: [
+          { name: { in: [supplier1Name, supplier2Name] } },
+          { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } },
+        ],
+      },
+    });
   });
 
   afterAll(async () => {
@@ -70,7 +80,12 @@ describe("Phase 4: Purchase Invoices Confirmation, Duplicates, Revisions, and St
     });
 
     await prisma.supplier.deleteMany({
-      where: { name: { in: [supplier1Name, supplier2Name] } },
+      where: {
+        OR: [
+          { name: { in: [supplier1Name, supplier2Name] } },
+          { gstin: { in: ["19AGDPA1084B1Z1", "34AAECA6767B1ZV"] } },
+        ],
+      },
     });
 
     await prisma.stockMovement.deleteMany({

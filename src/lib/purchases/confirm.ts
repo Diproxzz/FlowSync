@@ -107,8 +107,13 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
       const existingByName = await tx.supplier.findFirst({
         where: { name_norm: nameNorm },
       });
+      const existingByGstin = cleanGstin
+        ? await tx.supplier.findFirst({ where: { gstin: cleanGstin } })
+        : null;
 
-      if (existingByName) {
+      if (existingByGstin) {
+        supplierId = existingByGstin.id;
+      } else if (existingByName) {
         supplierId = existingByName.id;
         if (cleanGstin && !existingByName.gstin) {
           await tx.supplier.update({

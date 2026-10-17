@@ -40,6 +40,9 @@ export interface TopItem {
   volumeKg: number;
   invoiceCount: number;
   avgRate: number;
+  purchaseCostPerKg?: number | null;
+  marginPerKg?: number | null;
+  marginBasis?: "ACTUAL" | "ESTIMATED";
 }
 
 export interface AbcProduct {
@@ -354,10 +357,66 @@ export async function getDashboardAnalytics(filter: AnalyticsFilter = {}): Promi
     }
   }
 
+  const productIds = Array.from(productAgg.keys());
+  const [purchaseLinesInPeriod, productCatalog] = await Promise.all([
+    prisma.purchaseInvoiceItem.findMany({
+      where: {
+        product_id: { in: productIds },
+        purchase_invoice: {
+          invoice_date: { gte: start, lte: end },
+        },
+      },
+      select: {
+        product_id: true,
+        taxable_amount: true,
+        qty_kg: true,
+      },
+    }),
+    prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, std_purchase_rate: true },
+    }),
+  ]);
+
+  const purchaseSpendMap = new Map<string, { spend: Decimal; volume: Decimal }>();
+  for (const pl of purchaseLinesInPeriod) {
+    if (!purchaseSpendMap.has(pl.product_id)) {
+      purchaseSpendMap.set(pl.product_id, { spend: new Decimal(0), volume: new Decimal(0) });
+    }
+    const b = purchaseSpendMap.get(pl.product_id)!;
+    b.spend = b.spend.plus(new Decimal(pl.taxable_amount.toString()));
+    b.volume = b.volume.plus(new Decimal(pl.qty_kg.toString()));
+  }
+
+  const catalogStdRateMap = new Map<string, number | null>();
+  for (const p of productCatalog) {
+    catalogStdRateMap.set(p.id, p.std_purchase_rate ? Number(p.std_purchase_rate) : null);
+  }
+
   const topProducts: TopItem[] = Array.from(productAgg.entries())
     .map(([id, val]) => {
       const rev = val.revenue.toNumber();
       const vol = val.volume.toNumber();
+      const avgRate = vol > 0 ? Math.round((rev / vol) * 100) / 100 : 0;
+
+      const pBuy = purchaseSpendMap.get(id);
+      let purchaseCostPerKg: number | null = null;
+      let marginPerKg: number | null = null;
+      let marginBasis: "ACTUAL" | "ESTIMATED" | undefined = undefined;
+
+      if (pBuy && pBuy.volume.greaterThan(0)) {
+        purchaseCostPerKg = Math.round(pBuy.spend.dividedBy(pBuy.volume).toNumber() * 100) / 100;
+        marginPerKg = Math.round((avgRate - purchaseCostPerKg) * 100) / 100;
+        marginBasis = "ACTUAL";
+      } else {
+        const stdRate = catalogStdRateMap.get(id);
+        if (stdRate !== undefined && stdRate !== null && stdRate > 0) {
+          purchaseCostPerKg = stdRate;
+          marginPerKg = Math.round((avgRate - stdRate) * 100) / 100;
+          marginBasis = "ESTIMATED";
+        }
+      }
+
       return {
         id,
         code: val.code,
@@ -365,7 +424,10 @@ export async function getDashboardAnalytics(filter: AnalyticsFilter = {}): Promi
         revenue: Math.round(rev),
         volumeKg: Math.round(vol),
         invoiceCount: val.count,
-        avgRate: vol > 0 ? Math.round((rev / vol) * 100) / 100 : 0,
+        avgRate,
+        purchaseCostPerKg,
+        marginPerKg,
+        marginBasis,
       };
     })
     .sort((a, b) => b.revenue - a.revenue)

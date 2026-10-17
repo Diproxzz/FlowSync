@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Plus, Filter, AlertTriangle, CheckCircle2, ArrowUpDown } from "lucide-react";
+import { Search, Plus, Filter, AlertTriangle, CheckCircle2, ArrowUpDown, Download } from "lucide-react";
 import { formatINR, formatKg } from "@/lib/format";
 
 interface StockRow {
@@ -11,6 +11,8 @@ interface StockRow {
   category: string | null;
   opening: number;
   purchases: number;
+  purchasesFromInvoices: number;
+  purchasesFromLegacy: number;
   sales: number;
   adjustments: number;
   closing: number;
@@ -18,6 +20,11 @@ interface StockRow {
   drums: number;
   purchaseRate: number | null;
   saleRate: number | null;
+  lastPurchaseRate: number | null;
+  lastPurchaseDate: string | null;
+  lastPurchaseSupplier: string | null;
+  reorderSuggestionKg: number;
+  reorderSuggestionDrums: number;
   stockValue: number;
   salesValue: number;
   reorderLevelKg: number | null;
@@ -120,6 +127,72 @@ export default function StockPage() {
   const totalSalesValue = filteredRows.reduce((sum, r) => sum + r.salesValue, 0);
   const lowStockCount = rows.filter((r) => r.status === "LOW STOCK").length;
 
+  const exportCsv = () => {
+    const headers = [
+      "Product Code",
+      "Product Name",
+      "Category",
+      "Opening (kg)",
+      "Purchases Total (kg)",
+      "Purchases from Invoices (kg)",
+      "Purchases Legacy (kg)",
+      "Sales (kg)",
+      "Adjustments (kg)",
+      "Closing (kg)",
+      "Pack Size (kg)",
+      "Drums",
+      "Std Purchase Rate (INR)",
+      "Last Purchase Rate (INR/kg)",
+      "Last Purchase Date",
+      "Last Purchase Supplier",
+      "Std Sale Rate (INR)",
+      "Stock Valuation (INR)",
+      "Sales Value (INR)",
+      "Reorder Level (kg)",
+      "Reorder Suggestion (kg)",
+      "Status",
+    ];
+
+    const csvRows = [
+      headers.join(","),
+      ...filteredRows.map((r) =>
+        [
+          `"${r.code.replace(/"/g, '""')}"`,
+          `"${r.name.replace(/"/g, '""')}"`,
+          `"${(r.category || "").replace(/"/g, '""')}"`,
+          r.opening,
+          r.purchases,
+          r.purchasesFromInvoices,
+          r.purchasesFromLegacy,
+          r.sales,
+          r.adjustments,
+          r.closing,
+          r.packSizeKg ?? "",
+          r.drums,
+          r.purchaseRate ?? "",
+          r.lastPurchaseRate ?? "",
+          r.lastPurchaseDate ?? "",
+          `"${(r.lastPurchaseSupplier || "").replace(/"/g, '""')}"`,
+          r.saleRate ?? "",
+          r.stockValue,
+          r.salesValue,
+          r.reorderLevelKg ?? "",
+          r.reorderSuggestionKg,
+          r.status,
+        ].join(",")
+      ),
+    ];
+
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `stock_summary_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -188,6 +261,15 @@ export default function StockPage() {
             <Filter className="w-3.5 h-3.5" />
             <span>Low Stock Only ({lowStockCount})</span>
           </button>
+
+          <button
+            onClick={exportCsv}
+            className="px-3 py-1.5 rounded-sm text-xs font-medium border border-border bg-surface-2 text-ink-2 hover:bg-border transition flex items-center gap-1.5"
+            title="Download CSV report of current stock with purchase metrics"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
@@ -205,32 +287,46 @@ export default function StockPage() {
                 <th className="py-2.5 px-3 text-right font-semibold text-ink">Closing (kg)</th>
                 <th className="py-2.5 px-3 text-right">Pack (kg)</th>
                 <th className="py-2.5 px-3 text-right">Drums</th>
-                <th className="py-2.5 px-3 text-right">Pur. Rate</th>
+                <th className="py-2.5 px-3 text-right">Std Pur.</th>
+                <th className="py-2.5 px-3 text-right">Last Purchase</th>
                 <th className="py-2.5 px-3 text-right">Sale Rate</th>
                 <th className="py-2.5 px-3 text-right font-medium text-ink">Stock Value</th>
                 <th className="py-2.5 px-3 text-right">Reorder Level</th>
+                <th className="py-2.5 px-3 text-right font-medium text-amber-800">Reorder Suggestion</th>
                 <th className="py-2.5 px-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={13} className="py-8 text-center text-ink-3">
+                  <td colSpan={15} className="py-8 text-center text-ink-3">
                     Loading inventory...
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="py-8 text-center text-ink-3">
+                  <td colSpan={15} className="py-8 text-center text-ink-3">
                     No products match the criteria.
                   </td>
                 </tr>
               ) : (
                 filteredRows.map((r) => (
                   <tr key={r.productId} className="hover:bg-surface-2/60 transition">
-                    <td className="py-2.5 px-3 font-mono font-semibold text-primary">{r.code}</td>
+                    <td className="py-2.5 px-3">
+                      <span className="font-mono font-semibold text-primary">{r.code}</span>
+                      <span className="text-ink-3 truncate max-w-[140px] block text-[11px]">{r.name}</span>
+                    </td>
                     <td className="py-2.5 px-3 text-right num text-ink-2">{r.opening}</td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">{r.purchases}</td>
+                    <td className="py-2.5 px-3 text-right num text-ink-2">
+                      <div className="group relative inline-block cursor-help">
+                        <span className="underline decoration-dotted decoration-ink-3/50">{r.purchases}</span>
+                        <div className="hidden group-hover:block absolute bottom-full right-0 mb-1 z-30 w-44 p-2 bg-ink text-surface text-[10px] rounded-xs shadow-md pointer-events-none text-left">
+                          <div className="font-semibold border-b border-surface/20 pb-0.5 mb-1 text-surface-2">Purchases Breakdown</div>
+                          <div>• {formatKg(r.purchasesFromInvoices)} from invoices</div>
+                          <div>• {formatKg(r.purchasesFromLegacy)} from legacy</div>
+                        </div>
+                      </div>
+                    </td>
                     <td className="py-2.5 px-3 text-right num text-ink-2">{r.sales}</td>
                     <td className="py-2.5 px-3 text-right num text-ink-3">{r.adjustments}</td>
                     <td className="py-2.5 px-3 text-right num font-semibold text-ink bg-surface-2/30">
@@ -242,12 +338,46 @@ export default function StockPage() {
                       {r.purchaseRate ? formatINR(r.purchaseRate) : "—"}
                     </td>
                     <td className="py-2.5 px-3 text-right num text-ink-2">
+                      {r.lastPurchaseRate ? (
+                        <div>
+                          <span className="font-medium">₹{r.lastPurchaseRate.toFixed(2)}</span>
+                          {r.lastPurchaseDate && (
+                            <span className="text-[10px] text-ink-3 block" title={r.lastPurchaseSupplier || ""}>
+                              {new Date(r.lastPurchaseDate).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-ink-4">—</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3 text-right num text-ink-2">
                       {r.saleRate ? formatINR(r.saleRate) : "—"}
                     </td>
                     <td className="py-2.5 px-3 text-right num font-medium text-ink">
                       {formatINR(r.stockValue)}
                     </td>
                     <td className="py-2.5 px-3 text-right num text-ink-3">{r.reorderLevelKg || "—"}</td>
+                    <td className="py-2.5 px-3 text-right num">
+                      {r.reorderSuggestionKg > 0 ? (
+                        <div>
+                          <span className="font-semibold text-amber-700">
+                            {formatKg(r.reorderSuggestionKg)}
+                          </span>
+                          {r.reorderSuggestionDrums > 0 && (
+                            <span className="text-[10px] text-ink-3 block">
+                              ({r.reorderSuggestionDrums} dr)
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-ink-4">—</span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-3 text-center">
                       {r.status === "LOW STOCK" ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-semibold bg-danger-bg text-danger border border-danger/30">
@@ -273,9 +403,9 @@ export default function StockPage() {
                 <td className="py-2.5 px-3 text-right num">{Math.round(totalSales * 10) / 10}</td>
                 <td className="py-2.5 px-3 text-right num">{Math.round(totalAdjustments * 10) / 10}</td>
                 <td className="py-2.5 px-3 text-right num text-primary">{Math.round(totalClosing * 10) / 10}</td>
-                <td colSpan={4} />
+                <td colSpan={5} />
                 <td className="py-2.5 px-3 text-right num">{formatINR(totalStockValue)}</td>
-                <td colSpan={2} />
+                <td colSpan={3} />
               </tr>
             </tfoot>
           </table>

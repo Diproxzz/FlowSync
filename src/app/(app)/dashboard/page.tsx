@@ -36,6 +36,7 @@ import {
 } from "recharts";
 import { formatINR, formatKg } from "@/lib/format";
 import { AnalyticsData, TrendPoint, TopItem, AbcProduct } from "@/lib/analytics";
+import { PurchasesTab } from "@/components/dashboard/PurchasesTab";
 
 // Accessible Okabe-Ito Palette
 const COLORS = {
@@ -50,6 +51,7 @@ const COLORS = {
 };
 
 export default function DashboardPage() {
+  const [section, setSection] = useState<"sales" | "purchases">("sales");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>("fy");
@@ -59,20 +61,25 @@ export default function DashboardPage() {
 
   // Filter dropdown lists
   const [customers, setCustomers] = useState<Array<{ id: string; name: string }>>([]);
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string }>>([]);
   const [products, setProducts] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
 
   useEffect(() => {
     async function loadFilters() {
       try {
-        const [cRes, pRes] = await Promise.all([
+        const [cRes, sRes, pRes] = await Promise.all([
           fetch("/api/customers?limit=100"),
+          fetch("/api/suppliers?limit=100"),
           fetch("/api/products?limit=100"),
         ]);
         const cData = await cRes.json();
+        const sData = await sRes.json();
         const pData = await pRes.json();
         setCustomers(cData.customers || []);
+        setSuppliers(sData.suppliers || []);
         setProducts(pData.products || []);
       } catch (err) {
         console.error("Failed to load filter options", err);
@@ -116,9 +123,35 @@ export default function DashboardPage() {
       {/* Header & Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h2 className="text-xl font-bold text-ink tracking-tight">Executive Dashboard</h2>
-          <p className="text-xs text-ink-3">
-            Real-time business intelligence, GST turnover, inventory velocity, and customer metrics
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-ink tracking-tight">Executive Dashboard</h2>
+            <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs font-medium">
+              <button
+                onClick={() => setSection("sales")}
+                className={`px-3 py-1 rounded-xs transition ${
+                  section === "sales"
+                    ? "bg-primary text-primary-fg font-semibold shadow-xs"
+                    : "text-ink-2 hover:text-ink"
+                }`}
+              >
+                Sales
+              </button>
+              <button
+                onClick={() => setSection("purchases")}
+                className={`px-3 py-1 rounded-xs transition ${
+                  section === "purchases"
+                    ? "bg-accent text-accent-fg font-semibold shadow-xs"
+                    : "text-ink-2 hover:text-ink"
+                }`}
+              >
+                Purchases
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-ink-3 mt-1">
+            {section === "purchases"
+              ? "Procurement analytics, vendor spend, multi-sourcing price comparisons, and input GST credits"
+              : "Real-time business intelligence, GST turnover, inventory velocity, and customer metrics"}
           </p>
         </div>
 
@@ -163,21 +196,39 @@ export default function DashboardPage() {
           <span>Filters:</span>
         </div>
 
-        {/* Customer Select */}
-        <div className="flex-1 min-w-[180px] max-w-xs">
-          <select
-            value={selectedCustomer}
-            onChange={(e) => setSelectedCustomer(e.target.value)}
-            className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
-          >
-            <option value="">All Customers / Buyers</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {section === "sales" ? (
+          /* Customer Select */
+          <div className="flex-1 min-w-[180px] max-w-xs">
+            <select
+              value={selectedCustomer}
+              onChange={(e) => setSelectedCustomer(e.target.value)}
+              className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
+            >
+              <option value="">All Customers / Buyers</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          /* Supplier Select */
+          <div className="flex-1 min-w-[180px] max-w-xs">
+            <select
+              value={selectedSupplier}
+              onChange={(e) => setSelectedSupplier(e.target.value)}
+              className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
+            >
+              <option value="">All Suppliers / Vendors</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Product Select */}
         <div className="flex-1 min-w-[180px] max-w-xs">
@@ -220,10 +271,11 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {(selectedCustomer || selectedProduct) && (
+        {(selectedCustomer || selectedSupplier || selectedProduct) && (
           <button
             onClick={() => {
               setSelectedCustomer("");
+              setSelectedSupplier("");
               setSelectedProduct("");
             }}
             className="text-xs text-primary hover:underline ml-auto"
@@ -233,14 +285,24 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Taxable Revenue */}
-        <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-ink-3">
-            <span className="font-medium">Taxable Revenue</span>
-            <IndianRupee className="w-3.5 h-3.5 text-primary" />
-          </div>
+      {section === "purchases" ? (
+        <PurchasesTab
+          period={period}
+          fromDate={fromDate}
+          toDate={toDate}
+          selectedSupplier={selectedSupplier}
+          selectedProduct={selectedProduct}
+        />
+      ) : (
+        <>
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Taxable Revenue */}
+            <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-ink-3">
+                <span className="font-medium">Taxable Revenue</span>
+                <IndianRupee className="w-3.5 h-3.5 text-primary" />
+              </div>
           <div>
             <div className="text-xl font-bold font-mono text-ink tracking-tight">
               {formatINR(kpis?.revenueTaxable || 0)}
@@ -453,6 +515,7 @@ export default function DashboardPage() {
                     <th className="py-2 px-3">Code / Product</th>
                     <th className="py-2 px-3 text-right">Volume</th>
                     <th className="py-2 px-3 text-right">Avg Rate</th>
+                    <th className="py-2 px-3 text-right">Margin / kg</th>
                     <th className="py-2 px-3 text-right font-semibold text-ink">Taxable Total</th>
                   </tr>
                 </thead>
@@ -468,6 +531,37 @@ export default function DashboardPage() {
                         </td>
                         <td className="py-2 px-3 text-right num text-ink-2">{formatKg(p.volumeKg)}</td>
                         <td className="py-2 px-3 text-right num text-ink-3">₹{p.avgRate.toFixed(2)}</td>
+                        <td className="py-2 px-3 text-right num">
+                          {p.marginPerKg !== null && p.marginPerKg !== undefined ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span
+                                className={
+                                  p.marginPerKg >= 0
+                                    ? "text-emerald-700 font-medium"
+                                    : "text-rose-700 font-medium"
+                                }
+                              >
+                                ₹{p.marginPerKg.toFixed(2)}
+                              </span>
+                              <span
+                                className={`text-[9px] px-1 py-0.2 rounded-xs uppercase tracking-tight font-semibold ${
+                                  p.marginBasis === "ACTUAL"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-surface-2 text-ink-3 border border-border"
+                                }`}
+                                title={
+                                  p.marginBasis === "ACTUAL"
+                                    ? `Actual purchase avg cost: ₹${p.purchaseCostPerKg?.toFixed(2)}/kg`
+                                    : `Estimated from standard rate: ₹${p.purchaseCostPerKg?.toFixed(2)}/kg`
+                                }
+                              >
+                                {p.marginBasis === "ACTUAL" ? "Act" : "Est"}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-ink-4">—</span>
+                          )}
+                        </td>
                         <td className="py-2 px-3 text-right num font-semibold text-ink">
                           {formatINR(p.revenue)}
                         </td>
@@ -475,7 +569,7 @@ export default function DashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="py-6 text-center text-ink-3 text-xs">
+                      <td colSpan={5} className="py-6 text-center text-ink-3 text-xs">
                         No product sales recorded in this period.
                       </td>
                     </tr>
@@ -753,6 +847,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
