@@ -9,6 +9,7 @@ import { StatementTable, StatementRow } from "@/components/accounts/StatementTab
 import { OutstandingTable, OpenItemRow } from "@/components/accounts/OutstandingTable";
 import { TotalDueBanner } from "@/components/accounts/TotalDueBanner";
 import { ReceiptModal } from "@/components/accounts/ReceiptModal";
+import { EntryEditModal } from "@/components/accounts/EntryEditModal";
 import { formatINR } from "@/lib/format";
 import {
   ArrowLeft,
@@ -20,6 +21,7 @@ import {
   Clock,
   Layers,
   Filter,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +40,10 @@ export default function AccountStatementPage() {
   const [fromDate, setFromDate] = useState<string>("2026-04-01");
   const [toDate, setToDate] = useState<string>("2026-10-31");
 
-  // Modal
+  // Modals
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [selectedEntryForEdit, setSelectedEntryForEdit] = useState<any | null>(null);
 
   useEffect(() => {
     if (accountId) {
@@ -215,6 +219,19 @@ export default function AccountStatementPage() {
             </button>
           </div>
 
+          {/* Add Line button */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedEntryForEdit(null);
+              setIsEntryModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs transition-all"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Line</span>
+          </button>
+
           {/* Export CSV */}
           <button
             type="button"
@@ -303,6 +320,10 @@ export default function AccountStatementPage() {
           rows={statementData.entries}
           margTotals={statementData.margTotals}
           onVoidEntry={handleVoidEntry}
+          onEditEntry={(row) => {
+            setSelectedEntryForEdit(row);
+            setIsEntryModalOpen(true);
+          }}
         />
       ) : (
         <OutstandingTable
@@ -335,6 +356,23 @@ export default function AccountStatementPage() {
         accountId={account.id}
         accountName={account.displayName}
         accountType={account.accountType}
+        onSuccess={() => {
+          loadStatement();
+          loadOpenItems();
+        }}
+      />
+
+      {/* 7. Add / Edit Statement Entry Modal */}
+      <EntryEditModal
+        isOpen={isEntryModalOpen}
+        onClose={() => {
+          setIsEntryModalOpen(false);
+          setSelectedEntryForEdit(null);
+        }}
+        accountId={account.id}
+        accountName={account.displayName}
+        accountType={account.accountType}
+        entryToEdit={selectedEntryForEdit}
         onSuccess={() => {
           loadStatement();
           loadOpenItems();

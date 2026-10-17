@@ -289,6 +289,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Statement saved successfully for ${result.accountName}. ${result.entriesAdded} entries added (${result.entriesLinked} linked to invoices).`,
+      data: result,
       ...result,
     });
   } catch (error: any) {

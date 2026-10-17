@@ -165,7 +165,11 @@ export function ImportPreview({
         throw new Error(errorMsg);
       }
 
-      onSaveSuccess(data.data.accountId);
+      const accountId = data?.data?.accountId || data?.accountId;
+      if (!accountId) {
+        throw new Error(data?.message || "Failed to retrieve account ID after import");
+      }
+      onSaveSuccess(accountId);
     } catch (err: any) {
       setError(
         typeof err?.message === "string" ? err.message : "An error occurred while saving the statement."

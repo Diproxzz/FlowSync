@@ -10,7 +10,11 @@ export async function POST(request: NextRequest) {
       accountId,
       entryType,
       entryDate,
-      amount,
+      amount: rawAmount,
+      debit: rawDebit,
+      credit: rawCredit,
+      particulars: explicitParticulars,
+      docNo,
       paymentMode,
       instrumentNo,
       instrumentDate,
@@ -18,7 +22,9 @@ export async function POST(request: NextRequest) {
       allocations = [],
     } = body;
 
-    if (!accountId || !entryType || !amount || Number(amount) <= 0) {
+    const amount = rawAmount || (Number(rawDebit) > 0 ? rawDebit : rawCredit);
+
+    if (!accountId || !entryType || (!amount && Number(rawDebit || 0) <= 0 && Number(rawCredit || 0) <= 0)) {
       return NextResponse.json(
         { error: { code: "INVALID_INPUT", message: "Account, entry type, and positive amount are required" } },
         { status: 400 }
@@ -37,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isCustomer = account.account_type === "CUSTOMER";
-    const numAmount = new Decimal(amount);
+    const numAmount = new Decimal(amount || 0);
 
     // Sum of allocations check
     const totalAllocated = allocations.reduce(
@@ -45,18 +51,21 @@ export async function POST(request: NextRequest) {
       new Decimal(0)
     );
 
-    if (totalAllocated.gt(numAmount)) {
+    if (totalAllocated.gt(numAmount) && numAmount.gt(0)) {
       return NextResponse.json(
         { error: { code: "OVER_ALLOCATED", message: "Total allocated amount exceeds transaction amount" } },
         { status: 422 }
       );
     }
 
-    // Determine Debit / Credit based on party and entry type
+    // Determine Debit / Credit based on party and entry type, or use explicit values
     let debit = new Decimal(0);
     let credit = new Decimal(0);
 
-    if (isCustomer) {
+    if (rawDebit !== undefined || rawCredit !== undefined) {
+      debit = new Decimal(rawDebit || 0);
+      credit = new Decimal(rawCredit || 0);
+    } else if (isCustomer) {
       if (entryType === "RECEIPT" || entryType === "CREDIT_NOTE") {
         credit = numAmount;
       } else {
@@ -88,14 +97,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const particulars = formatParticularsText({
-        entryType,
-        paymentMode,
-        instrumentNo,
-        instrumentDate,
-        referencedDocs,
-        narration,
-      });
+      const particulars = explicitParticulars
+        ? explicitParticulars.trim()
+        : formatParticularsText({
+            entryType,
+            paymentMode,
+            instrumentNo,
+            instrumentDate,
+            referencedDocs,
+            narration,
+          });
 
       // Get highest sort_seq for this date
       const dateObj = new Date(entryDate);
@@ -114,6 +125,8 @@ export async function POST(request: NextRequest) {
           entry_type: entryType,
           debit,
           credit,
+          doc_no: docNo || null,
+          doc_no_norm: docNo ? docNo.trim().toUpperCase() : null,
           payment_mode: paymentMode || null,
           instrument_no: instrumentNo || null,
           instrument_date: instrumentDate ? new Date(instrumentDate) : null,

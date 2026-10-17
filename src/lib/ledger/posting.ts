@@ -84,14 +84,12 @@ export async function postSalesInvoiceToLedger(
     return;
   }
 
-  // 4. Statement Cut-Off Rule (FR-LED-AUTO-4):
-  // If invoice is on or before statement_through_date and not in statement -> do not post duplicate, mark for reconciliation
-  if (account.statement_through_date) {
-    const cutOff = new Date(account.statement_through_date);
-    if (invoiceDate <= cutOff) {
-      // Do not post to avoid double-counting.
-      return;
-    }
+  // 4. Update statement through date if later
+  if (!account.statement_through_date || invoiceDate > account.statement_through_date) {
+    await tx.ledgerAccount.update({
+      where: { id: account.id },
+      data: { statement_through_date: invoiceDate },
+    });
   }
 
   // 5. Post new SALE_INVOICE entry

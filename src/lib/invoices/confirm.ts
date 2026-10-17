@@ -384,8 +384,8 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
       });
     }
 
-    // Automatic posting to Ledger if FEATURE_LEDGER is enabled
-    if (process.env.FEATURE_LEDGER === "true") {
+    // Automatic posting to Ledger
+    if (process.env.FEATURE_LEDGER !== "false") {
       await postSalesInvoiceToLedger(tx, {
         id: savedInvoice.id,
         invoice_number: savedInvoice.invoice_number,

@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { formatINR, formatDate } from "@/lib/format";
-import { AlertTriangle, FileText, ExternalLink, Ban } from "lucide-react";
+import { AlertTriangle, FileText, ExternalLink, Ban, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StatementRow {
@@ -12,6 +12,7 @@ export interface StatementRow {
   sort_seq: number;
   entry_type: string;
   particulars: string;
+  particulars_raw?: string;
   doc_no?: string | null;
   invoice_id?: string | null;
   purchase_invoice_id?: string | null;
@@ -22,6 +23,10 @@ export interface StatementRow {
   credit: number;
   running_balance: number;
   balance_side: "Dr" | "Cr";
+  payment_mode?: string | null;
+  instrument_no?: string | null;
+  instrument_date?: string | null;
+  narration?: string | null;
   is_void?: boolean;
   source?: string;
 }
@@ -35,9 +40,10 @@ interface StatementTableProps {
     closingSide: "Dr" | "Cr";
   };
   onVoidEntry?: (entryId: string) => void;
+  onEditEntry?: (row: StatementRow) => void;
 }
 
-export function StatementTable({ rows, margTotals, onVoidEntry }: StatementTableProps) {
+export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: StatementTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
@@ -173,15 +179,29 @@ export function StatementTable({ rows, margTotals, onVoidEntry }: StatementTable
 
                     {/* Actions */}
                     <td className="py-2.5 px-2 text-center align-top">
-                      {row.source === "MANUAL" && !row.is_void && onVoidEntry && (
-                        <button
-                          type="button"
-                          onClick={() => onVoidEntry(row.id)}
-                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-600 p-1 rounded transition-opacity"
-                          title="Void entry"
-                        >
-                          <Ban className="w-3.5 h-3.5" />
-                        </button>
+                      {!row.is_void && (
+                        <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {onEditEntry && (
+                            <button
+                              type="button"
+                              onClick={() => onEditEntry(row)}
+                              className="text-muted-foreground hover:text-primary p-1 rounded hover:bg-muted transition-colors"
+                              title="Edit line"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {row.source === "MANUAL" && onVoidEntry && (
+                            <button
+                              type="button"
+                              onClick={() => onVoidEntry(row.id)}
+                              className="text-muted-foreground hover:text-rose-600 p-1 rounded hover:bg-muted transition-colors"
+                              title="Void entry"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
