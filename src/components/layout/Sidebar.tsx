@@ -16,6 +16,8 @@ import {
   X,
   ShoppingCart,
   Truck,
+  BookOpen,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -32,6 +34,7 @@ interface NavSection {
 }
 
 const isPurchasesEnabled = process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false";
+const isLedgerEnabled = process.env.NEXT_PUBLIC_FEATURE_LEDGER !== "false";
 
 const NAV_SECTIONS: NavSection[] = [
   {
@@ -54,6 +57,17 @@ const NAV_SECTIONS: NavSection[] = [
           items: [
             { label: "Purchase Invoices", href: "/purchases", icon: ShoppingCart },
             { label: "Suppliers", href: "/suppliers", icon: Truck },
+          ],
+        },
+      ]
+    : []),
+  ...(isLedgerEnabled
+    ? [
+        {
+          title: "Accounts & Ledger",
+          items: [
+            { label: "Party Ledgers", href: "/accounts", icon: BookOpen },
+            { label: "Import Statement", href: "/accounts/import", icon: FileSpreadsheet },
           ],
         },
       ]

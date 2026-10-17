@@ -5,6 +5,7 @@ import { validatePurchaseInvoice } from "../validation/purchase";
 import { normalize, normalizeSupplierName, normalizeInvoiceNumber } from "../matching/normalize";
 import { convertUnitToKg } from "../units/convert";
 import { storage } from "../storage/adapter";
+import { postPurchaseInvoiceToLedger } from "../ledger/posting";
 
 export interface ConfirmPurchaseInput {
   draft: ExtractedPurchaseInvoice;
@@ -465,6 +466,17 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
           data: { std_purchase_rate: conv.ratePerKg },
         });
       }
+    }
+
+    // Automatic posting to Ledger if FEATURE_LEDGER is enabled
+    if (process.env.FEATURE_LEDGER === "true") {
+      await postPurchaseInvoiceToLedger(tx, {
+        id: savedPurchase.id,
+        supplier_invoice_number: savedPurchase.supplier_invoice_number,
+        invoice_date: savedPurchase.invoice_date,
+        supplier_id: supplierId,
+        grand_total: savedPurchase.grand_total,
+      });
     }
 
     return {

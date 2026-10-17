@@ -4,6 +4,7 @@ import { ExtractedInvoice } from "../llm/schema";
 import { validateInvoice } from "../validation/invoice";
 import { normalize, normalizeCustomerName, normalizeInvoiceNumber } from "../matching/normalize";
 import { storage } from "../storage/adapter";
+import { postSalesInvoiceToLedger } from "../ledger/posting";
 
 export interface ConfirmInvoiceInput {
   draft: ExtractedInvoice;
@@ -380,6 +381,17 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
           party_text: draft.customer.name,
           note: `Invoice ${draft.invoice.number} (Line ${item.lineNo})`,
         },
+      });
+    }
+
+    // Automatic posting to Ledger if FEATURE_LEDGER is enabled
+    if (process.env.FEATURE_LEDGER === "true") {
+      await postSalesInvoiceToLedger(tx, {
+        id: savedInvoice.id,
+        invoice_number: savedInvoice.invoice_number,
+        invoice_date: savedInvoice.invoice_date,
+        customer_id: savedInvoice.customer_id,
+        grand_total: savedInvoice.grand_total,
       });
     }
 

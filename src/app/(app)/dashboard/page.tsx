@@ -37,6 +37,7 @@ import {
 import { formatINR, formatKg } from "@/lib/format";
 import { AnalyticsData, TrendPoint, TopItem, AbcProduct } from "@/lib/analytics";
 import { PurchasesTab } from "@/components/dashboard/PurchasesTab";
+import { ReceivablesTab } from "@/components/dashboard/ReceivablesTab";
 
 // Accessible Okabe-Ito Palette
 const COLORS = {
@@ -51,7 +52,7 @@ const COLORS = {
 };
 
 export default function DashboardPage() {
-  const [section, setSection] = useState<"sales" | "purchases">("sales");
+  const [section, setSection] = useState<"sales" | "purchases" | "receivables">("sales");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>("fy");
@@ -125,18 +126,18 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-ink tracking-tight">Executive Dashboard</h2>
-            {process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false" && (
-              <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs font-medium">
-                <button
-                  onClick={() => setSection("sales")}
-                  className={`px-3 py-1 rounded-xs transition ${
-                    section === "sales"
-                      ? "bg-primary text-primary-fg font-semibold shadow-xs"
-                      : "text-ink-2 hover:text-ink"
-                  }`}
-                >
-                  Sales
-                </button>
+            <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs font-medium">
+              <button
+                onClick={() => setSection("sales")}
+                className={`px-3 py-1 rounded-xs transition ${
+                  section === "sales"
+                    ? "bg-primary text-primary-fg font-semibold shadow-xs"
+                    : "text-ink-2 hover:text-ink"
+                }`}
+              >
+                Sales
+              </button>
+              {process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false" && (
                 <button
                   onClick={() => setSection("purchases")}
                   className={`px-3 py-1 rounded-xs transition ${
@@ -147,11 +148,25 @@ export default function DashboardPage() {
                 >
                   Purchases
                 </button>
-              </div>
-            )}
+              )}
+              {process.env.NEXT_PUBLIC_FEATURE_LEDGER !== "false" && (
+                <button
+                  onClick={() => setSection("receivables")}
+                  className={`px-3 py-1 rounded-xs transition ${
+                    section === "receivables"
+                      ? "bg-blue-600 text-white font-semibold shadow-xs"
+                      : "text-ink-2 hover:text-ink"
+                  }`}
+                >
+                  Receivables
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-xs text-ink-3 mt-1">
-            {section === "purchases"
+            {section === "receivables"
+              ? "Party ledger statements, receivables ageing, top debtors, and cash collections"
+              : section === "purchases"
               ? "Procurement analytics, vendor spend, multi-sourcing price comparisons, and input GST credits"
               : "Real-time business intelligence, GST turnover, inventory velocity, and customer metrics"}
           </p>
@@ -287,7 +302,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {section === "purchases" ? (
+      {section === "receivables" ? (
+        <ReceivablesTab />
+      ) : section === "purchases" ? (
         <PurchasesTab
           period={period}
           fromDate={fromDate}

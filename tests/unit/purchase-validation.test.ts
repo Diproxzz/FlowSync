@@ -64,6 +64,7 @@ describe("Purchase Invoice Validation (Phase 3)", () => {
       grandTotal: 6726,
     },
     uncertainFields: [],
+    isImport: false,
   };
 
   it("validates a clean intra-state (CGST + SGST) purchase invoice", () => {

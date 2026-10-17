@@ -162,8 +162,6 @@ export default function PurchaseDetailPage({
         name: "INDOBEST CHEMICALS",
         gstin: p.buyer_gstin_snapshot || "19AVZPC2361G1ZA",
       },
-      referenceNo: p.reference_no,
-      vehicleNo: p.vehicle_no,
       items: p.items.map((it, idx) => ({
         lineNo: it.line_no || idx + 1,
         productNameRaw: it.product_name_raw,
@@ -194,6 +192,7 @@ export default function PurchaseDetailPage({
         roundOff: parseFloat(p.round_off) || 0,
         grandTotal: parseFloat(p.grand_total) || 0,
       },
+      uncertainFields: [],
     };
   };
 
@@ -410,14 +409,14 @@ export default function PurchaseDetailPage({
           <PurchasePreviewForm
             initialDraft={buildInitialDraft(purchase)}
             supplierMatch={
-              purchase.supplier
+              (purchase.supplier
                 ? {
                     supplierId: purchase.supplier.id,
                     confidence: 1,
                     status: "matched",
                     matchedSupplier: purchase.supplier,
                   }
-                : null
+                : null) as any
             }
             mode="replace"
             saving={saving}

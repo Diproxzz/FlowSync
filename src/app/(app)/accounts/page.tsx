@@ -1,0 +1,457 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { formatINR, formatDate } from "@/lib/format";
+import {
+  FileSpreadsheet,
+  Search,
+  Filter,
+  ArrowUpDown,
+  Download,
+  PlusCircle,
+  ExternalLink,
+  Scale,
+  AlertTriangle,
+  Building,
+  CheckCircle,
+  TrendingUp,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface AccountOverviewItem {
+  id: string;
+  accountType: "CUSTOMER" | "SUPPLIER";
+  partyName: string;
+  partyId: string | null;
+  gstin: string | null;
+  gstinSource: string | null;
+  openingBalance: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+  closingSide: "Dr" | "Cr";
+  creditDays: number;
+  statementThroughDate: string | null;
+  lastReceiptDate: string | null;
+  oldestBillNo: string | null;
+  oldestBillDate: string | null;
+  overdueAmount: number;
+}
+
+interface AccountsSummary {
+  totalReceivable: number;
+  totalPayable: number;
+  totalOverdue: number;
+  accountsWithDuesCount: number;
+}
+
+export default function AccountsPage() {
+  const [accounts, setAccounts] = useState<AccountOverviewItem[]>([]);
+  const [summary, setSummary] = useState<AccountsSummary>({
+    totalReceivable: 0,
+    totalPayable: 0,
+    totalOverdue: 0,
+    accountsWithDuesCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<"ALL" | "CUSTOMER" | "SUPPLIER">("ALL");
+  const [filterBalance, setFilterBalance] = useState<"ALL" | "DR_ONLY" | "CR_ONLY" | "OVERDUE">("ALL");
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  const fetchAccounts = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/ledger/accounts");
+      const json = await res.json();
+      if (json.success && json.data) {
+        setAccounts(json.data.accounts || []);
+        setSummary(
+          json.data.summary || {
+            totalReceivable: 0,
+            totalPayable: 0,
+            totalOverdue: 0,
+            accountsWithDuesCount: 0,
+          }
+        );
+      }
+    } catch (err) {
+      console.error("Failed to load accounts overview:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter accounts
+  const filteredAccounts = accounts.filter((acc) => {
+    if (filterType !== "ALL" && acc.accountType !== filterType) return false;
+    if (filterBalance === "DR_ONLY" && acc.closingBalance <= 0.005) return false;
+    if (filterBalance === "CR_ONLY" && acc.closingBalance >= -0.005) return false;
+    if (filterBalance === "OVERDUE" && acc.overdueAmount <= 0.005) return false;
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchName = acc.partyName.toLowerCase().includes(q);
+      const matchGstin = acc.gstin && acc.gstin.toLowerCase().includes(q);
+      const matchDoc = acc.oldestBillNo && acc.oldestBillNo.toLowerCase().includes(q);
+      if (!matchName && !matchGstin && !matchDoc) return false;
+    }
+    return true;
+  });
+
+  // Export CSV
+  const handleExportCSV = () => {
+    const headers = [
+      "Party Name",
+      "Type",
+      "GSTIN",
+      "Opening Balance",
+      "Period Debit",
+      "Period Credit",
+      "Closing Balance",
+      "Side",
+      "Overdue Amount",
+      "Oldest Open Bill",
+      "Last Receipt Date",
+    ];
+
+    const rows = filteredAccounts.map((a) => [
+      `"${a.partyName.replace(/"/g, '""')}"`,
+      a.accountType,
+      a.gstin || "Not on file",
+      a.openingBalance.toFixed(2),
+      a.periodDebit.toFixed(2),
+      a.periodCredit.toFixed(2),
+      Math.abs(a.closingBalance).toFixed(2),
+      a.closingSide,
+      a.overdueAmount.toFixed(2),
+      a.oldestBillNo || "",
+      a.lastReceiptDate || "",
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Party_Ledgers_Overview_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Accounts & Ledgers</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Party statements, running balances, receivables, and payables.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+
+          <Link
+            href="/accounts/import"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Import Statement</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* KPI Cards: Receivables & Payables (Never Netted) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Receivable */}
+        <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/40 dark:bg-rose-950/20 dark:border-rose-900 shadow-sm">
+          <div className="flex items-center justify-between text-rose-700 dark:text-rose-400 text-xs font-semibold uppercase tracking-wider">
+            <span>Total Receivable (Dr)</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-100 dark:bg-rose-900/60 font-bold">
+              Dr
+            </span>
+          </div>
+          <div className="text-2xl font-bold font-mono text-rose-700 dark:text-rose-400 mt-2">
+            {formatINR(summary.totalReceivable)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Total amount parties owe you
+          </div>
+        </div>
+
+        {/* Total Payable */}
+        <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900 shadow-sm">
+          <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+            <span>Total Payable (Cr)</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 dark:bg-emerald-900/60 font-bold">
+              Cr
+            </span>
+          </div>
+          <div className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400 mt-2">
+            {formatINR(summary.totalPayable)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Total amount you owe to parties
+          </div>
+        </div>
+
+        {/* Total Overdue */}
+        <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+            <span>Total Overdue</span>
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="text-2xl font-bold font-mono text-foreground mt-2">
+            {formatINR(summary.totalOverdue)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Outstanding past credit period
+          </div>
+        </div>
+
+        {/* Accounts with Dues */}
+        <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+            <span>Accounts with Balance</span>
+            <Building className="w-4 h-4 text-muted-foreground" />
+          </div>
+          <div className="text-2xl font-bold font-mono text-foreground mt-2">
+            {summary.accountsWithDuesCount}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Parties with non-zero closing dues
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-card border border-border rounded-xl shadow-sm">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search party name, GSTIN, or bill #..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center bg-muted/50 p-0.5 rounded-lg border border-border text-xs">
+            <button
+              type="button"
+              onClick={() => setFilterType("ALL")}
+              className={cn(
+                "px-2.5 py-1 rounded-md font-medium transition-colors",
+                filterType === "ALL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              )}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterType("CUSTOMER")}
+              className={cn(
+                "px-2.5 py-1 rounded-md font-medium transition-colors",
+                filterType === "CUSTOMER" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              )}
+            >
+              Customers
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterType("SUPPLIER")}
+              className={cn(
+                "px-2.5 py-1 rounded-md font-medium transition-colors",
+                filterType === "SUPPLIER" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              )}
+            >
+              Suppliers
+            </button>
+          </div>
+
+          <div className="flex items-center bg-muted/50 p-0.5 rounded-lg border border-border text-xs">
+            <button
+              type="button"
+              onClick={() => setFilterBalance("ALL")}
+              className={cn(
+                "px-2.5 py-1 rounded-md font-medium transition-colors",
+                filterBalance === "ALL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              )}
+            >
+              All Balances
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterBalance("DR_ONLY")}
+              className={cn(
+                "px-2.5 py-1 rounded-md font-medium transition-colors",
+                filterBalance === "DR_ONLY" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              )}
+            >
+              Dr Only
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterBalance("OVERDUE")}
+              className={cn(
+                "px-2.5 py-1 rounded-md font-medium transition-colors",
+                filterBalance === "OVERDUE" ? "bg-background text-rose-600 shadow-sm" : "text-muted-foreground"
+              )}
+            >
+              Overdue
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Accounts Table */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="bg-muted/50 border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                <th className="py-3 px-4">Party Name</th>
+                <th className="py-3 px-3 w-[150px]">GSTIN</th>
+                <th className="py-3 px-3 text-right w-[110px]">Opening</th>
+                <th className="py-3 px-3 text-right w-[110px]">Debit</th>
+                <th className="py-3 px-3 text-right w-[110px]">Credit</th>
+                <th className="py-3 px-3 text-right w-[130px]">Closing Balance</th>
+                <th className="py-3 px-3 text-right w-[110px]">Overdue</th>
+                <th className="py-3 px-3 w-[120px]">Oldest Open Bill</th>
+                <th className="py-3 px-3 w-[100px]">Last Receipt</th>
+                <th className="py-3 px-2 w-[40px]"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="py-12 text-center text-muted-foreground">
+                    Loading party ledgers...
+                  </td>
+                </tr>
+              ) : filteredAccounts.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-12 text-center text-muted-foreground">
+                    No accounts found matching the criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredAccounts.map((acc) => {
+                  const isDr = acc.closingBalance > 0.005;
+                  const isCr = acc.closingBalance < -0.005;
+
+                  return (
+                    <tr
+                      key={acc.id}
+                      className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                      onClick={() => (window.location.href = `/accounts/${acc.id}`)}
+                    >
+                      {/* Party Name */}
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors flex items-center gap-1.5">
+                          <span>{acc.partyName}</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded font-mono text-muted-foreground bg-muted font-normal">
+                            {acc.accountType === "CUSTOMER" ? "Customer" : "Supplier"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* GSTIN */}
+                      <td className="py-3 px-3 font-mono text-muted-foreground">
+                        {acc.gstin ? (
+                          <span className="text-foreground font-medium">{acc.gstin}</span>
+                        ) : (
+                          <span className="text-muted-foreground/60 italic">Not on file</span>
+                        )}
+                      </td>
+
+                      {/* Opening */}
+                      <td className="py-3 px-3 text-right font-mono text-muted-foreground">
+                        {formatINR(acc.openingBalance)}
+                      </td>
+
+                      {/* Debit */}
+                      <td className="py-3 px-3 text-right font-mono text-foreground">
+                        {acc.periodDebit > 0 ? formatINR(acc.periodDebit) : "—"}
+                      </td>
+
+                      {/* Credit */}
+                      <td className="py-3 px-3 text-right font-mono text-foreground">
+                        {acc.periodCredit > 0 ? formatINR(acc.periodCredit) : "—"}
+                      </td>
+
+                      {/* Closing Balance */}
+                      <td className="py-3 px-3 text-right font-mono font-bold whitespace-nowrap">
+                        {formatINR(Math.abs(acc.closingBalance))}{" "}
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold ml-1",
+                            isDr ? "text-rose-600" : isCr ? "text-emerald-600" : "text-muted-foreground"
+                          )}
+                        >
+                          {acc.closingSide}
+                        </span>
+                      </td>
+
+                      {/* Overdue */}
+                      <td className="py-3 px-3 text-right font-mono">
+                        {acc.overdueAmount > 0 ? (
+                          <span className="text-rose-600 font-semibold">
+                            {formatINR(acc.overdueAmount)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+
+                      {/* Oldest Open Bill */}
+                      <td className="py-3 px-3 font-mono text-[11px] text-muted-foreground">
+                        {acc.oldestBillNo ? (
+                          <div>
+                            <span className="text-foreground font-medium">{acc.oldestBillNo}</span>
+                            {acc.oldestBillDate && (
+                              <div className="text-[10px] text-muted-foreground">
+                                {formatDate(acc.oldestBillDate)}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </td>
+
+                      {/* Last Receipt */}
+                      <td className="py-3 px-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                        {acc.lastReceiptDate ? formatDate(acc.lastReceiptDate) : "—"}
+                      </td>
+
+                      {/* Arrow */}
+                      <td className="py-3 px-2 text-center text-muted-foreground group-hover:text-primary">
+                        <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

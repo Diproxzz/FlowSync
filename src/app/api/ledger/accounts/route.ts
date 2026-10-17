@@ -1,0 +1,137 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { calculateMargTotals, computeRunningBalances } from "@/lib/ledger/balances";
+import { calculateOpenItems } from "@/lib/ledger/openItems";
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = request.nextUrl;
+    const search = searchParams.get("search")?.trim().toLowerCase() || "";
+    const type = searchParams.get("type"); // CUSTOMER | SUPPLIER
+    const overdueOnly = searchParams.get("overdue") === "true";
+
+    const where: any = { is_active: true };
+    if (type) where.account_type = type;
+    if (search) {
+      where.OR = [
+        { display_name: { contains: search, mode: "insensitive" } },
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+        { customer: { gstin: { contains: search, mode: "insensitive" } } },
+        { supplier: { name: { contains: search, mode: "insensitive" } } },
+        { supplier: { gstin: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    const accounts = await prisma.ledgerAccount.findMany({
+      where,
+      include: {
+        customer: {
+          select: { id: true, name: true, gstin: true, gstin_source: true },
+        },
+        supplier: {
+          select: { id: true, name: true, gstin: true, gstin_source: true },
+        },
+        entries: {
+          where: { is_void: false },
+          orderBy: [{ entry_date: "asc" }, { sort_seq: "asc" }, { id: "asc" }],
+        },
+      },
+      orderBy: { display_name: "asc" },
+    });
+
+    let totalReceivable = 0;
+    let totalPayable = 0;
+    let grandOverdue = 0;
+
+    const accountRows = accounts.map((acc) => {
+      const gstin = acc.customer?.gstin || acc.supplier?.gstin || null;
+      const gstinSource = acc.customer?.gstin_source || acc.supplier?.gstin_source || null;
+
+      // Extract opening entry
+      const openingEntry = acc.entries.find((e) => e.entry_type === "OPENING");
+      let openingBalance = 0;
+      let openingSide: "Dr" | "Cr" = "Dr";
+      if (openingEntry) {
+        const deb = Number(openingEntry.debit);
+        const cred = Number(openingEntry.credit);
+        openingBalance = deb > 0 ? deb : cred;
+        openingSide = deb >= cred ? "Dr" : "Cr";
+      }
+
+      // Compute Marg totals
+      const totals = calculateMargTotals(
+        acc.entries as any,
+        openingSide === "Dr" ? openingBalance : -openingBalance
+      );
+
+      // Compute Open Items & Overdue
+      const openItems = calculateOpenItems(
+        acc.entries as any,
+        [],
+        acc.credit_days || 30,
+        new Date(),
+        acc.account_type === "CUSTOMER"
+      );
+
+      const closingBalance = totals.closingBalance;
+      const closingSide = totals.closingSide;
+
+      if (closingSide === "Dr") {
+        totalReceivable += closingBalance;
+      } else {
+        totalPayable += closingBalance;
+      }
+      grandOverdue += openItems.totalOverdue;
+
+      // Find last receipt date
+      const receipts = acc.entries.filter((e) => e.entry_type === "RECEIPT" || e.entry_type === "PAYMENT");
+      const lastReceipt = receipts.length > 0 ? receipts[receipts.length - 1].entry_date : null;
+
+      // Find oldest unpaid bill
+      const openBills = openItems.items.filter((it) => it.status === "OPEN" || it.status === "PART");
+      const oldestBill = openBills.length > 0 ? openBills[0].docNo : null;
+
+      return {
+        id: acc.id,
+        accountType: acc.account_type,
+        displayName: acc.display_name,
+        partyId: acc.customer_id || acc.supplier_id,
+        gstin,
+        gstinSource,
+        creditDays: acc.credit_days,
+        openingBalance,
+        openingSide,
+        periodDebit: totals.periodDebit,
+        periodCredit: totals.periodCredit,
+        totalDebitWithOpening: totals.totalDebitWithOpening,
+        totalCreditWithOpening: totals.totalCreditWithOpening,
+        closingBalance,
+        closingSide,
+        totalOverdue: openItems.totalOverdue,
+        oldestBill,
+        lastReceiptDate: lastReceipt,
+        statementThroughDate: acc.statement_through_date,
+        openingBalanceSet: acc.opening_balance_set,
+        entriesCount: acc.entries.length,
+      };
+    });
+
+    const filteredRows = overdueOnly ? accountRows.filter((r) => r.totalOverdue > 0) : accountRows;
+
+    return NextResponse.json({
+      accounts: filteredRows,
+      summary: {
+        totalReceivable,
+        totalPayable,
+        grandOverdue,
+        totalAccounts: accounts.length,
+      },
+    });
+  } catch (error: any) {
+    console.error("Fetch accounts error:", error);
+    return NextResponse.json(
+      { error: { code: "FETCH_FAILED", message: error.message || "Failed to load ledger accounts" } },
+      { status: 500 }
+    );
+  }
+}

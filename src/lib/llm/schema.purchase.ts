@@ -60,6 +60,7 @@ export const ExtractedPurchaseInvoiceSchema = z.object({
 
 export type ExtractedPurchaseInvoice = z.infer<typeof ExtractedPurchaseInvoiceSchema>;
 export type ExtractedPurchaseItem = z.infer<typeof ExtractedPurchaseItemSchema>;
+export type ExtractedPurchaseInvoiceItem = ExtractedPurchaseItem;
 
 export const ExtractedPurchaseInvoiceJsonSchema = {
   type: "object",

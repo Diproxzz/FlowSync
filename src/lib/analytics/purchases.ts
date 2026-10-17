@@ -480,7 +480,7 @@ export async function getPurchaseAnalytics(
   }
 
   const supplierComparison: SupplierPriceComparison[] = [];
-  for (const [pId, sMap] of prodSupplierMap.entries()) {
+  for (const [pId, sMap] of Array.from(prodSupplierMap.entries())) {
     if (sMap.size > 1) {
       const prod = products.find((p) => p.id === pId);
       if (prod) {
@@ -488,7 +488,7 @@ export async function getPurchaseAnalytics(
           productId: prod.id,
           productCode: prod.code,
           productName: prod.name,
-          suppliers: Array.from(sMap.values()).map((s) => ({
+          suppliers: Array.from(sMap.values()).map((s: any) => ({
             supplierId: s.supplierId,
             supplierName: s.supplierName,
             latestRatePerKg: s.latestRate.toDecimalPlaces(2).toNumber(),

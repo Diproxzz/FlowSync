@@ -47,6 +47,11 @@ export async function DELETE(
     }
 
     // Deleting invoice cascades to invoice_items and their stock_movements
+    if (process.env.FEATURE_LEDGER === "true") {
+      const { removeSalesInvoiceFromLedger } = await import("@/lib/ledger/posting");
+      await removeSalesInvoiceFromLedger(prisma, id);
+    }
+
     await prisma.invoice.delete({ where: { id } });
 
     // Clean up stored file if exists

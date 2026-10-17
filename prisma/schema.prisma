@@ -73,13 +73,15 @@ model Customer {
   name       String
   name_norm  String
   gstin      String?           @unique
-  address    String?
-  state_code String?
-  created_at DateTime          @default(now())
-  updated_at DateTime          @updatedAt
+  address        String?
+  state_code     String?
+  gstin_source   String?
+  created_at     DateTime          @default(now())
+  updated_at     DateTime          @updatedAt
 
-  aliases    CustomerAlias[]
-  invoices   Invoice[]
+  aliases        CustomerAlias[]
+  invoices       Invoice[]
+  ledger_account LedgerAccount?
 
   @@map("customers")
 }
@@ -124,6 +126,7 @@ model Invoice {
 
   items                   InvoiceItem[]
   revisions               InvoiceRevision[]
+  ledger_entry            LedgerEntry?
 
   @@index([invoice_date])
   @@index([customer_id, invoice_date])
@@ -214,14 +217,16 @@ model Supplier {
   name       String
   name_norm  String
   gstin      String?  @unique
-  address    String?
-  state_code String?
-  is_active  Boolean  @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  address        String?
+  state_code     String?
+  gstin_source   String?
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
   aliases           SupplierAlias[]
   purchase_invoices PurchaseInvoice[]
+  ledger_account    LedgerAccount?
 
   @@map("suppliers")
 }
@@ -271,6 +276,7 @@ model PurchaseInvoice {
 
   items                   PurchaseInvoiceItem[]
   revisions               PurchaseInvoiceRevision[]
+  ledger_entry            LedgerEntry?
 
   @@unique([supplier_id, invoice_number_norm])
   @@index([invoice_date])
@@ -356,5 +362,165 @@ model UploadJob {
   @@index([status])
   @@index([created_at])
   @@map("upload_jobs")
+}
+
+// ==========================================
+// ACCOUNT STATEMENTS (PARTY LEDGER) MODULE
+// ==========================================
+
+enum LedgerAccountType {
+  CUSTOMER
+  SUPPLIER
+}
+
+enum LedgerEntryType {
+  OPENING
+  SALE_INVOICE
+  PURCHASE_INVOICE
+  RECEIPT
+  PAYMENT
+  DEBIT_NOTE
+  CREDIT_NOTE
+  ADJUSTMENT
+}
+
+enum LedgerPaymentMode {
+  CHEQUE
+  NEFT
+  RTGS
+  UPI
+  CASH
+  OTHER
+}
+
+enum LedgerEntrySource {
+  STATEMENT_IMPORT
+  INVOICE_AUTO
+  MANUAL
+}
+
+enum LedgerAllocationSource {
+  MANUAL
+  CONFIRMED_FROM_IMPORT
+}
+
+enum LedgerAuditAction {
+  CREATE
+  UPDATE
+  VOID
+  LINK
+}
+
+enum StatementParserType {
+  TEXT_LAYOUT
+  LLM
+}
+
+model LedgerAccount {
+  id                     String            @id @default(cuid())
+  account_type           LedgerAccountType
+  customer_id            String?           @unique
+  customer               Customer?         @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  supplier_id            String?           @unique
+  supplier               Supplier?         @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  display_name           String
+  credit_days            Int?              @default(30)
+  statement_through_date DateTime?         @db.Date
+  opening_balance_set    Boolean           @default(false)
+  is_active              Boolean           @default(true)
+  created_at             DateTime          @default(now())
+  updated_at             DateTime          @updatedAt
+
+  entries                LedgerEntry[]
+  import_batches         StatementImport[]
+
+  @@map("ledger_accounts")
+}
+
+model LedgerEntry {
+  id                   String             @id @default(cuid())
+  account_id           String
+  account              LedgerAccount      @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  entry_date           DateTime           @db.Date
+  sort_seq             Int                @default(0)
+  entry_type           LedgerEntryType
+  debit                Decimal            @default(0) @db.Decimal(14, 2)
+  credit               Decimal            @default(0) @db.Decimal(14, 2)
+  doc_no               String?
+  doc_no_norm          String?
+  invoice_id           String?            @unique
+  invoice              Invoice?           @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+  purchase_invoice_id  String?            @unique
+  purchase_invoice     PurchaseInvoice?   @relation(fields: [purchase_invoice_id], references: [id], onDelete: SetNull)
+  payment_mode         LedgerPaymentMode?
+  instrument_no        String?
+  instrument_date      DateTime?          @db.Date
+  referenced_docs      String[]           @default([])
+  prior_year_refs      String[]           @default([])
+  references_truncated Boolean            @default(false)
+  particulars_raw      String?
+  narration            String?
+  source               LedgerEntrySource
+  import_batch_id      String?
+  import_batch         StatementImport?   @relation(fields: [import_batch_id], references: [id], onDelete: SetNull)
+  needs_review         Boolean            @default(false)
+  is_void              Boolean            @default(false)
+  void_reason          String?
+  created_at           DateTime           @default(now())
+  updated_at           DateTime           @updatedAt
+
+  settling_allocations LedgerAllocation[] @relation("SettlingEntry")
+  target_allocations   LedgerAllocation[] @relation("TargetEntry")
+  audits               LedgerAudit[]
+
+  @@index([account_id, entry_date, sort_seq, id])
+  @@index([entry_type])
+  @@map("ledger_entries")
+}
+
+model LedgerAllocation {
+  id                String                 @id @default(cuid())
+  settling_entry_id String
+  settling_entry    LedgerEntry            @relation("SettlingEntry", fields: [settling_entry_id], references: [id], onDelete: Cascade)
+  target_entry_id   String
+  target_entry      LedgerEntry            @relation("TargetEntry", fields: [target_entry_id], references: [id], onDelete: Cascade)
+  amount            Decimal                @db.Decimal(14, 2)
+  source            LedgerAllocationSource
+  created_at        DateTime               @default(now())
+
+  @@map("ledger_allocations")
+}
+
+model LedgerAudit {
+  id       String            @id @default(cuid())
+  entry_id String
+  entry    LedgerEntry       @relation(fields: [entry_id], references: [id], onDelete: Cascade)
+  action   LedgerAuditAction
+  before   Json?
+  after    Json?
+  reason   String?
+  at       DateTime          @default(now())
+
+  @@map("ledger_audit")
+}
+
+model StatementImport {
+  id             String              @id @default(cuid())
+  account_id     String
+  account        LedgerAccount       @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  file_hash      String
+  file_name      String
+  period_from    DateTime            @db.Date
+  period_to      DateTime            @db.Date
+  parser         StatementParserType
+  entries_added  Int                 @default(0)
+  entries_linked Int                 @default(0)
+  warnings       Json?
+  created_at     DateTime            @default(now())
+
+  entries        LedgerEntry[]
+
+  @@unique([account_id, file_hash])
+  @@map("statement_imports")
 }
 

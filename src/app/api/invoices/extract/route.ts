@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // Product resolution for each item
     const productMatches = await Promise.all(
-      draft.items.map((item) => resolveProduct(item.productNameRaw))
+      draft.items.map((item: any) => resolveProduct(item.productNameRaw))
     );
 
     // Duplicate invoice check by normalized invoice number

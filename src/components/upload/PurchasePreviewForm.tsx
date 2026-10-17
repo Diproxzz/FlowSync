@@ -148,7 +148,7 @@ export function PurchasePreviewForm({
         productId: pm?.status === "MATCHED" ? pm.productId : undefined,
         productCode: pm?.status === "MATCHED" ? pm.productCode : undefined,
         productName: pm?.status === "MATCHED" ? pm.productName : undefined,
-        packSizeKg: it.packSizeKg || null,
+        packSizeKg: (it as any).packSizeKg || null,
         manualQtyKg: null,
         status: pm?.status === "MATCHED" ? "MATCHED" : "NEW",
       };
@@ -357,8 +357,8 @@ export function PurchasePreviewForm({
         rate: r,
       });
 
-      item.qtyKg = Number(conv.qtyKg);
-      item.ratePerKg = Number(conv.ratePerKg);
+      (item as any).qtyKg = Number(conv.qtyKg);
+      (item as any).ratePerKg = Number(conv.ratePerKg);
 
       if (isIgstActive) {
         item.cgstPct = 0;
@@ -460,7 +460,7 @@ export function PurchasePreviewForm({
         manualQtyKg: next[index].manualQtyKg,
         rate: item.rate,
       });
-      handleUpdateItem(index, "qtyKg", Number(conv.qtyKg));
+      handleUpdateItem(index, "qtyKg" as any, Number(conv.qtyKg));
     }
   };
 
@@ -620,7 +620,7 @@ export function PurchasePreviewForm({
 
   const handleAddItem = () => {
     const nextLineNo = draft.items.length + 1;
-    const newItem: ExtractedPurchaseInvoiceItem = {
+    const newItem: any = {
       lineNo: nextLineNo,
       productNameRaw: "",
       hsn: "",

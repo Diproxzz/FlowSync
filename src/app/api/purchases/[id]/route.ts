@@ -130,6 +130,12 @@ export async function DELETE(
 
     // Execute deletion in transaction
     await prisma.$transaction(async (tx) => {
+      // Unlink or remove ledger entry if FEATURE_LEDGER is enabled
+      if (process.env.FEATURE_LEDGER === "true") {
+        const { removePurchaseInvoiceFromLedger } = await import("@/lib/ledger/posting");
+        await removePurchaseInvoiceFromLedger(tx, id);
+      }
+
       // 1. Delete items (cascade removes linked StockMovements)
       await tx.purchaseInvoiceItem.deleteMany({
         where: { purchase_invoice_id: id },

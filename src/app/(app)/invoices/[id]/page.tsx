@@ -347,7 +347,7 @@ export default function InvoiceDetailPage({
           <PreviewForm
             initialDraft={buildInitialDraft(invoice)}
             customerMatch={
-              invoice.customer
+              (invoice.customer
                 ? {
                     status: "matched",
                     confidence: 1,
@@ -357,14 +357,14 @@ export default function InvoiceDetailPage({
                     status: "new",
                     confidence: 0,
                     suggestedName: invoice.customer_name_snapshot,
-                  }
+                  }) as any
             }
             productMatches={invoice.items.map((it) => ({
               lineNo: it.line_no,
               status: it.product ? "exact" : "new",
               confidence: it.product ? 1 : 0,
               matchedProduct: it.product,
-            }))}
+            })) as any}
             mode="replace"
             saving={saving}
             onSave={handleSaveEdit}

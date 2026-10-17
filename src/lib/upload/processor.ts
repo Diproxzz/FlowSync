@@ -116,7 +116,7 @@ export async function processUploadJob(jobId: string) {
 
     // 8. Product resolution for each item
     const productMatches = await Promise.all(
-      draft.items.map((item) => resolveProduct(item.productNameRaw))
+      draft.items.map((item: any) => resolveProduct(item.productNameRaw))
     );
 
     // Update product HSN once fetched (if not already present)
