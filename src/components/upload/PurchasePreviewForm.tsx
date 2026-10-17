@@ -342,8 +342,9 @@ export function PurchasePreviewForm({
     ) {
       const qPrinted = Number(item.qtyPrinted) || 0;
       const r = Number(item.rate) || 0;
-      const d = Number(item.discount) || 0;
-      item.taxableAmount = Math.max(0, Math.round((qPrinted * r - d) * 100) / 100);
+      const dPct = Number(item.discount) || 0;
+      const discountMultiplier = dPct > 0 ? 1 - dPct / 100 : 1;
+      item.taxableAmount = Math.max(0, Math.round(qPrinted * r * discountMultiplier * 100) / 100);
 
       const conv = convertUnitToKg({
         qtyPrinted: qPrinted,

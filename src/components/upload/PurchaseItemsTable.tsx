@@ -76,7 +76,7 @@ export function PurchaseItemsTable({
               <th className="py-2 px-2.5 min-w-[95px]">HSN</th>
               <th className="py-2 px-2.5 min-w-[130px]">Printed Qty & Unit</th>
               <th className="py-2 px-2.5 text-right min-w-[95px]">Rate (₹)</th>
-              <th className="py-2 px-2.5 text-right min-w-[70px]">Disc (₹)</th>
+              <th className="py-2 px-2.5 text-right min-w-[70px]">Disc %</th>
               <th className="py-2 px-2.5 text-right min-w-[110px]">Taxable (₹)</th>
               <th className="py-2 px-2.5 text-right min-w-[80px]">{isIgstActive ? "IGST %" : "GST %"}</th>
               <th className="py-2 px-2.5 text-right min-w-[110px]">Total (₹)</th>
@@ -288,13 +288,13 @@ export function PurchaseItemsTable({
                     )}
                   </td>
 
-                  {/* 8. Discount (₹) */}
+                  {/* 8. Discount (%) */}
                   <td className="py-2 px-2.5 text-right">
                     <input
                       type="number"
                       step="any"
-                      placeholder="0.00"
-                      value={item.discount ?? ""}
+                      placeholder="—"
+                      value={item.discount ? item.discount : ""}
                       onChange={(e) =>
                         onUpdateItem(
                           index,
@@ -303,6 +303,7 @@ export function PurchaseItemsTable({
                         )
                       }
                       className="w-full min-w-[60px] px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-right num placeholder:text-ink-3 text-ink focus:outline-none focus:ring-1 focus:ring-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      title="Line discount percentage (%)"
                     />
                   </td>
 

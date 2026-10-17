@@ -175,10 +175,13 @@ export function validatePurchaseInvoice(
       });
     }
 
-    // Check taxable arithmetic: |qtyPrinted * rate - discount - taxable| > 0.05
+    // Check taxable arithmetic: |qtyPrinted * rate * (1 - discount/100) - taxable| > 0.05
+    const discountMultiplier = item.discount && Number(item.discount) > 0
+      ? new Decimal(1).minus(new Decimal(item.discount).div(100))
+      : new Decimal(1);
     const expectedTaxable = new Decimal(item.qtyPrinted)
       .mul(item.rate)
-      .minus(item.discount || 0);
+      .mul(discountMultiplier);
     const actualTaxable = new Decimal(item.taxableAmount);
 
     if (expectedTaxable.minus(actualTaxable).abs().greaterThan(0.05)) {
@@ -186,7 +189,9 @@ export function validatePurchaseInvoice(
         path: `${path}.taxableAmount`,
         severity: "warning",
         code: "LINE_TAXABLE_MISMATCH",
-        message: `Line ${item.lineNo}: Taxable amount ₹${item.taxableAmount} does not match (Qty × Rate - Discount = ₹${expectedTaxable.toFixed(2)})`,
+        message: item.discount && Number(item.discount) > 0
+          ? `Line ${item.lineNo}: Taxable amount ₹${item.taxableAmount} does not match (Qty × Rate less ${item.discount}% = ₹${expectedTaxable.toFixed(2)})`
+          : `Line ${item.lineNo}: Taxable amount ₹${item.taxableAmount} does not match (Qty × Rate = ₹${expectedTaxable.toFixed(2)})`,
       });
     }
 

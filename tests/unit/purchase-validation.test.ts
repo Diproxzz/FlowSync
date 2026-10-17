@@ -215,4 +215,39 @@ describe("Purchase Invoice Validation (Phase 3)", () => {
     ]);
     expect(res.issues.some((i) => i.code === "UNIT_UNCONVERTIBLE")).toBe(false);
   });
+
+  it("correctly validates taxable arithmetic when discount percentage is applied", () => {
+    // 50 Qty * 100 Rate = 5000; 10% discount = 4500 Taxable
+    const discountedInvoice: ExtractedPurchaseInvoice = {
+      ...baseValidInvoice,
+      items: [
+        {
+          ...baseValidInvoice.items[0],
+          qtyPrinted: 50,
+          rate: 100,
+          discount: 10, // 10%
+          taxableAmount: 4500, // 50 * 100 * (1 - 0.1)
+          cgstPct: 9,
+          sgstPct: 9,
+          cgstAmount: 405,
+          sgstAmount: 405,
+          lineTotal: 5310,
+        },
+      ],
+      totals: {
+        taxableSubtotal: 4500,
+        cgstTotal: 405,
+        sgstTotal: 405,
+        igstTotal: 0,
+        otherCharges: 0,
+        tcs: 0,
+        roundOff: 0,
+        grandTotal: 5310,
+      },
+    };
+
+    const res = validatePurchaseInvoice(discountedInvoice);
+    expect(res.isValid).toBe(true);
+    expect(res.issues.some((i) => i.code === "LINE_TAXABLE_MISMATCH")).toBe(false);
+  });
 });

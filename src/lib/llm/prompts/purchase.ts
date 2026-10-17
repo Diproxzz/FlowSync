@@ -34,7 +34,7 @@ RULES:
 - "qtyPrinted": Plain numeric quantity as printed on invoice.
 - "unitPrinted": The unit of measurement AS PRINTED: "KG", "DRUM", "BAG", "MT", "CAN", "LTR", etc. (Do not convert).
 - "rate": Rate per printed unit (numeric).
-- "discount": Line discount amount if printed, default 0.
+- "discount": Line discount percentage (%) if printed (e.g. 5 for 5%), default 0.
 - "taxableAmount": Taxable amount for the line (numeric).
 - Tax rates and amounts:
   * "cgstPct", "sgstPct": Percentage (e.g. 9.00 or 2.50) if intra-state. 0 if IGST.
