@@ -53,6 +53,10 @@ export function normalizeCustomerName(name: string): string {
   return tokens.join(" ").trim();
 }
 
+export function normalizeSupplierName(name: string): string {
+  return normalizeCustomerName(name);
+}
+
 export function normalizeInvoiceNumber(num: string): string {
   if (!num) return "";
   return num
