@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     purchases,
+    invoices: purchases,
     pagination: {
       page,
       limit,

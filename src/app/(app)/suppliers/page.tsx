@@ -559,21 +559,27 @@ export default function SuppliersPage() {
                     <div className="py-8 text-center text-muted-foreground">No purchase invoices recorded yet.</div>
                   ) : (
                     detailSupplier.purchase_invoices.map((inv: any) => (
-                      <div key={inv.id} className="p-4 rounded-lg border border-border bg-card hover:bg-muted/30 transition flex items-center justify-between">
+                      <Link
+                        key={inv.id}
+                        href={`/purchases/${inv.id}`}
+                        className="p-4 rounded-lg border border-border bg-card hover:border-accent hover:bg-muted/30 transition flex items-center justify-between group cursor-pointer block"
+                        title={`Open purchase invoice #${inv.supplier_invoice_number}`}
+                      >
                         <div>
-                          <div className="font-semibold text-foreground flex items-center gap-2">
-                            <span>{inv.supplier_invoice_number}</span>
+                          <div className="font-semibold text-foreground flex items-center gap-2 group-hover:text-accent transition">
+                            <span className="font-mono">{inv.supplier_invoice_number}</span>
                             <span className="text-xs text-muted-foreground">({formatDate(inv.invoice_date)})</span>
+                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-accent opacity-70 group-hover:opacity-100 transition" />
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {inv.items?.length || 0} items: {inv.items?.map((it: any) => it.product?.name).filter(Boolean).slice(0, 3).join(", ")}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-mono font-bold text-foreground">{formatINR(inv.grand_total)}</div>
+                          <div className="font-mono font-bold text-foreground group-hover:text-accent transition">{formatINR(inv.grand_total)}</div>
                           <div className="text-xs text-muted-foreground">Taxable: {formatINR(inv.taxable_total)}</div>
                         </div>
-                      </div>
+                      </Link>
                     ))
                   )}
                 </div>

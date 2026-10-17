@@ -159,7 +159,11 @@ export default function SupplierDetailPage() {
                 ) : (
                   supplier.purchase_invoices.map((inv: any) => (
                     <tr key={inv.id} className="hover:bg-muted/30 transition">
-                      <td className="px-6 py-4 font-semibold font-mono">{inv.supplier_invoice_number}</td>
+                      <td className="px-6 py-4 font-semibold font-mono">
+                        <Link href={`/purchases/${inv.id}`} className="hover:underline text-primary">
+                          {inv.supplier_invoice_number}
+                        </Link>
+                      </td>
                       <td className="px-6 py-4 text-muted-foreground">{formatDate(inv.invoice_date)}</td>
                       <td className="px-6 py-4 text-xs text-muted-foreground">
                         {inv.items?.length || 0} line(s): {inv.items?.map((it: any) => it.product?.name).filter(Boolean).slice(0, 2).join(", ")}

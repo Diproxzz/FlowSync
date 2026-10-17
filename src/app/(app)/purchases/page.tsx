@@ -133,7 +133,7 @@ function PurchasesListContent() {
 
       const res = await fetch(`/api/purchases?${params.toString()}`);
       const data = await res.json();
-      setInvoices(data.invoices || []);
+      setInvoices(data.invoices || data.purchases || []);
       setTotal(data.pagination?.total || 0);
       setTotalPages(data.pagination?.pages || 1);
     } catch (err) {
@@ -439,7 +439,22 @@ function PurchasesListContent() {
               ) : invoices.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-ink-3">
-                    No purchase invoices found matching your criteria.
+                    {search || activeFilterCount > 0 ? (
+                      <div className="space-y-1">
+                        <p>No purchase invoices match the current search or filters.</p>
+                        <button
+                          onClick={() => {
+                            setSearch("");
+                            resetFilters();
+                          }}
+                          className="text-xs text-accent hover:underline font-medium"
+                        >
+                          Clear all filters
+                        </button>
+                      </div>
+                    ) : (
+                      "No purchase invoices recorded yet. Click 'Upload Purchase Bill' to scan and save your first vendor bill."
+                    )}
                   </td>
                 </tr>
               ) : (
