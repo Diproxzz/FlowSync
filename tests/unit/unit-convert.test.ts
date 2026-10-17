@@ -34,6 +34,7 @@ describe("Unit Conversion (FR-PUR-UP-4)", () => {
     });
     expect(res.isConvertible).toBe(true);
     expect(res.needsManualKg).toBe(false);
+    expect(res.convertedToKg).toBe(true);
     expect(res.qtyKg.toNumber()).toBe(2500);
     expect(res.ratePerKg.toNumber()).toBe(80); // 80,000 / 1,000 = 80 per kg
   });
@@ -47,6 +48,7 @@ describe("Unit Conversion (FR-PUR-UP-4)", () => {
     });
     expect(res.isConvertible).toBe(true);
     expect(res.needsManualKg).toBe(false);
+    expect(res.convertedToKg).toBe(true);
     expect(res.qtyKg.toNumber()).toBe(660); // 3 * 220
     expect(res.ratePerKg.toNumber()).toBe(70); // 15400 / 220
   });
@@ -60,6 +62,7 @@ describe("Unit Conversion (FR-PUR-UP-4)", () => {
     });
     expect(res.isConvertible).toBe(true);
     expect(res.needsManualKg).toBe(false);
+    expect(res.convertedToKg).toBe(false);
     expect(res.qtyKg.toNumber()).toBe(5);
   });
 
@@ -71,6 +74,7 @@ describe("Unit Conversion (FR-PUR-UP-4)", () => {
     });
     expect(res.isConvertible).toBe(true);
     expect(res.needsManualKg).toBe(false);
+    expect(res.convertedToKg).toBe(false);
     expect(res.qtyKg.toNumber()).toBe(100);
     expect(res.ratePerKg.toNumber()).toBe(50);
   });

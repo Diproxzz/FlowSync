@@ -13,6 +13,7 @@ export interface UnitConversionResult {
   ratePerKg: Prisma.Decimal;
   isConvertible: boolean;
   needsManualKg: boolean;
+  convertedToKg: boolean;
   formulaDescription: string;
   unitNormalized: string;
   error?: string;
@@ -54,19 +55,21 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
         ratePerKg: ratePerKg.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
         isConvertible: true,
         needsManualKg: false,
+        convertedToKg: true,
         formulaDescription: `Manual entry: ${manualKgDec} kg`,
         unitNormalized: unitNorm,
       };
     }
   }
 
-  // 1. Direct KG
+  // 1. Direct KG (already in kg, no conversion needed)
   if (unitNorm === "KG") {
     return {
       qtyKg: qtyPrintedDec,
       ratePerKg: rateDec,
       isConvertible: true,
       needsManualKg: false,
+      convertedToKg: false,
       formulaDescription: `${qtyPrintedDec} kg`,
       unitNormalized: unitNorm,
     };
@@ -81,6 +84,7 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
       ratePerKg: ratePerKg.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
       isConvertible: true,
       needsManualKg: false,
+      convertedToKg: true,
       formulaDescription: `${qtyPrintedDec} MT × 1,000 kg/MT = ${qtyKg} kg`,
       unitNormalized: unitNorm,
     };
@@ -100,6 +104,7 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
         ratePerKg: ratePerKg.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
         isConvertible: true,
         needsManualKg: false,
+        convertedToKg: true,
         formulaDescription: `${qtyPrintedDec} ${unitNorm.toLowerCase()}s × ${packSizeDec} kg = ${qtyKg} kg`,
         unitNormalized: unitNorm,
       };
@@ -107,12 +112,13 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
   }
 
   // 4. Units not converted to KG (PCS, NOS, BOX, LTR, or units without pack size)
-  // Do not force every unit to convert to KG or block saving; default to 1:1 printed qty and rate.
+  // Do not force conversion or show fake kg values for pieces or non-weight units.
   return {
     qtyKg: qtyPrintedDec,
     ratePerKg: rateDec,
     isConvertible: true,
     needsManualKg: false,
+    convertedToKg: false,
     formulaDescription: `${qtyPrintedDec} ${unitNorm}`,
     unitNormalized: unitNorm,
   };

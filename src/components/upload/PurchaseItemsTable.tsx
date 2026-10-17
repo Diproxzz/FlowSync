@@ -243,7 +243,7 @@ export function PurchaseItemsTable({
                       </div>
                     )}
 
-                    {unitNorm !== "KG" && conv.isConvertible && (
+                    {conv.convertedToKg && (
                       <div className="mt-0.5 text-[10px] text-accent font-mono truncate max-w-[150px]">
                         = {Number(conv.qtyKg).toFixed(2)} kg
                       </div>
