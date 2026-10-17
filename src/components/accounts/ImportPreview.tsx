@@ -516,17 +516,17 @@ export function ImportPreview({
       {/* Totals Comparison Check */}
       <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-          Replay & Marg Totals Reconciled
+          Replay & Statement Totals Reconciled
         </h4>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
-            <span className="text-xs text-muted-foreground block">Debit Total (Marg)</span>
+            <span className="text-xs text-muted-foreground block">Debit Total</span>
             <span className="font-mono font-semibold text-sm text-foreground">
               {formatINR(extracted?.totals?.debitTotal ?? extracted?.printedTotals?.debit ?? 0)}
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
-            <span className="text-xs text-muted-foreground block">Credit Total (Marg)</span>
+            <span className="text-xs text-muted-foreground block">Credit Total</span>
             <span className="font-mono font-semibold text-sm text-foreground">
               {formatINR(extracted?.totals?.creditTotal ?? extracted?.printedTotals?.credit ?? 0)}
             </span>

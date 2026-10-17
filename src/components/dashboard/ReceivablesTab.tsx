@@ -272,7 +272,7 @@ export function ReceivablesTab() {
               href="/accounts/import"
               className="text-xs font-medium text-primary hover:underline flex items-center justify-center gap-1"
             >
-              <span>Import a new Marg statement</span>
+              <span>Import a new statement</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>

@@ -52,7 +52,7 @@ export default function StatementImportPage() {
 
   const handleFileSelected = async (selectedFile: File) => {
     if (!selectedFile.name.toLowerCase().endsWith(".pdf")) {
-      setError("Please select a PDF file (Marg Ledger Account Statement).");
+      setError("Please select a PDF file (Ledger Account Statement).");
       return;
     }
 
@@ -109,7 +109,7 @@ export default function StatementImportPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Import Statement</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload a Marg "Ledger Account" statement PDF to verify and record entries.
+          Upload a "Ledger Account" statement PDF to verify and record entries.
         </p>
       </div>
 
@@ -161,7 +161,7 @@ export default function StatementImportPage() {
                   <span className="text-sm text-muted-foreground">or drag and drop statement PDF</span>
                 </div>
                 <p className="text-xs text-muted-foreground max-w-sm">
-                  Supports Marg "Ledger Account" format with text layer. Deterministic replay checks ensure 100% precision.
+                  Supports "Ledger Account" statement format with text layer. Deterministic replay checks ensure 100% precision.
                 </p>
               </div>
             )}
