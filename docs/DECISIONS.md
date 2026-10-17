@@ -66,3 +66,66 @@ This document captures the key architectural and design decisions made while bui
   4. **Fuzzy Similarity:** Levenshtein distance ratio with threshold $\ge 0.85$.
   5. **Auto-learning:** When confirmed, user-approved raw descriptions are permanently stored in `product_aliases`.
 - **Consequences:** System intelligence compounds over time; repeated invoices achieve 100% automatic product resolution.
+
+---
+
+## ADR 08: Compound Unique Key `(supplier_id, invoice_number_norm)` for Purchases
+- **Context:** Sales invoices are issued by Indobest and thus share a single global serial sequence (`IB26-27/...`). Purchase bills are issued by hundreds of external vendors, each with their own numbering sequences (e.g., vendor A and vendor B both issuing invoice #101).
+- **Decision:** Purchases enforce uniqueness on `(supplier_id, invoice_number_norm)` rather than a global invoice number string. Duplicate detection warns or prompts replacement only when the *same vendor* submits an identical invoice number in the same fiscal window.
+- **Consequences:** Completely prevents false duplicate rejections between distinct vendors while strictly blocking duplicate entry of the same vendor's bill.
+
+---
+
+## ADR 09: Mutual Exclusivity Constraint on StockMovement Links
+- **Context:** In PostgreSQL, a `stock_movements` row can be generated either from a sales invoice item (type `SALE`) or a purchase invoice item (type `PURCHASE`). If both `invoice_item_id` and `purchase_invoice_item_id` were set, or if neither was set on an invoice-sourced movement, ledger integrity would be compromised.
+- **Decision:** Enforce a database-level PostgreSQL CHECK constraint:
+  ```sql
+  CONSTRAINT check_stock_movement_item_link CHECK (
+    (invoice_item_id IS NULL AND purchase_invoice_item_id IS NULL) OR
+    (invoice_item_id IS NOT NULL AND purchase_invoice_item_id IS NULL) OR
+    (invoice_item_id IS NULL AND purchase_invoice_item_id IS NOT NULL)
+  )
+  ```
+- **Consequences:** Database-enforced impossibility of data corruption; stock ledger entries can never cross-link sales and purchase items simultaneously.
+
+---
+
+## ADR 10: Automatic Unit Normalization & Packaging Fallback Engine
+- **Context:** Vendor invoices bill in diverse units: kilograms (KG, KGS), metric tons (MT, TONNES), grams (GMS), drums, carboys, or bags. Inventory must be accounted strictly in standard kilograms (kg) for valuation and dispatch.
+- **Decision:** Implement a deterministic conversion engine (`src/lib/units/convert.ts`) with decimal arithmetic:
+  - Metric units: `MT` $\times 1000$, `GMS` $/ 1000$, `LTR` $\times \text{density (default 1.05)}$
+  - Packaging units: `DRUMS`, `BAGS`, `CARBOYS` multiplied by product master `pack_size_kg`.
+  - When pack size is unknown or ambiguous, extraction flags `UNIT_CONVERSION_AMBIGUOUS` with severity `warning`, prompting explicit user selection or drum weight entry in the UI before confirmation.
+- **Consequences:** Eliminates inventory unit drift and ensures rates are normalized to ₹/kg across all analytics and stock views.
+
+---
+
+## ADR 11: Real-Time Supplier Resolution with GSTIN Checksum Validation
+- **Context:** Supplier names on purchase bills vary widely between abbreviated trade names, vendor logos, and full registered legal entities.
+- **Decision:** Use a 4-tiered resolution cascade:
+  1. **GSTIN Match:** Exact match on clean 15-character GSTIN (with Luhn mod-36 checksum validation).
+  2. **Alias Match:** Normalized exact match against `supplier_aliases`.
+  3. **Normalized Name Match:** Normalized string comparison against `suppliers.name_norm`.
+  4. **Fuzzy Levenshtein Match:** Confidence scoring $\ge 0.85$.
+  5. Auto-learning: User confirmations automatically register approved trade names into `supplier_aliases`.
+- **Consequences:** Consistent supplier master records, zero duplicate vendor accounts, and reliable multi-sourcing pricing history.
+
+---
+
+## ADR 12: Weighted-Average Margin Architecture (Actual vs. Estimated)
+- **Context:** Margin per product was previously calculated using static master catalog `std_purchase_rate`. Now that actual purchase invoices exist, true realized margin should reflect actual procurement cost when available.
+- **Decision:**
+  - Compute period-weighted average purchase cost per kg: $\bar{C} = \frac{\sum \text{Purchase Taxable}}{\sum \text{Purchase Volume (kg)}}$.
+  - If purchase bills exist for the product in the period: Margin = $\text{Avg Sale Rate} - \bar{C}$ (badged as **ACTUAL**).
+  - If no purchase bills exist in the period: Fall back to $\text{Avg Sale Rate} - \text{std\_purchase\_rate}$ (badged as **ESTIMATED**).
+- **Consequences:** Provides actionable gross profit analytics per chemical product without breaking historical reports or failing when purchase bills have not yet been uploaded.
+
+---
+
+## ADR 13: Reorder Suggestion and Multi-Sourcing Price Analytics
+- **Context:** Chemical distribution requires proactive replenishment before stocks fall below critical batch processing thresholds.
+- **Decision:**
+  - Dynamic reorder suggestion: $\max(0, \text{reorder\_level\_kg} \times 2 - \text{closing\_kg})$, rounded up to the nearest integer multiple of the product's `pack_size_kg`.
+  - Multi-sourcing comparison: For any product sourced from $\ge 2$ vendors, display vendor rate spreads, latest purchase rates, and total volume share to empower procurement negotiations.
+- **Consequences:** Prevents stock-outs, optimizes drum packaging order sizes, and provides immediate cost-saving insights across competing suppliers.
+

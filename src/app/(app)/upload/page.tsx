@@ -309,7 +309,9 @@ function UploadPageContent() {
     }
   };
 
-  if (currentType === "PURCHASE") {
+  const isPurchasesEnabled = process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false";
+
+  if (isPurchasesEnabled && currentType === "PURCHASE") {
     return (
       <div className="space-y-3 flex flex-col h-[calc(100vh-5.5rem)]">
         <div className="flex items-center justify-between pb-1 border-b border-border/60">
@@ -323,9 +325,11 @@ function UploadPageContent() {
   return (
     <div className="space-y-4 flex flex-col h-[calc(100vh-5.5rem)]">
       {/* Document Type Toggle */}
-      <div className="flex items-center justify-between pb-1 border-b border-border/60">
-        <DocumentTypeToggle currentType="SALES" />
-      </div>
+      {isPurchasesEnabled && (
+        <div className="flex items-center justify-between pb-1 border-b border-border/60">
+          <DocumentTypeToggle currentType="SALES" />
+        </div>
+      )}
 
       {/* Hidden file input */}
       <input

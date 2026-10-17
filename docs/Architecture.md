@@ -383,6 +383,30 @@ Golden fixtures live in `tests/fixtures/` (`inv-473.json`, `inv-474.json`, `inv-
 
 ## 15. Extension points
 - Template-parser cross-check (§6.7).
-- Purchase-invoice upload (same pipeline, `direction: PURCHASE`, creates PURCHASE movements).
 - Email/WhatsApp ingestion of invoices (see owner's separate WhatsApp-capture idea).
-- IGST invoices (schema already carries it).
+- Bank statement reconciliation.
+
+## 16. Purchase Module Architecture (Phase 1–5 Built)
+
+### 16.1 Domain & Data Models
+- **`Supplier` & `SupplierAlias`**: Master vendor entities with unique clean GSTIN, normalized trade names, and alias mapping table for compound learning.
+- **`PurchaseInvoice`**: Header containing `(supplier_id, invoice_number_norm)` compound unique key, supplier and buyer GSTIN snapshots, dates, invoice totals, round-off, and warning payloads.
+- **`PurchaseInvoiceItem`**: Line items tracking both printed units (`qty_printed`, `unit_printed`, `rate`) and standardized inventory values (`qty_kg`, `rate_per_kg`), tax percentages, and line totals.
+- **`StockMovement` Integration**: Linked 1:1 via `purchase_invoice_item_id` with type `PURCHASE` and source `PURCHASE_INVOICE`. Mutually exclusive with `invoice_item_id` via PostgreSQL CHECK constraint `check_stock_movement_item_link`.
+- **`PurchaseInvoiceRevision`**: Immutable version snapshots on replace operations preserving full audit history.
+
+### 16.2 Unit Normalization Pipeline
+- Implemented in `src/lib/units/convert.ts`.
+- Standardizes diverse supplier packaging (Metric Tons, Grams, Liters, Drums, Bags, Carboys) into kilograms (`kg`).
+- Uses master product `pack_size_kg` for container units; flags ambiguous packaging with `UNIT_CONVERSION_AMBIGUOUS` for interactive operator review.
+
+### 16.3 Purchase Extraction & Validation
+- **Extract Route**: `/api/purchases/extract` uses the multi-provider vision pipeline with specialized purchase system prompts.
+- **Validation**: Enforces GST calculation checks, buyer GSTIN company validation, supplier GSTIN checksum verification, line rate arithmetic, and non-empty item constraints.
+- **Duplicate Check Route**: `/api/purchases/exists?supplierId=...&invoiceNumber=...` validates isolation per vendor.
+
+### 16.4 Procurement Analytics & Upgraded Margins
+- **Analytics Engine**: `src/lib/analytics/purchases.ts` provides procurement KPIs, Purchases vs. Sales trends, Pareto vendor concentration (with top-3 share), product price trend lines, multi-sourcing price comparisons across suppliers, input GST summaries (by month and HSN), and supplier quality/lapsed alerts.
+- **Weighted-Average Margin Calculation**: Upgrades `src/lib/analytics/index.ts` so product gross margins reflect actual purchase costs ($\bar{C} = \frac{\sum \text{Purchase Taxable}}{\sum \text{Purchase Volume}}$) when purchase bills exist in the period, falling back gracefully to standard rates with an *Estimated* indicator.
+- **Enhanced Stock Summary**: Integrates last purchase rate & date per chemical, reorder suggestion formula $\max(0, \text{reorder\_level} \times 2 - \text{closing})$ rounded to pack size, purchases split breakdown tooltip (invoices vs. legacy), and full CSV export.
+

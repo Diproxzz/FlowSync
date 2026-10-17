@@ -125,28 +125,30 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-ink tracking-tight">Executive Dashboard</h2>
-            <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs font-medium">
-              <button
-                onClick={() => setSection("sales")}
-                className={`px-3 py-1 rounded-xs transition ${
-                  section === "sales"
-                    ? "bg-primary text-primary-fg font-semibold shadow-xs"
-                    : "text-ink-2 hover:text-ink"
-                }`}
-              >
-                Sales
-              </button>
-              <button
-                onClick={() => setSection("purchases")}
-                className={`px-3 py-1 rounded-xs transition ${
-                  section === "purchases"
-                    ? "bg-accent text-accent-fg font-semibold shadow-xs"
-                    : "text-ink-2 hover:text-ink"
-                }`}
-              >
-                Purchases
-              </button>
-            </div>
+            {process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false" && (
+              <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs font-medium">
+                <button
+                  onClick={() => setSection("sales")}
+                  className={`px-3 py-1 rounded-xs transition ${
+                    section === "sales"
+                      ? "bg-primary text-primary-fg font-semibold shadow-xs"
+                      : "text-ink-2 hover:text-ink"
+                  }`}
+                >
+                  Sales
+                </button>
+                <button
+                  onClick={() => setSection("purchases")}
+                  className={`px-3 py-1 rounded-xs transition ${
+                    section === "purchases"
+                      ? "bg-accent text-accent-fg font-semibold shadow-xs"
+                      : "text-ink-2 hover:text-ink"
+                  }`}
+                >
+                  Purchases
+                </button>
+              </div>
+            )}
           </div>
           <p className="text-xs text-ink-3 mt-1">
             {section === "purchases"

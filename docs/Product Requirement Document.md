@@ -216,9 +216,26 @@ Detailed schema in `Architecture.md` §4. Core entities: `products`, `product_al
 7. Dashboard KPI "Sales (taxable)" equals Σ taxable of saved invoices in range.
 8. Unauthenticated request to any API returns 401.
 
-## 12. Open questions (defaults assumed; confirm during review)
+## 12. Open questions & evolutions
 
-1. Do you also want purchase invoices (from suppliers) uploaded the same way later? *Assumed: no, manual stock-in only.*
+1. Do you also want purchase invoices (from suppliers) uploaded the same way later?
+   - **Resolved & Implemented**: Full Purchase Module implemented in October 2026 under `FEATURE_PURCHASES` feature flag (see Section 13).
 2. Should Apr–Jul sales from the workbook be imported as quantity-only legacy movements? *Assumed: yes, via the seed flag.*
-3. Are IGST (inter-state) invoices expected? *Assumed: schema supports `igst_pct`/`igst_amount` columns, UI shows them only when present; all samples are intra-state CGST+SGST.*
-4. Which free providers will be configured first? *Assumed: Gemini primary, OpenRouter/Groq fallback.*
+3. Are IGST (inter-state) invoices expected? *Assumed: schema supports `igst_pct`/`igst_amount` columns, UI shows them only when present; multi-state procurement supported.*
+4. Which free providers will be configured first? *Configured: Gemini primary, Groq / OpenRouter / Ollama fallback.*
+
+## 13. Purchase Module Extension (Delivered Specifications)
+
+### 13.1 Requirements Matrix
+| ID | Requirement | Description |
+|---|---|---|
+| **FR-PUR-1** | Purchase Invoice Upload & Extraction | Mirror sales extraction pipeline for vendor bills in PDF/image format. |
+| **FR-PUR-2** | Multi-Tier Supplier Resolution | Resolution via GSTIN (with checksum validation), alias matching, normalized legal names, and Levenshtein similarity. |
+| **FR-PUR-3** | Compound Duplicate Detection | Duplicates isolated by `(supplier_id, invoice_number_norm)`. Same invoice # from different suppliers is allowed; identical invoice from the same supplier prompts revision/replace. |
+| **FR-PUR-4** | Deterministic Unit Conversion | Auto-converts diverse vendor packaging (MT, Tonnes, Gms, Litres, Drums, Bags, Carboys) into kilograms (`kg`) using product master container capacities. |
+| **FR-PUR-5** | Stock-In Ledger Linkage | Saves create `PURCHASE` movements linked to `purchase_invoice_item_id`. Mutual exclusivity with sales items enforced via PostgreSQL constraint `check_stock_movement_item_link`. |
+| **FR-PUR-6** | Procurement Analytics | Executive procurement dashboard tracking spend, Purchases vs. Sales monthly trends, top suppliers (with top-3 concentration), product price trends, and multi-sourcing price comparisons. |
+| **FR-PUR-7** | Margin Upgrade | Product gross margins reflect weighted average actual purchase costs when bills exist in the period, falling back gracefully to standard purchase rates with an *Estimated* indicator. |
+| **FR-PUR-8** | Enhanced Stock Summary | Displays last purchase rate & date, dynamic reorder suggestions ($\max(0, \text{reorder\_level} \times 2 - \text{closing})$ rounded to pack size), split breakdown hover tooltips (invoices vs. legacy), and CSV export. |
+| **FR-PUR-9** | Feature Flag Isolation | Entire module controlled via `FEATURE_PURCHASES` (`true`/`false`). When disabled, the UI reverts strictly to pure Sales mode. |
+

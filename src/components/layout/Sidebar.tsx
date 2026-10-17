@@ -31,6 +31,8 @@ interface NavSection {
   items: NavItem[];
 }
 
+const isPurchasesEnabled = process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false";
+
 const NAV_SECTIONS: NavSection[] = [
   {
     items: [
@@ -45,13 +47,17 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Customers", href: "/customers", icon: Users },
     ],
   },
-  {
-    title: "Purchases",
-    items: [
-      { label: "Purchase Invoices", href: "/purchases", icon: ShoppingCart },
-      { label: "Suppliers", href: "/suppliers", icon: Truck },
-    ],
-  },
+  ...(isPurchasesEnabled
+    ? [
+        {
+          title: "Purchases",
+          items: [
+            { label: "Purchase Invoices", href: "/purchases", icon: ShoppingCart },
+            { label: "Suppliers", href: "/suppliers", icon: Truck },
+          ],
+        },
+      ]
+    : []),
   {
     title: "Inventory & Setup",
     items: [
