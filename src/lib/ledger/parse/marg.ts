@@ -69,17 +69,54 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
   if (totalLineIndex !== -1) {
     const totalLine = lines[totalLineIndex];
     const totalAmounts = totalLine.match(/[\d,]+\.\d{2}(?:\s*(?:Dr|Cr))?/gi) || [];
-    if (totalAmounts.length >= 2 && totalAmounts[0] && totalAmounts[1]) {
+
+    if (totalAmounts.length >= 3) {
+      // 3 amounts: Debit Total, Credit Total, Closing Balance
       printedDebitTotal = parseFloat(totalAmounts[0].replace(/,/g, ""));
       printedCreditTotal = parseFloat(totalAmounts[1].replace(/,/g, ""));
-      if (totalAmounts[2]) {
-        const balStr = totalAmounts[2];
-        printedClosingBalance = parseFloat(balStr.replace(/,/g, ""));
-        if (/Cr/i.test(balStr)) printedClosingSide = "Cr";
+      const balStr = totalAmounts[2];
+      printedClosingBalance = parseFloat(balStr.replace(/,/g, ""));
+      if (/Cr/i.test(balStr)) printedClosingSide = "Cr";
+    } else if (totalAmounts.length === 2) {
+      const firstStr = totalAmounts[0];
+      const secondStr = totalAmounts[1];
+      const firstVal = parseFloat(firstStr.replace(/,/g, ""));
+      const secondVal = parseFloat(secondStr.replace(/,/g, ""));
+
+      // In accounting ledgers, Debit/Credit column totals do not have Dr/Cr suffix; only the Balance column does.
+      if (/Dr/i.test(secondStr)) {
+        // Second amount is Closing Balance (Dr). The single column total is Debit Total; Credit Total is 0.
+        printedDebitTotal = firstVal;
+        printedCreditTotal = 0;
+        printedClosingBalance = secondVal;
+        printedClosingSide = "Dr";
+      } else if (/Cr/i.test(secondStr)) {
+        // Second amount is Closing Balance (Cr). The single column total is Credit Total; Debit Total is 0.
+        printedDebitTotal = 0;
+        printedCreditTotal = firstVal;
+        printedClosingBalance = secondVal;
+        printedClosingSide = "Cr";
       } else {
+        // Neither has Dr/Cr - standard Debit Total and Credit Total where closing balance was zero
+        printedDebitTotal = firstVal;
+        printedCreditTotal = secondVal;
         const diff = printedDebitTotal - printedCreditTotal;
         printedClosingBalance = Math.abs(diff);
         printedClosingSide = diff >= 0 ? "Dr" : "Cr";
+      }
+    } else if (totalAmounts.length === 1) {
+      const balStr = totalAmounts[0];
+      const val = parseFloat(balStr.replace(/,/g, ""));
+      if (/Cr/i.test(balStr)) {
+        printedDebitTotal = 0;
+        printedCreditTotal = val;
+        printedClosingBalance = val;
+        printedClosingSide = "Cr";
+      } else {
+        printedDebitTotal = val;
+        printedCreditTotal = 0;
+        printedClosingBalance = val;
+        printedClosingSide = "Dr";
       }
     }
   }

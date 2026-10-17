@@ -106,6 +106,35 @@ describe("Marg Statement Parser & Replay Validation (§2.1 & §3.3)", () => {
     expect(validation.replayedClosing).toBe(4636453);
   });
 
+  it("parses single-sided statement (only debit entries, blank credit total) accurately", () => {
+    const aamisText = `
+INDOBEST
+19/10/2,GOBINDA KHATICK ROAD
+KOLKATA-700046
+Phone : 8240892993 E-Mail : indobest@gmail.com
+Ledger Account : AAMIS IMPEX
+01-04-2026 - 16-10-2026 Page No..1
+Date Particulars Debit Credit Balance
+Aug 18 Bill No. IB26-27/0343 3688.00 3688.00 Dr
+Sep 3 Bill No. IB26-27/0386 7375.00 11063.00 Dr
+Sep 14 Bill No. IB26-27/0414 18438.00 29501.00 Dr
+Total 29501.00 29501.00 Dr
+`;
+    const stmt = parseMargStatementText(aamisText);
+    expect(stmt.accountName).toBe("AAMIS IMPEX");
+    expect(stmt.openingBalance).toBe(0);
+    expect(stmt.printedTotals.debit).toBe(29501);
+    expect(stmt.printedTotals.credit).toBe(0);
+    expect(stmt.printedTotals.balance).toBe(29501);
+    expect(stmt.printedTotals.balanceSide).toBe("Dr");
+
+    const validation = validateStatement(stmt);
+    expect(validation.isValid).toBe(true);
+    expect(validation.errors).toEqual([]);
+    expect(validation.replayedClosing).toBe(29501);
+    expect(validation.replayedSide).toBe("Dr");
+  });
+
   it("fails validation when a tampered amount disturbs running balance or totals", () => {
     const stmt = parseMargStatementText(AAQIB_TANNERY_OCR);
     // Tamper one bill amount
