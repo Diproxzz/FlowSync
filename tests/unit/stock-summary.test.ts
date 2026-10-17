@@ -69,8 +69,12 @@ describe("Phase 1: Database Seed and Stock Summary Verification", () => {
     expect(Math.round(totalOpening * 10) / 10).toBe(66590.3);
 
     const totalSales = summary.reduce((sum, r) => sum + r.sales, 0);
+    const totalPurchases = summary.reduce((sum, r) => sum + r.purchases, 0);
+    const totalAdjustments = summary.reduce((sum, r) => sum + r.adjustments, 0);
     const totalClosing = summary.reduce((sum, r) => sum + r.closing, 0);
-    expect(Math.round((totalClosing + totalSales) * 10) / 10).toBe(66590.3);
+    expect(
+      Math.round((totalClosing + totalSales - totalPurchases + totalAdjustments) * 10) / 10
+    ).toBe(66590.3);
   });
 
   it("should query the v_stock_summary SQL view and return consistent values", async () => {

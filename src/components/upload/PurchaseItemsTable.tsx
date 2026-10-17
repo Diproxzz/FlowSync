@@ -74,10 +74,8 @@ export function PurchaseItemsTable({
               <th className="py-2 px-2.5 min-w-[180px]">Product Description</th>
               <th className="py-2 px-2.5 min-w-[160px]">Map to Product</th>
               <th className="py-2 px-2.5 min-w-[95px]">HSN</th>
-              <th className="py-2 px-2.5 min-w-[140px]">Printed Qty & Unit</th>
-              <th className="py-2 px-2.5 text-right min-w-[100px]">Qty (kg)</th>
-              <th className="py-2 px-2.5 text-right min-w-[100px]">Rate (₹)</th>
-              <th className="py-2 px-2.5 text-right min-w-[95px]">Rate/kg (₹)</th>
+              <th className="py-2 px-2.5 min-w-[130px]">Printed Qty & Unit</th>
+              <th className="py-2 px-2.5 text-right min-w-[95px]">Rate (₹)</th>
               <th className="py-2 px-2.5 text-right min-w-[70px]">Disc (₹)</th>
               <th className="py-2 px-2.5 text-right min-w-[110px]">Taxable (₹)</th>
               <th className="py-2 px-2.5 text-right min-w-[80px]">{isIgstActive ? "IGST %" : "GST %"}</th>
@@ -266,24 +264,14 @@ export function PurchaseItemsTable({
                       </div>
                     )}
 
-                    <div className="mt-0.5 text-[10px] text-ink-3 font-mono truncate max-w-[150px]">
-                      {conv.formulaDescription}
-                    </div>
-                  </td>
-
-                  {/* 5. Converted Qty (kg) */}
-                  <td className="py-2 px-2.5 text-right font-mono text-xs font-semibold text-ink">
-                    {needsManual && !pRes.manualQtyKg ? (
-                      <span className="text-danger text-[11px] font-medium flex items-center justify-end gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>Required</span>
-                      </span>
-                    ) : (
-                      <span>{Number(conv.qtyKg).toFixed(2)} kg</span>
+                    {item.unitPrinted.toUpperCase() !== "KG" && conv.isConvertible && (
+                      <div className="mt-0.5 text-[10px] text-accent font-mono truncate max-w-[150px]">
+                        = {Number(conv.qtyKg).toFixed(2)} kg
+                      </div>
                     )}
                   </td>
 
-                  {/* 6. Printed Rate (₹) */}
+                  {/* 5. Rate (₹) */}
                   <td className="py-2 px-2.5 text-right">
                     <input
                       type="number"
@@ -294,11 +282,11 @@ export function PurchaseItemsTable({
                       }
                       className="w-full min-w-[85px] px-2 py-1.5 bg-bg border border-border rounded-sm text-xs text-right num text-ink focus:outline-none focus:ring-1 focus:ring-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                  </td>
-
-                  {/* 7. Rate / kg */}
-                  <td className="py-2 px-2.5 text-right font-mono text-xs text-ink-2">
-                    ₹{Number(conv.ratePerKg).toFixed(2)}
+                    {item.unitPrinted.toUpperCase() !== "KG" && Number(conv.ratePerKg) > 0 && (
+                      <div className="mt-0.5 text-[10px] text-ink-3 font-mono">
+                        (₹{Number(conv.ratePerKg).toFixed(2)}/kg)
+                      </div>
+                    )}
                   </td>
 
                   {/* 8. Discount (₹) */}

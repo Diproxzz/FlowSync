@@ -360,9 +360,7 @@ export default function PurchaseDetailPage({
                 <th className="py-2.5 px-3 min-w-[180px]">Product</th>
                 <th className="py-2.5 px-3 min-w-[90px]">HSN</th>
                 <th className="py-2.5 px-3 text-right min-w-[120px]">Printed Qty & Unit</th>
-                <th className="py-2.5 px-3 text-right min-w-[100px]">Qty (kg)</th>
                 <th className="py-2.5 px-3 text-right min-w-[90px]">Rate (₹)</th>
-                <th className="py-2.5 px-3 text-right min-w-[90px]">Rate/kg (₹)</th>
                 <th className="py-2.5 px-3 text-right min-w-[100px]">Taxable (₹)</th>
                 <th className="py-2.5 px-3 text-right min-w-[80px]">Tax %</th>
                 <th className="py-2.5 px-3 text-right min-w-[100px]">Line Total (₹)</th>
@@ -395,19 +393,25 @@ export default function PurchaseDetailPage({
                     </td>
 
                     <td className="py-2.5 px-3 text-right font-mono text-ink">
-                      {Number(item.qty_printed).toLocaleString()} {item.unit_printed}
-                    </td>
-
-                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-ink">
-                      {Number(item.qty_kg).toLocaleString()} kg
+                      <div>
+                        {Number(item.qty_printed).toLocaleString()} {item.unit_printed}
+                      </div>
+                      {item.unit_printed.toUpperCase() !== "KG" && (
+                        <div className="text-[10px] text-ink-3">
+                          ({Number(item.qty_kg).toLocaleString()} kg)
+                        </div>
+                      )}
                     </td>
 
                     <td className="py-2.5 px-3 text-right font-mono text-ink">
-                      ₹{Number(item.rate).toFixed(2)}
-                    </td>
-
-                    <td className="py-2.5 px-3 text-right font-mono text-ink-2">
-                      ₹{Number(item.rate_per_kg).toFixed(2)}
+                      <div>
+                        ₹{Number(item.rate).toFixed(2)}
+                      </div>
+                      {item.unit_printed.toUpperCase() !== "KG" && (
+                        <div className="text-[10px] text-ink-3">
+                          (₹{Number(item.rate_per_kg).toFixed(2)}/kg)
+                        </div>
+                      )}
                     </td>
 
                     <td className="py-2.5 px-3 text-right font-mono font-medium text-ink">
