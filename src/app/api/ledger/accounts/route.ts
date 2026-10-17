@@ -89,16 +89,18 @@ export async function GET(request: NextRequest) {
 
       // Find oldest unpaid bill
       const openBills = openItems.items.filter((it) => it.status === "OPEN" || it.status === "PART");
-      const oldestBill = openBills.length > 0 ? openBills[0].docNo : null;
+      const oldestBillNo = openBills.length > 0 ? openBills[0].docNo : null;
+      const oldestBillDate = openBills.length > 0 ? openBills[0].entryDate : null;
 
       return {
         id: acc.id,
         accountType: acc.account_type,
         displayName: acc.display_name,
+        partyName: acc.display_name,
         partyId: acc.customer_id || acc.supplier_id,
         gstin,
         gstinSource,
-        creditDays: acc.credit_days,
+        creditDays: acc.credit_days || 30,
         openingBalance,
         openingSide,
         periodDebit: totals.periodDebit,
@@ -108,8 +110,11 @@ export async function GET(request: NextRequest) {
         closingBalance,
         closingSide,
         totalOverdue: openItems.totalOverdue,
-        oldestBill,
-        lastReceiptDate: lastReceipt,
+        overdueAmount: openItems.totalOverdue,
+        oldestBill: oldestBillNo,
+        oldestBillNo,
+        oldestBillDate,
+        lastReceiptDate: lastReceipt ? new Date(lastReceipt).toISOString().split("T")[0] : null,
         statementThroughDate: acc.statement_through_date,
         openingBalanceSet: acc.opening_balance_set,
         entriesCount: acc.entries.length,
@@ -117,15 +122,25 @@ export async function GET(request: NextRequest) {
     });
 
     const filteredRows = overdueOnly ? accountRows.filter((r) => r.totalOverdue > 0) : accountRows;
+    const accountsWithDuesCount = accountRows.filter((r) => Math.abs(r.closingBalance) > 0.005).length;
+
+    const summaryData = {
+      totalReceivable,
+      totalPayable,
+      grandOverdue,
+      totalOverdue: grandOverdue,
+      accountsWithDuesCount,
+      totalAccounts: accounts.length,
+    };
 
     return NextResponse.json({
-      accounts: filteredRows,
-      summary: {
-        totalReceivable,
-        totalPayable,
-        grandOverdue,
-        totalAccounts: accounts.length,
+      success: true,
+      data: {
+        accounts: filteredRows,
+        summary: summaryData,
       },
+      accounts: filteredRows,
+      summary: summaryData,
     });
   } catch (error: any) {
     console.error("Fetch accounts error:", error);

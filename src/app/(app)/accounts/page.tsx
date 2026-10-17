@@ -68,17 +68,15 @@ export default function AccountsPage() {
     try {
       const res = await fetch("/api/ledger/accounts");
       const json = await res.json();
-      if (json.success && json.data) {
-        setAccounts(json.data.accounts || []);
-        setSummary(
-          json.data.summary || {
-            totalReceivable: 0,
-            totalPayable: 0,
-            totalOverdue: 0,
-            accountsWithDuesCount: 0,
-          }
-        );
-      }
+      const accountsList = json.data?.accounts || json.accounts || [];
+      const summaryData = json.data?.summary || json.summary || {
+        totalReceivable: 0,
+        totalPayable: 0,
+        totalOverdue: 0,
+        accountsWithDuesCount: 0,
+      };
+      setAccounts(accountsList);
+      setSummary(summaryData);
     } catch (err) {
       console.error("Failed to load accounts overview:", err);
     } finally {
