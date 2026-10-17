@@ -2,7 +2,14 @@ import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { LLMProvider, ProviderId, ProviderImage } from "./types";
 import { ExtractedInvoice, ExtractedInvoiceSchema, ExtractedInvoiceJsonSchema } from "./schema";
+import {
+  ExtractedPurchaseInvoice,
+  ExtractedPurchaseInvoiceSchema,
+  ExtractedPurchaseInvoiceJsonSchema,
+  normalizeRawExtractedPurchase,
+} from "./schema.purchase";
 import { getInvoiceSystemPrompt, getInvoiceUserPrompt } from "./prompts/invoice";
+import { getPurchaseSystemPrompt, getPurchaseUserPrompt } from "./prompts/purchase";
 import { GeminiProvider } from "./providers/gemini";
 import { OpenRouterProvider } from "./providers/openrouter";
 import { GroqProvider } from "./providers/groq";
@@ -11,11 +18,12 @@ import { GlmOcrProvider } from "./providers/glm-ocr";
 import { PaddleOcrVlProvider } from "./providers/paddleocr-vl";
 import { Qwen2VlProvider } from "./providers/qwen2-vl";
 
-export interface ExtractionResult {
-  draft: ExtractedInvoice;
+export interface ExtractionResult<T = any> {
+  draft: T;
   provider: ProviderId;
   model: string;
   latencyMs: number;
+  documentType: "SALES" | "PURCHASE";
 }
 
 export function formatExtractionErrorMessage(providerErrors: Array<{ provider: ProviderId; error: string }>): string {
@@ -71,7 +79,10 @@ export async function extractInvoiceData(input: {
   images?: ProviderImage[];
   text?: string;
   fileHash: string;
+  documentType?: "SALES" | "PURCHASE";
 }): Promise<ExtractionResult> {
+  const documentType = input.documentType || "SALES";
+  const isPurchase = documentType === "PURCHASE";
   const startTime = Date.now();
 
   // Determine provider order from DB settings or env
@@ -87,7 +98,7 @@ export async function extractInvoiceData(input: {
       continue;
     }
 
-    console.log(`[Extraction] Trying provider: ${provider.name} (${provider.id})...`);
+    console.log(`[Extraction] Trying provider: ${provider.name} (${provider.id}) for ${documentType}...`);
     const providerStartTime = Date.now();
     let attempts = 0;
     let lastRawText = "";
@@ -98,7 +109,7 @@ export async function extractInvoiceData(input: {
       attempts++;
       const isRetry = attempts === 2;
 
-      let userPrompt = getInvoiceUserPrompt();
+      let userPrompt = isPurchase ? getPurchaseUserPrompt() : getInvoiceUserPrompt();
       if (isRetry && lastZodIssues.length > 0) {
         userPrompt += `\n\nCRITICAL FIX REQUIRED: Your previous JSON output failed validation with the following errors:\n- ${lastZodIssues.join("\n- ")}\n\nPlease return corrected JSON strictly matching the schema.`;
       }
@@ -108,11 +119,11 @@ export async function extractInvoiceData(input: {
         const timeoutId = setTimeout(() => timeoutController.abort(), 120000); // 120s timeout
 
         const response = await provider.extract({
-          systemPrompt: getInvoiceSystemPrompt(),
+          systemPrompt: isPurchase ? getPurchaseSystemPrompt() : getInvoiceSystemPrompt(),
           userPrompt,
           images: input.images,
           text: input.text,
-          jsonSchema: ExtractedInvoiceJsonSchema,
+          jsonSchema: isPurchase ? ExtractedPurchaseInvoiceJsonSchema : ExtractedInvoiceJsonSchema,
           signal: timeoutController.signal,
         });
 
@@ -130,7 +141,10 @@ export async function extractInvoiceData(input: {
           continue; // Trigger repair retry
         }
 
-        const zodResult = ExtractedInvoiceSchema.safeParse(parsedJson);
+        const zodResult = isPurchase
+          ? ExtractedPurchaseInvoiceSchema.safeParse(normalizeRawExtractedPurchase(parsedJson))
+          : ExtractedInvoiceSchema.safeParse(parsedJson);
+
         if (zodResult.success) {
           const latencyMs = Date.now() - providerStartTime;
           console.log(`[Extraction] Successfully extracted with ${provider.name} in ${latencyMs}ms.`);
@@ -139,6 +153,7 @@ export async function extractInvoiceData(input: {
           if (env.LOG_EXTRACTION_PAYLOADS) {
             await prisma.extractionLog.create({
               data: {
+                document_type: documentType,
                 file_hash: input.fileHash || "manual",
                 provider: provider.id,
                 model: response.model,
@@ -155,6 +170,7 @@ export async function extractInvoiceData(input: {
             provider: provider.id,
             model: response.model,
             latencyMs,
+            documentType,
           };
         } else {
           lastZodIssues = zodResult.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
@@ -186,6 +202,7 @@ export async function extractInvoiceData(input: {
 
   await prisma.extractionLog.create({
     data: {
+      document_type: documentType,
       file_hash: input.fileHash || "manual",
       provider: "ALL_FAILED",
       model: "none",
@@ -197,4 +214,12 @@ export async function extractInvoiceData(input: {
   }).catch((err) => console.error("Failed to write extraction log:", err));
 
   throw new ExtractionError(formatExtractionErrorMessage(providerErrors), providerErrors);
+}
+
+export async function extractPurchaseData(input: {
+  images?: ProviderImage[];
+  text?: string;
+  fileHash: string;
+}): Promise<ExtractionResult<ExtractedPurchaseInvoice>> {
+  return (await extractInvoiceData({ ...input, documentType: "PURCHASE" })) as ExtractionResult<ExtractedPurchaseInvoice>;
 }

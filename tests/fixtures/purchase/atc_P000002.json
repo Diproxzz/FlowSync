@@ -1,0 +1,116 @@
+{
+  "supplier": {
+    "name": "ATC CHEMICALS INDIA PRIVATE LIMITED",
+    "gstin": "34AAECA6767B1ZV",
+    "address": "RS NO : 14/4-15/10B, KAVIARASAN ROAD SEDARAPET PUDUCHERRY - 605111 34-PUDUCHERRY"
+  },
+  "buyer": {
+    "name": "INDOBEST",
+    "gstin": "19AVZPC2361G1ZA"
+  },
+  "invoice": {
+    "number": "P000002",
+    "date": "2026-04-07",
+    "receivedDate": null,
+    "referenceNo": null,
+    "vehicleNo": null
+  },
+  "items": [
+    {
+      "lineNo": 1,
+      "productNameRaw": "WAK ACTOIL",
+      "hsn": "34039100",
+      "qtyPrinted": 5,
+      "unitPrinted": "KG",
+      "rate": 84,
+      "discount": 0,
+      "taxableAmount": 420,
+      "cgstPct": 0,
+      "sgstPct": 0,
+      "igstPct": 18,
+      "cgstAmount": 0,
+      "sgstAmount": 0,
+      "igstAmount": 75.6,
+      "lineTotal": 495.6
+    },
+    {
+      "lineNo": 2,
+      "productNameRaw": "SNA ACTOIL",
+      "hsn": "34039100",
+      "qtyPrinted": 5,
+      "unitPrinted": "KG",
+      "rate": 91,
+      "discount": 0,
+      "taxableAmount": 455,
+      "cgstPct": 0,
+      "sgstPct": 0,
+      "igstPct": 18,
+      "cgstAmount": 0,
+      "sgstAmount": 0,
+      "igstAmount": 81.9,
+      "lineTotal": 536.9
+    },
+    {
+      "lineNo": 3,
+      "productNameRaw": "XAC ACTOIL",
+      "hsn": "34039100",
+      "qtyPrinted": 5,
+      "unitPrinted": "KG",
+      "rate": 120,
+      "discount": 0,
+      "taxableAmount": 600,
+      "cgstPct": 0,
+      "sgstPct": 0,
+      "igstPct": 18,
+      "cgstAmount": 0,
+      "sgstAmount": 0,
+      "igstAmount": 108,
+      "lineTotal": 708
+    },
+    {
+      "lineNo": 4,
+      "productNameRaw": "SBL ACTOIL",
+      "hsn": "34039100",
+      "qtyPrinted": 5,
+      "unitPrinted": "KG",
+      "rate": 97,
+      "discount": 0,
+      "taxableAmount": 485,
+      "cgstPct": 0,
+      "sgstPct": 0,
+      "igstPct": 18,
+      "cgstAmount": 0,
+      "sgstAmount": 0,
+      "igstAmount": 87.3,
+      "lineTotal": 572.3
+    },
+    {
+      "lineNo": 5,
+      "productNameRaw": "SC ACTAN 50-1",
+      "hsn": "32021000",
+      "qtyPrinted": 10,
+      "unitPrinted": "KG",
+      "rate": 265,
+      "discount": 0,
+      "taxableAmount": 2650,
+      "cgstPct": 0,
+      "sgstPct": 0,
+      "igstPct": 18,
+      "cgstAmount": 0,
+      "sgstAmount": 0,
+      "igstAmount": 477,
+      "lineTotal": 3127
+    }
+  ],
+  "totals": {
+    "taxableSubtotal": 4610,
+    "cgstTotal": 0,
+    "sgstTotal": 0,
+    "igstTotal": 829.8,
+    "otherCharges": 0.2,
+    "tcs": 0,
+    "roundOff": 0,
+    "grandTotal": 5440
+  },
+  "uncertainFields": []
+}

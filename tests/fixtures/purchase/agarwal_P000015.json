@@ -1,0 +1,65 @@
+{
+  "supplier": {
+    "name": "AGARWAL & COMPANY",
+    "gstin": "19AGDPA1084B1Z1",
+    "address": "8 SOUTH TANGRA ROAD KOLKATA 700046 19-WEST BENGAL"
+  },
+  "buyer": {
+    "name": "INDOBEST",
+    "gstin": "19AVZPC2361G1ZA"
+  },
+  "invoice": {
+    "number": "P000015",
+    "date": "2026-06-09",
+    "receivedDate": null,
+    "referenceNo": null,
+    "vehicleNo": null
+  },
+  "items": [
+    {
+      "lineNo": 1,
+      "productNameRaw": "BASIC CHROME SULPHATE",
+      "hsn": "32029010",
+      "qtyPrinted": 50,
+      "unitPrinted": "KG",
+      "rate": 82,
+      "discount": 0,
+      "taxableAmount": 4100,
+      "cgstPct": 9,
+      "sgstPct": 9,
+      "igstPct": 0,
+      "cgstAmount": 369,
+      "sgstAmount": 369,
+      "igstAmount": 0,
+      "lineTotal": 4838
+    },
+    {
+      "lineNo": 2,
+      "productNameRaw": "AMMONIUM BI-CARBONATE",
+      "hsn": "28369990",
+      "qtyPrinted": 50,
+      "unitPrinted": "KG",
+      "rate": 32,
+      "discount": 0,
+      "taxableAmount": 1600,
+      "cgstPct": 9,
+      "sgstPct": 9,
+      "igstPct": 0,
+      "cgstAmount": 144,
+      "sgstAmount": 144,
+      "igstAmount": 0,
+      "lineTotal": 1888
+    }
+  ],
+  "totals": {
+    "taxableSubtotal": 5700,
+    "cgstTotal": 513,
+    "sgstTotal": 513,
+    "igstTotal": 0,
+    "otherCharges": 0,
+    "tcs": 0,
+    "roundOff": 0,
+    "grandTotal": 6726
+  },
+  "uncertainFields": []
+}

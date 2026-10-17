@@ -1,0 +1,48 @@
+{
+  "supplier": {
+    "name": "OCEANIC SOLVENT INDUSTRIES",
+    "gstin": "24AAAFO4471D1ZN",
+    "address": "BEDESHWAR JAMNAGAR PIN-361002 24-GUJARAT"
+  },
+  "buyer": {
+    "name": "INDOBEST",
+    "gstin": "19AVZPC2361G1ZA"
+  },
+  "invoice": {
+    "number": "P000008",
+    "date": "2026-04-19",
+    "receivedDate": null,
+    "referenceNo": null,
+    "vehicleNo": null
+  },
+  "items": [
+    {
+      "lineNo": 1,
+      "productNameRaw": "Silcoat CS30,OSOL TSM3",
+      "hsn": "38241000",
+      "qtyPrinted": 2040,
+      "unitPrinted": "KG",
+      "rate": 47,
+      "discount": 0,
+      "taxableAmount": 95880,
+      "cgstPct": 0,
+      "sgstPct": 0,
+      "igstPct": 18,
+      "cgstAmount": 0,
+      "sgstAmount": 0,
+      "igstAmount": 17258.4,
+      "lineTotal": 113138.4
+    }
+  ],
+  "totals": {
+    "taxableSubtotal": 95880,
+    "cgstTotal": 0,
+    "sgstTotal": 0,
+    "igstTotal": 17258.4,
+    "otherCharges": 0.4,
+    "tcs": 0,
+    "roundOff": -0.8,
+    "grandTotal": 113138
+  },
+  "uncertainFields": []
+}
