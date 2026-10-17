@@ -197,6 +197,34 @@ export function ManageStatementModal({
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmed = confirm(
+      `Delete account "${accountName}" from Ledger?\n\nThis will permanently remove this account from the ledger along with all its statement imports and ledger entries. (Any sales invoices in the main database will remain safe).\n\nAre you sure you want to proceed?`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/ledger/accounts/${accountId}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json();
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error?.message || json.error || "Failed to delete account");
+      }
+
+      onClose();
+      window.location.href = "/accounts";
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete account");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -497,6 +525,33 @@ export function ManageStatementModal({
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{deleting ? "Resetting..." : "Reset Entire Ledger"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Danger Zone: Action 3 - Delete Account from Ledger */}
+            <div className="p-4 rounded-xl border border-rose-300 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <h5 className="font-semibold text-rose-900 dark:text-rose-300 text-xs">
+                    Delete Account from Ledger
+                  </h5>
+                  <p className="text-[11px] text-rose-800/80 dark:text-rose-400/80 mt-0.5 leading-relaxed">
+                    Permanently removes this party from the Ledger entirely (for example, if the account was created by mistake or with the wrong customer name). All ledger entries for this account will be removed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-700 text-white hover:bg-rose-800 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{deleting ? "Deleting Account..." : "Delete Account from Ledger"}</span>
                 </button>
               </div>
             </div>

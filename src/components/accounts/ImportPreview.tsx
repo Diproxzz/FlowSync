@@ -52,9 +52,10 @@ export function ImportPreview({
   const [error, setError] = useState<string | null>(null);
 
   // Party matching & selection state
-  const initialMatchedId = partyMatch?.matchedPartyId || partyMatch?.partyId || null;
+  const isAutoMatch = partyMatch?.status === "exact" || partyMatch?.status === "alias";
+  const initialMatchedId = isAutoMatch ? (partyMatch?.matchedPartyId || partyMatch?.partyId || null) : null;
   const [partyMode, setPartyMode] = useState<"MATCHED" | "LINK_EXISTING" | "CREATE_NEW">(
-    initialMatchedId ? "MATCHED" : "CREATE_NEW"
+    isAutoMatch ? "MATCHED" : "CREATE_NEW"
   );
   const [selectedPartyId, setSelectedPartyId] = useState<string>(initialMatchedId || "");
   const [partySearchTerm, setPartySearchTerm] = useState("");

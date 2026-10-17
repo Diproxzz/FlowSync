@@ -34,8 +34,11 @@ export async function POST(request: NextRequest) {
       let partyDisplayName: string = parsedDraft.accountName.trim();
 
       if (accountType === "CUSTOMER") {
-        const targetCustomerId =
-          body.customerId || body.partyId || partyMatch?.matchedPartyId || partyMatch?.partyId;
+        const autoMatchId =
+          partyMatch?.status === "exact" || partyMatch?.status === "alias"
+            ? partyMatch?.matchedPartyId || partyMatch?.partyId
+            : null;
+        const targetCustomerId = body.customerId || body.partyId || autoMatchId;
 
         if (targetCustomerId) {
           const cId = String(targetCustomerId);
@@ -71,8 +74,11 @@ export async function POST(request: NextRequest) {
           customerId = newCust.id;
         }
       } else {
-        const targetSupplierId =
-          body.supplierId || body.partyId || partyMatch?.matchedPartyId || partyMatch?.partyId;
+        const autoMatchId =
+          partyMatch?.status === "exact" || partyMatch?.status === "alias"
+            ? partyMatch?.matchedPartyId || partyMatch?.partyId
+            : null;
+        const targetSupplierId = body.supplierId || body.partyId || autoMatchId;
 
         if (targetSupplierId) {
           const sId = String(targetSupplierId);

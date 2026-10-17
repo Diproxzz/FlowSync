@@ -65,12 +65,56 @@ function levenshtein(a: string, b: string): number {
   return matrix[bn][an];
 }
 
+const GENERIC_BUSINESS_TOKENS = new Set([
+  "enterprise",
+  "enterprises",
+  "trader",
+  "traders",
+  "trading",
+  "company",
+  "corporation",
+  "industry",
+  "industries",
+  "agency",
+  "agencies",
+  "store",
+  "stores",
+  "impex",
+  "exports",
+  "imports",
+]);
+
 export function similarity(a: string, b: string): number {
-  const keyA = partyComparisonKey(a);
-  const keyB = partyComparisonKey(b);
+  const normA = normalizePartyName(a);
+  const normB = normalizePartyName(b);
+  const keyA = normA.replace(/\s+/g, "");
+  const keyB = normB.replace(/\s+/g, "");
   if (keyA === keyB) return 1.0;
+  if (!keyA || !keyB) return 0.0;
+
+  const tokensA = normA.split(/\s+/).filter(Boolean);
+  const tokensB = normB.split(/\s+/).filter(Boolean);
+
+  // Check distinctive/core tokens (excluding generic entity suffixes)
+  const coreA = tokensA.filter((t) => !GENERIC_BUSINESS_TOKENS.has(t));
+  const coreB = tokensB.filter((t) => !GENERIC_BUSINESS_TOKENS.has(t));
+
+  if (coreA.length > 0 && coreB.length > 0) {
+    const coreKeyA = coreA.join("");
+    const coreKeyB = coreB.join("");
+    if (coreKeyA !== coreKeyB) {
+      // If core consists of short initials/acronyms (<= 3 chars) and they differ, they must not match
+      if (coreKeyA.length <= 3 || coreKeyB.length <= 3) {
+        return 0.0;
+      }
+      const coreMaxLen = Math.max(coreKeyA.length, coreKeyB.length);
+      const coreDist = levenshtein(coreKeyA, coreKeyB);
+      const coreSim = 1 - coreDist / coreMaxLen;
+      if (coreSim < 0.75) return coreSim;
+    }
+  }
+
   const maxLen = Math.max(keyA.length, keyB.length);
-  if (maxLen === 0) return 1.0;
   const dist = levenshtein(keyA, keyB);
   return 1 - dist / maxLen;
 }

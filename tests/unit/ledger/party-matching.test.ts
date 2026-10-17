@@ -34,5 +34,10 @@ describe("Party Name Normalization & Matching (§5.3)", () => {
     // Typo: Tiger Internatioal
     const typoScore = similarity("Tiger International", "Tiger Internatioal");
     expect(typoScore).toBeGreaterThanOrEqual(0.9);
+
+    // Initial / Acronym divergence must never match despite common entity suffix
+    expect(similarity("A H ENTERPRISE", "A Z ENTERPRISE")).toBeLessThan(0.7);
+    expect(similarity("A.H. ENTERPRISE", "A Z ENTERPRISE")).toBeLessThan(0.7);
+    expect(similarity("S K TRADERS", "M K TRADERS")).toBeLessThan(0.7);
   });
 });
