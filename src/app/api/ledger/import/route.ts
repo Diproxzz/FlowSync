@@ -31,10 +31,32 @@ export async function POST(request: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       let customerId: string | null = null;
       let supplierId: string | null = null;
+      let partyDisplayName: string = parsedDraft.accountName.trim();
 
       if (accountType === "CUSTOMER") {
-        if (partyMatch?.matchedPartyId) {
-          customerId = partyMatch.matchedPartyId;
+        const targetCustomerId =
+          body.customerId || body.partyId || partyMatch?.matchedPartyId || partyMatch?.partyId;
+
+        if (targetCustomerId) {
+          const cId = String(targetCustomerId);
+          customerId = cId;
+          const cust = await tx.customer.findUnique({ where: { id: cId } });
+          if (cust) partyDisplayName = cust.name;
+
+          // Save alias for future imports
+          const normName = normalizeCustomerName(parsedDraft.accountName);
+          const existingAlias = await tx.customerAlias.findUnique({
+            where: { alias_norm: normName },
+          });
+          if (!existingAlias) {
+            await tx.customerAlias.create({
+              data: {
+                customer_id: cId,
+                alias: parsedDraft.accountName.trim(),
+                alias_norm: normName,
+              },
+            }).catch(() => null);
+          }
         } else {
           // Party name is not present in database -> create customer and SKIP GSTIN (per user instruction)
           const normName = normalizeCustomerName(parsedDraft.accountName);
@@ -49,8 +71,29 @@ export async function POST(request: NextRequest) {
           customerId = newCust.id;
         }
       } else {
-        if (partyMatch?.matchedPartyId) {
-          supplierId = partyMatch.matchedPartyId;
+        const targetSupplierId =
+          body.supplierId || body.partyId || partyMatch?.matchedPartyId || partyMatch?.partyId;
+
+        if (targetSupplierId) {
+          const sId = String(targetSupplierId);
+          supplierId = sId;
+          const sup = await tx.supplier.findUnique({ where: { id: sId } });
+          if (sup) partyDisplayName = sup.name;
+
+          // Save alias for future imports
+          const normName = normalizeCustomerName(parsedDraft.accountName);
+          const existingAlias = await tx.supplierAlias.findUnique({
+            where: { alias_norm: normName },
+          });
+          if (!existingAlias) {
+            await tx.supplierAlias.create({
+              data: {
+                supplier_id: sId,
+                alias: parsedDraft.accountName.trim(),
+                alias_norm: normName,
+              },
+            }).catch(() => null);
+          }
         } else {
           // Supplier
           const normName = normalizeCustomerName(parsedDraft.accountName);
@@ -76,7 +119,7 @@ export async function POST(request: NextRequest) {
             account_type: accountType,
             customer_id: customerId,
             supplier_id: supplierId,
-            display_name: parsedDraft.accountName.trim(),
+            display_name: partyDisplayName,
             statement_through_date: new Date(parsedDraft.periodTo),
             opening_balance_set: true,
             credit_days: 30,

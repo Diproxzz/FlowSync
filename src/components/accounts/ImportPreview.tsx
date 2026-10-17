@@ -1,9 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { formatINR, formatDate } from "@/lib/format";
-import { CheckCircle2, AlertTriangle, XCircle, ArrowRight, Building, FileSpreadsheet, ShieldCheck } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  ArrowRight,
+  Building,
+  FileSpreadsheet,
+  ShieldCheck,
+  Search,
+  Link2,
+  UserPlus,
+  Check,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface PartyOption {
+  id: string;
+  name: string;
+  gstin: string | null;
+  address?: string | null;
+}
 
 interface ImportPreviewProps {
   extracted: any;
@@ -32,14 +51,91 @@ export function ImportPreview({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Party matching & selection state
+  const initialMatchedId = partyMatch?.matchedPartyId || partyMatch?.partyId || null;
+  const [partyMode, setPartyMode] = useState<"MATCHED" | "LINK_EXISTING" | "CREATE_NEW">(
+    initialMatchedId ? "MATCHED" : "CREATE_NEW"
+  );
+  const [selectedPartyId, setSelectedPartyId] = useState<string>(initialMatchedId || "");
+  const [partySearchTerm, setPartySearchTerm] = useState("");
+
+  const [customers, setCustomers] = useState<PartyOption[]>([]);
+  const [suppliers, setSuppliers] = useState<PartyOption[]>([]);
+  const [loadingParties, setLoadingParties] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingParties(true);
+    Promise.all([
+      fetch("/api/customers").then((res) => (res.ok ? res.json() : { customers: [] })),
+      fetch("/api/suppliers").then((res) => (res.ok ? res.json() : { suppliers: [] })),
+    ])
+      .then(([custData, suppData]) => {
+        if (isMounted) {
+          setCustomers(custData.customers || []);
+          setSuppliers(suppData.suppliers || []);
+        }
+      })
+      .catch((err) => console.error("Error loading parties:", err))
+      .finally(() => {
+        if (isMounted) setLoadingParties(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const isValid = validation?.isValid ?? false;
   const validationErrors: string[] = validation?.errors ?? [];
   const validationWarnings: string[] = validation?.warnings ?? [];
 
+  // Active parties based on Account Type
+  const activeParties = accountType === "CUSTOMER" ? customers : suppliers;
+
+  const filteredParties = useMemo(() => {
+    if (!partySearchTerm.trim()) return activeParties;
+    const term = partySearchTerm.toLowerCase().trim();
+    return activeParties.filter(
+      (p) =>
+        p.name.toLowerCase().includes(term) ||
+        (p.gstin && p.gstin.toLowerCase().includes(term))
+    );
+  }, [activeParties, partySearchTerm]);
+
+  const selectedParty = useMemo(() => {
+    const id = partyMode === "MATCHED" ? initialMatchedId : selectedPartyId;
+    if (!id) return null;
+    return activeParties.find((p) => p.id === id) || null;
+  }, [activeParties, partyMode, initialMatchedId, selectedPartyId]);
+
+  const handleAccountTypeChange = (newType: "CUSTOMER" | "SUPPLIER") => {
+    setAccountType(newType);
+    setPartySearchTerm("");
+    if (partyMode === "MATCHED") {
+      setPartyMode("CREATE_NEW");
+      setSelectedPartyId("");
+    } else if (partyMode === "LINK_EXISTING") {
+      setSelectedPartyId("");
+    }
+  };
+
+  const canSave =
+    isValid &&
+    !saving &&
+    (partyMode !== "LINK_EXISTING" || !!selectedPartyId);
+
   const handleConfirmSave = async () => {
-    if (!isValid) return;
+    if (!canSave) return;
     setSaving(true);
     setError(null);
+
+    const effectivePartyId =
+      partyMode === "LINK_EXISTING"
+        ? selectedPartyId
+        : partyMode === "MATCHED"
+        ? initialMatchedId
+        : null;
 
     try {
       const res = await fetch("/api/ledger/import", {
@@ -48,7 +144,12 @@ export function ImportPreview({
         body: JSON.stringify({
           statement: extracted,
           draft: extracted,
-          partyMatch,
+          partyMatch: effectivePartyId
+            ? { ...partyMatch, partyId: effectivePartyId, matchedPartyId: effectivePartyId }
+            : null,
+          partyId: effectivePartyId,
+          customerId: accountType === "CUSTOMER" ? effectivePartyId : null,
+          supplierId: accountType === "SUPPLIER" ? effectivePartyId : null,
           accountType,
           fileHash,
           fileName,
@@ -128,16 +229,27 @@ export function ImportPreview({
 
           <button
             type="button"
-            disabled={!isValid || saving}
+            disabled={!canSave}
             onClick={handleConfirmSave}
+            title={
+              partyMode === "LINK_EXISTING" && !selectedPartyId
+                ? "Please select an existing customer/supplier before saving"
+                : undefined
+            }
             className={cn(
               "px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-2",
-              isValid
+              canSave
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >
-            <span>{saving ? "Saving to Database..." : "Confirm & Save Statement"}</span>
+            <span>
+              {saving
+                ? "Saving to Database..."
+                : partyMode === "LINK_EXISTING" && !selectedPartyId
+                ? "Select a Party to Link"
+                : "Confirm & Save Statement"}
+            </span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -185,61 +297,214 @@ export function ImportPreview({
               <Building className="w-4 h-4 text-primary" />
               Database Party Match
             </span>
-            <span className="text-[11px] font-mono lowercase">
-              {partyMatch?.matchType || "new"}
+            <span
+              className={cn(
+                "text-[11px] font-mono px-2 py-0.5 rounded-full capitalize",
+                partyMode === "MATCHED"
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  : partyMode === "LINK_EXISTING"
+                  ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                  : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+              )}
+            >
+              {partyMode === "MATCHED"
+                ? "matched"
+                : partyMode === "LINK_EXISTING"
+                ? "linking"
+                : "new"}
             </span>
           </div>
 
-          <div className="space-y-2 text-sm">
-            {partyMatch?.partyId ? (
-              <div>
-                <span className="text-xs text-muted-foreground">Matched Record:</span>
-                <p className="font-semibold text-foreground">{partyMatch.matchedName}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">GSTIN:</span>
-                  {partyMatch.gstin ? (
-                    <span className="font-mono font-medium text-foreground">{partyMatch.gstin}</span>
-                  ) : (
-                    <span className="text-amber-600 italic">Not on file (skipped)</span>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  No existing party found
-                </span>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  A new {accountType === "CUSTOMER" ? "customer" : "supplier"} will be automatically created
-                  with <strong>GSTIN skipped</strong> per instruction.
-                </p>
-              </div>
-            )}
-
-            <div className="pt-2 border-t border-border flex items-center gap-3">
+          <div className="space-y-3 text-sm">
+            {/* Account Type Selector */}
+            <div className="flex items-center justify-between gap-3 pb-2 border-b border-border">
               <label className="text-xs font-medium text-muted-foreground">Account Type:</label>
-              <div className="flex items-center gap-3 text-xs font-medium">
-                <label className="flex items-center gap-1 cursor-pointer">
+              <div className="flex items-center gap-4 text-xs font-medium">
+                <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="radio"
                     name="accountType"
                     checked={accountType === "CUSTOMER"}
-                    onChange={() => setAccountType("CUSTOMER")}
+                    onChange={() => handleAccountTypeChange("CUSTOMER")}
+                    className="text-primary focus:ring-primary"
                   />
                   <span>Customer (Debtor)</span>
                 </label>
-                <label className="flex items-center gap-1 cursor-pointer">
+                <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="radio"
                     name="accountType"
                     checked={accountType === "SUPPLIER"}
-                    onChange={() => setAccountType("SUPPLIER")}
+                    onChange={() => handleAccountTypeChange("SUPPLIER")}
+                    className="text-primary focus:ring-primary"
                   />
                   <span>Supplier (Creditor)</span>
                 </label>
               </div>
             </div>
+
+            {/* Mode Selector Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-lg text-xs font-medium">
+              {initialMatchedId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPartyMode("MATCHED");
+                    setSelectedPartyId(initialMatchedId);
+                  }}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all",
+                    partyMode === "MATCHED"
+                      ? "bg-card text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Auto-matched</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPartyMode("CREATE_NEW");
+                  setSelectedPartyId("");
+                }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all",
+                  partyMode === "CREATE_NEW"
+                    ? "bg-card text-foreground shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <UserPlus className="w-3.5 h-3.5 text-amber-600" />
+                <span>Create New</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPartyMode("LINK_EXISTING");
+                }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all",
+                  partyMode === "LINK_EXISTING"
+                    ? "bg-card text-foreground shadow-sm font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Link2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>Link to Existing</span>
+              </button>
+            </div>
+
+            {/* Mode 1: Matched Display */}
+            {partyMode === "MATCHED" && (
+              <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/60 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Matched Database Record:</span>
+                  <span className="font-mono text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded font-semibold">
+                    100% Match
+                  </span>
+                </div>
+                <p className="font-semibold text-foreground text-sm">{partyMatch.matchedName}</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">GSTIN:</span>
+                  {partyMatch.matchedGstin || partyMatch.gstin ? (
+                    <span className="font-mono font-medium text-foreground">
+                      {partyMatch.matchedGstin || partyMatch.gstin}
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 italic">Not on file</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Create New Party */}
+            {partyMode === "CREATE_NEW" && (
+              <div className="p-3 rounded-lg bg-amber-50/70 border border-amber-200/80 dark:bg-amber-950/20 dark:border-amber-900/60 text-xs space-y-1.5">
+                <div className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-400">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>Create New {accountType === "CUSTOMER" ? "Customer" : "Supplier"}</span>
+                </div>
+                <p className="text-muted-foreground">
+                  A new {accountType === "CUSTOMER" ? "customer" : "supplier"} will be automatically created
+                  as <strong className="text-foreground">{extracted.accountName}</strong> with{" "}
+                  <strong>GSTIN skipped</strong> per instruction.
+                </p>
+              </div>
+            )}
+
+            {/* Mode 3: Link to Existing Party */}
+            {partyMode === "LINK_EXISTING" && (
+              <div className="space-y-2.5">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder={`Filter existing ${accountType.toLowerCase()}s by name or GSTIN...`}
+                    value={partySearchTerm}
+                    onChange={(e) => setPartySearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <select
+                    value={selectedPartyId}
+                    onChange={(e) => setSelectedPartyId(e.target.value)}
+                    className="w-full px-2.5 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-sans"
+                  >
+                    <option value="">
+                      {loadingParties
+                        ? "Loading existing parties..."
+                        : filteredParties.length === 0
+                        ? "No parties found matching search"
+                        : `-- Select existing ${accountType.toLowerCase()} (${filteredParties.length} available) --`}
+                    </option>
+                    {filteredParties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.gstin ? `[GSTIN: ${p.gstin}]` : "[No GSTIN]"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedParty ? (
+                  <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/60 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-emerald-900 dark:text-emerald-300">
+                        {selectedParty.name}
+                      </span>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.5 rounded font-medium">
+                        Linked
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-emerald-800/90 dark:text-emerald-400/90">
+                      <span>GSTIN: </span>
+                      {selectedParty.gstin ? (
+                        <span className="font-mono font-medium">{selectedParty.gstin}</span>
+                      ) : (
+                        <span className="italic text-muted-foreground">Not on file</span>
+                      )}
+                      {selectedParty.address && (
+                        <span className="ml-2 text-muted-foreground truncate">
+                          ({selectedParty.address})
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-emerald-700/90 dark:text-emerald-400/80 pt-0.5">
+                      ✓ Will save alias &ldquo;{extracted.accountName}&rdquo; so future statements match automatically.
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                    Please select an existing {accountType.toLowerCase()} from the dropdown above to link with this statement.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -263,40 +528,54 @@ export function ImportPreview({
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
-            <span className="text-xs text-muted-foreground block">Replayed Closing</span>
+            <span className="text-xs text-muted-foreground block">Closing Balance</span>
             <span className="font-mono font-semibold text-sm text-foreground">
               {formatINR(extracted?.totals?.closing ?? extracted?.printedTotals?.balance ?? 0)}{" "}
               {extracted?.totals?.closingSide ?? extracted?.printedTotals?.balanceSide ?? "Dr"}
             </span>
           </div>
-          <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>Exact Match</span>
+          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
+            <span className="text-xs text-muted-foreground block">Total Entries</span>
+            <span className="font-mono font-semibold text-sm text-foreground">
+              {extracted?.entries?.length || 0} rows
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Extracted Rows Preview */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-        <div className="px-4 py-3 bg-muted/40 border-b border-border flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Extracted Entries ({extracted.entries?.length || 0})
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {existingInvoicesFound.length} bills already matched to system invoices
+      {/* Validation Discrepancies if any */}
+      {validationErrors.length > 0 && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-900 text-xs space-y-1">
+          <strong className="font-semibold block text-sm">Discrepancy Details (Replay Failure):</strong>
+          <ul className="list-disc pl-5 space-y-0.5">
+            {validationErrors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Extracted Ledger Table Preview */}
+      <div className="p-4 rounded-xl border border-border bg-card shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Extracted Transactions ({extracted.entries?.length || 0} rows)
+          </h4>
+          <span className="text-xs text-muted-foreground font-mono">
+            {extracted.periodFrom} &rarr; {extracted.periodTo}
           </span>
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-xs text-left">
-            <thead className="bg-muted/20 border-b border-border text-muted-foreground sticky top-0">
+            <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
               <tr>
-                <th className="py-2.5 px-3 w-[100px]">Date</th>
-                <th className="py-2.5 px-3">Particulars</th>
-                <th className="py-2.5 px-3 text-right w-[110px]">Debit</th>
-                <th className="py-2.5 px-3 text-right w-[110px]">Credit</th>
-                <th className="py-2.5 px-3 text-right w-[110px]">Balance</th>
-                <th className="py-2.5 px-3 text-center w-[120px]">Database Link</th>
+                <th className="py-2 px-3">Date</th>
+                <th className="py-2 px-3">Particulars / Doc No</th>
+                <th className="py-2 px-3 text-right">Debit (₹)</th>
+                <th className="py-2 px-3 text-right">Credit (₹)</th>
+                <th className="py-2 px-3 text-right">Balance</th>
+                <th className="py-2 px-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 font-mono">
