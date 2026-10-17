@@ -47,6 +47,8 @@ export function ImportPreview({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           statement: extracted,
+          draft: extracted,
+          partyMatch,
           accountType,
           fileHash,
           fileName,
@@ -298,15 +300,42 @@ export function ImportPreview({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 font-mono">
+              {/* Line 1: Opening Balance */}
+              <tr className="bg-muted/40 font-medium border-b border-border">
+                <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
+                  {formatDate(extracted.periodFrom)}
+                </td>
+                <td className="py-2 px-3 text-foreground font-sans font-semibold">
+                  Opening Balance
+                </td>
+                <td className="py-2 px-3 text-right">
+                  {extracted.openingSide === "Dr" ? formatINR(extracted.openingBalance) : "—"}
+                </td>
+                <td className="py-2 px-3 text-right">
+                  {extracted.openingSide === "Cr" ? formatINR(extracted.openingBalance) : "—"}
+                </td>
+                <td className="py-2 px-3 text-right font-semibold">
+                  {formatINR(extracted.openingBalance)} {extracted.openingSide}
+                </td>
+                <td className="py-2 px-3 text-center font-sans">
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                    Opening
+                  </span>
+                </td>
+              </tr>
+
+              {/* Extracted Rows */}
               {extracted.entries?.map((row: any, idx: number) => {
                 const isMatchedInvoice =
                   row.docNo &&
                   existingInvoicesFound.some((inv: any) => inv.docNoNorm === row.docNoNorm);
 
+                const rowDate = row.date || row.entryDate;
+
                 return (
                   <tr key={idx} className="hover:bg-muted/20">
                     <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
-                      {row.entryDate}
+                      {formatDate(rowDate)}
                     </td>
                     <td className="py-2 px-3 text-foreground font-sans">
                       <div>
@@ -321,7 +350,9 @@ export function ImportPreview({
                     <td className="py-2 px-3 text-right">{row.debit > 0 ? formatINR(row.debit) : "—"}</td>
                     <td className="py-2 px-3 text-right">{row.credit > 0 ? formatINR(row.credit) : "—"}</td>
                     <td className="py-2 px-3 text-right font-semibold">
-                      {row.printedBalance !== null ? formatINR(row.printedBalance) : "—"}{" "}
+                      {row.printedBalance !== null && row.printedBalance !== undefined
+                        ? formatINR(row.printedBalance)
+                        : "—"}{" "}
                       {row.printedBalanceSide || ""}
                     </td>
                     <td className="py-2 px-3 text-center font-sans">

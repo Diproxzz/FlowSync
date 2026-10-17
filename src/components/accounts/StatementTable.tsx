@@ -62,12 +62,14 @@ export function StatementTable({ rows, margTotals, onVoidEntry }: StatementTable
             ) : (
               rows.map((row, idx) => {
                 const prevRow = idx > 0 ? rows[idx - 1] : null;
+                const rowDate = (row as any).entry_date || (row as any).date;
+                const prevDate = prevRow ? ((prevRow as any).entry_date || (prevRow as any).date) : null;
                 // Same day hide date repeat for clean visual matching Marg statements
-                const isSameDate = prevRow && prevRow.entry_date === row.entry_date;
+                const isSameDate = prevRow && prevDate === rowDate;
 
                 const isDebit = row.debit > 0;
                 const isCredit = row.credit > 0;
-                const isOpening = row.entry_type === "OPENING";
+                const isOpening = row.entry_type === "OPENING" || (row as any).entryType === "OPENING";
 
                 return (
                   <tr
@@ -83,7 +85,7 @@ export function StatementTable({ rows, margTotals, onVoidEntry }: StatementTable
                       {isSameDate ? (
                         <span className="text-muted-foreground/30 select-none">〃</span>
                       ) : (
-                        formatDate(row.entry_date)
+                        formatDate(rowDate)
                       )}
                     </td>
 

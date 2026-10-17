@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { calculateMargTotals, calculatePeriodOpening, computeRunningBalances } from "@/lib/ledger/balances";
 import { calculateOpenItems } from "@/lib/ledger/openItems";
+import { formatParticularsText } from "@/lib/ledger/particulars";
 
 export async function GET(
   request: NextRequest,
@@ -101,26 +102,53 @@ export async function GET(
         balance: Math.abs(periodOpening),
         side: periodOpening >= 0 ? "Dr" : "Cr",
       },
-      entries: runningRows.map((r) => ({
-        id: r.entry.id,
-        date: r.entry.entry_date.toISOString().slice(0, 10),
-        entryType: r.entry.entry_type,
-        docNo: r.entry.doc_no,
-        paymentMode: r.entry.payment_mode,
-        instrumentNo: r.entry.instrument_no,
-        instrumentDate: r.entry.instrument_date ? r.entry.instrument_date.toISOString().slice(0, 10) : null,
-        referencedDocs: r.entry.referenced_docs,
-        priorYearRefs: r.entry.prior_year_refs,
-        referencesTruncated: r.entry.references_truncated,
-        particularsRaw: r.entry.particulars_raw,
-        debit: r.debit,
-        credit: r.credit,
-        runningBalance: r.runningBalance,
-        balanceSide: r.balanceSide,
-        formattedBalance: r.formattedBalance,
-        invoiceId: r.entry.invoice?.id || null,
-        purchaseInvoiceId: r.entry.purchase_invoice?.id || null,
-      })),
+      entries: runningRows.map((r) => {
+        const particulars = formatParticularsText({
+          entryType: r.entry.entry_type as any,
+          docNo: r.entry.doc_no,
+          paymentMode: r.entry.payment_mode as any,
+          instrumentNo: r.entry.instrument_no,
+          instrumentDate: r.entry.instrument_date
+            ? r.entry.instrument_date.toISOString().slice(0, 10)
+            : null,
+          referencedDocs: r.entry.referenced_docs,
+          particularsRaw: r.entry.particulars_raw,
+          narration: r.entry.narration,
+        });
+
+        const entryDate = r.entry.entry_date.toISOString().slice(0, 10);
+        return {
+          id: r.entry.id,
+          entry_date: entryDate,
+          date: entryDate,
+          entry_type: r.entry.entry_type,
+          entryType: r.entry.entry_type,
+          doc_no: r.entry.doc_no,
+          docNo: r.entry.doc_no,
+          particulars,
+          particularsRaw: r.entry.particulars_raw,
+          paymentMode: r.entry.payment_mode,
+          instrumentNo: r.entry.instrument_no,
+          instrumentDate: r.entry.instrument_date ? r.entry.instrument_date.toISOString().slice(0, 10) : null,
+          referencedDocs: r.entry.referenced_docs,
+          referenced_docs: r.entry.referenced_docs,
+          priorYearRefs: r.entry.prior_year_refs,
+          prior_year_refs: r.entry.prior_year_refs,
+          referencesTruncated: r.entry.references_truncated,
+          references_truncated: r.entry.references_truncated,
+          debit: r.debit,
+          credit: r.credit,
+          running_balance: r.runningBalance,
+          runningBalance: r.runningBalance,
+          balance_side: r.balanceSide,
+          balanceSide: r.balanceSide,
+          formattedBalance: r.formattedBalance,
+          invoice_id: r.entry.invoice?.id || null,
+          invoiceId: r.entry.invoice?.id || null,
+          purchase_invoice_id: r.entry.purchase_invoice?.id || null,
+          purchaseInvoiceId: r.entry.purchase_invoice?.id || null,
+        };
+      }),
       margTotals,
       totalDue: {
         balance: margTotals.closingBalance,

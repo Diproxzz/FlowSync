@@ -7,10 +7,11 @@ import { validateStatement } from "@/lib/ledger/parse/validate";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { draft, partyMatch, fileHash, fileName, accountType = "CUSTOMER" } = body;
+    const { draft, statement, partyMatch, fileHash, fileName, accountType = "CUSTOMER" } = body;
 
     // Validate the draft structure
-    const parsedDraft = ExtractedStatementSchema.parse(draft);
+    const rawDraft = draft || statement;
+    const parsedDraft = ExtractedStatementSchema.parse(rawDraft);
 
     // Validate replay & totals
     const validation = validateStatement(parsedDraft);
