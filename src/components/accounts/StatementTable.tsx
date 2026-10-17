@@ -102,7 +102,7 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: S
                           {/* Invoice direct link */}
                           {row.invoice_id ? (
                             <Link
-                              href={`/invoices?search=${encodeURIComponent(row.doc_no || "")}`}
+                              href={`/invoices/${row.invoice_id}`}
                               className="text-primary font-medium hover:underline inline-flex items-center gap-1 group-hover:text-primary/90"
                             >
                               <span>{row.particulars}</span>

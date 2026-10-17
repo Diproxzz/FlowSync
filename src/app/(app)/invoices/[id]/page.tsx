@@ -75,7 +75,7 @@ interface InvoiceDetail {
   source_file_key: string | null;
   extraction_provider: string | null;
   extraction_model: string | null;
-  warnings: string[] | null;
+  warnings: any[] | null;
   version: number;
   created_at: string;
   updated_at: string;
@@ -380,9 +380,13 @@ export default function InvoiceDetailPage({
               <div>
                 <span className="font-semibold">Review Warnings:</span>
                 <ul className="list-disc list-inside mt-1 space-y-0.5">
-                  {warnings.map((w, i) => (
-                    <li key={i}>{w}</li>
-                  ))}
+                  {warnings.map((w: any, i: number) => {
+                    const message =
+                      typeof w === "string"
+                        ? w
+                        : w?.message || (w?.code ? `Warning: ${w.code}` : JSON.stringify(w));
+                    return <li key={i}>{message}</li>;
+                  })}
                 </ul>
               </div>
             </div>
