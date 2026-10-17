@@ -14,18 +14,52 @@ import {
   Pin,
   PinOff,
   X,
+  ShoppingCart,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Upload Invoice", href: "/upload", icon: FileUp },
-  { label: "Invoices", href: "/invoices", icon: Receipt },
-  { label: "Products", href: "/products", icon: Package },
-  { label: "Customers", href: "/customers", icon: Users },
-  { label: "Stock Summary", href: "/stock", icon: Boxes },
-  { label: "Settings", href: "/settings", icon: Settings },
+interface NavItem {
+  label: string;
+  href: string;
+  icon: any;
+}
+
+interface NavSection {
+  title?: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Upload Invoice", href: "/upload", icon: FileUp },
+    ],
+  },
+  {
+    title: "Sales",
+    items: [
+      { label: "Sales Invoices", href: "/invoices", icon: Receipt },
+      { label: "Customers", href: "/customers", icon: Users },
+    ],
+  },
+  {
+    title: "Purchases",
+    items: [
+      { label: "Purchase Invoices", href: "/purchases", icon: ShoppingCart },
+      { label: "Suppliers", href: "/suppliers", icon: Truck },
+    ],
+  },
+  {
+    title: "Inventory & Setup",
+    items: [
+      { label: "Products", href: "/products", icon: Package },
+      { label: "Stock Summary", href: "/stock", icon: Boxes },
+      { label: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -96,28 +130,39 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+      <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
+        {NAV_SECTIONS.map((section, sIdx) => (
+          <div key={sIdx} className="space-y-1">
+            {section.title && (
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-3">
+                {section.title}
+              </div>
+            )}
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={closeSidebar}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-sm text-xs font-medium transition",
-                isActive
-                  ? "bg-primary-soft text-primary font-semibold"
-                  : "text-ink-2 hover:text-ink hover:bg-surface-2"
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeSidebar}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-sm text-xs font-medium transition",
+                    isActive
+                      ? "bg-primary-soft text-primary font-semibold"
+                      : "text-ink-2 hover:text-ink hover:bg-surface-2"
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer Info */}

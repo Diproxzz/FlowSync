@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   FileUp,
   FileText,
@@ -27,6 +27,8 @@ import { DocumentViewer } from "@/components/upload/DocumentViewer";
 import { PreviewForm } from "@/components/upload/PreviewForm";
 import { DuplicateDialog } from "@/components/upload/DuplicateDialog";
 import { DiffView } from "@/components/upload/DiffView";
+import { DocumentTypeToggle } from "@/components/upload/DocumentTypeToggle";
+import { PurchaseUploadView } from "@/components/upload/PurchaseUploadView";
 import { ExtractedInvoice } from "@/lib/llm/schema";
 import { CustomerResolution } from "@/lib/matching/customer";
 import { ProductResolution } from "@/lib/matching/product";
@@ -53,8 +55,10 @@ export interface UploadJobItem {
   } | null;
 }
 
-export default function UploadPage() {
+function UploadPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentType = searchParams?.get("type") === "purchase" ? "PURCHASE" : "SALES";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<UploadJobItem[]>([]);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -305,8 +309,24 @@ export default function UploadPage() {
     }
   };
 
+  if (currentType === "PURCHASE") {
+    return (
+      <div className="space-y-3 flex flex-col h-[calc(100vh-5.5rem)]">
+        <div className="flex items-center justify-between pb-1 border-b border-border/60">
+          <DocumentTypeToggle currentType="PURCHASE" />
+        </div>
+        <PurchaseUploadView />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 flex flex-col h-[calc(100vh-5.5rem)]">
+      {/* Document Type Toggle */}
+      <div className="flex items-center justify-between pb-1 border-b border-border/60">
+        <DocumentTypeToggle currentType="SALES" />
+      </div>
+
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -911,5 +931,13 @@ export default function UploadPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-ink-3">Loading upload...</div>}>
+      <UploadPageContent />
+    </Suspense>
   );
 }
