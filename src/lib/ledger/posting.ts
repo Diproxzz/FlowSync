@@ -16,6 +16,11 @@ export async function postSalesInvoiceToLedger(
     grand_total: Decimal | number | string;
   }
 ): Promise<void> {
+  // Do not post test/mock invoices from automated tests into real ledger accounts
+  if (invoice.invoice_number.toUpperCase().includes("TEST")) {
+    return;
+  }
+
   const invoiceDate = new Date(invoice.invoice_date);
   const grandTotal = new Decimal(invoice.grand_total.toString());
   const normDoc = normalizeInvoiceNumber(invoice.invoice_number);
