@@ -23,6 +23,7 @@ export interface ConfirmInvoiceInput {
     productNameRaw: string;
   }>;
   mode: "create" | "replace";
+  invoiceId?: string;
   fileToken?: string;
   fileHash?: string;
   provider?: string;
@@ -31,7 +32,7 @@ export interface ConfirmInvoiceInput {
 }
 
 export async function confirmInvoice(input: ConfirmInvoiceInput) {
-  const { draft, customerResolution, productResolutions, mode, fileToken, fileHash, provider, model } = input;
+  const { draft, customerResolution, productResolutions, mode, invoiceId, fileToken, fileHash, provider, model } = input;
 
   // 1. Server-side validation: only reject for format errors (GSTIN, Invoice number, customer)
   const validation = validateInvoice(draft);
@@ -55,13 +56,21 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
   const numberNorm = normalizeInvoiceNumber(draft.invoice.number);
 
   // 2. Duplicate checks
-  const existing = await prisma.invoice.findUnique({
-    where: { invoice_number_norm: numberNorm },
-    include: {
-      items: { include: { movement: true } },
-      customer: true,
-    },
-  });
+  const existing = invoiceId
+    ? await prisma.invoice.findUnique({
+        where: { id: invoiceId },
+        include: {
+          items: { include: { movement: true } },
+          customer: true,
+        },
+      })
+    : await prisma.invoice.findUnique({
+        where: { invoice_number_norm: numberNorm },
+        include: {
+          items: { include: { movement: true } },
+          customer: true,
+        },
+      });
 
   if (mode === "create" && existing) {
     const error: any = new Error(`Invoice '${draft.invoice.number}' already exists in database`);

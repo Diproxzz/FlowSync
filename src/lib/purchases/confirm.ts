@@ -26,6 +26,7 @@ export interface ConfirmPurchaseInput {
     manualQtyKg?: number | null;
   }>;
   mode: "create" | "replace";
+  invoiceId?: string;
   fileToken?: string;
   fileHash?: string;
   provider?: string;
@@ -40,6 +41,7 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
     supplierResolution,
     productResolutions,
     mode,
+    invoiceId,
     fileToken,
     fileHash,
     provider,
@@ -138,19 +140,27 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
       }
     }
 
-    // 3. Duplicate checks: key is (supplier_id, invoice_number_norm)
-    const existing = await tx.purchaseInvoice.findUnique({
-      where: {
-        supplier_id_invoice_number_norm: {
-          supplier_id: supplierId,
-          invoice_number_norm: numberNorm,
-        },
-      },
-      include: {
-        items: { include: { movement: true } },
-        supplier: true,
-      },
-    });
+    // 3. Duplicate checks: key is (supplier_id, invoice_number_norm) or invoiceId
+    const existing = invoiceId
+      ? await tx.purchaseInvoice.findUnique({
+          where: { id: invoiceId },
+          include: {
+            items: { include: { movement: true } },
+            supplier: true,
+          },
+        })
+      : await tx.purchaseInvoice.findUnique({
+          where: {
+            supplier_id_invoice_number_norm: {
+              supplier_id: supplierId,
+              invoice_number_norm: numberNorm,
+            },
+          },
+          include: {
+            items: { include: { movement: true } },
+            supplier: true,
+          },
+        });
 
     if (mode === "create" && existing) {
       const error: any = new Error(

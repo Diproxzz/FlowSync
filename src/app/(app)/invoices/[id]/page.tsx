@@ -13,10 +13,14 @@ import {
   History,
   AlertTriangle,
   CheckCircle,
+  CheckCircle2,
+  Edit,
   Eye,
   FileSpreadsheet,
 } from "lucide-react";
 import { formatINR, formatDate, formatKg } from "@/lib/format";
+import { PreviewForm } from "@/components/upload/PreviewForm";
+import { ExtractedInvoice } from "@/lib/llm/schema";
 
 interface InvoiceItem {
   id: string;
@@ -98,25 +102,108 @@ export default function InvoiceDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [showFile, setShowFile] = useState(false);
   const [selectedRevision, setSelectedRevision] = useState<InvoiceRevision | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const loadInvoice = async () => {
+    try {
+      const res = await fetch(`/api/invoices/${id}`);
+      if (!res.ok) {
+        throw new Error("Failed to load invoice details");
+      }
+      const data = await res.json();
+      setInvoice(data.invoice);
+    } catch (err: any) {
+      setError(err.message || "Error loading invoice");
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/invoices/${id}`);
-        if (!res.ok) {
-          throw new Error("Failed to load invoice details");
-        }
-        const data = await res.json();
-        setInvoice(data.invoice);
-      } catch (err: any) {
-        setError(err.message || "Error loading invoice");
-      } finally {
-        setLoading(false);
-      }
+    async function initialLoad() {
+      setLoading(true);
+      await loadInvoice();
+      setLoading(false);
     }
-    load();
+    initialLoad();
   }, [id]);
+
+  const buildInitialDraft = (inv: InvoiceDetail): ExtractedInvoice => {
+    return {
+      customer: {
+        name: inv.customer?.name || inv.customer_name_snapshot || "",
+        gstin: inv.customer?.gstin || inv.customer_gstin_snapshot || null,
+        address: [inv.customer?.city, inv.customer?.state].filter(Boolean).join(", ") || null,
+      },
+      invoice: {
+        number: inv.invoice_number,
+        date: inv.invoice_date ? inv.invoice_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      },
+      items: inv.items.map((it, idx) => ({
+        lineNo: it.line_no || idx + 1,
+        productNameRaw: it.product_name_raw || it.product?.name || "",
+        hsn: it.hsn || it.product?.hsn_code || null,
+        qtyKg: parseFloat(it.qty_kg) || 0,
+        packSizeKg: it.pack_size_kg ? parseFloat(it.pack_size_kg) : null,
+        rate: parseFloat(it.rate) || 0,
+        discountPct: it.discount_pct ? parseFloat(it.discount_pct) : null,
+        discountAmount: it.discount_amount ? parseFloat(it.discount_amount) : null,
+        taxableAmount: parseFloat(it.taxable_amount) || 0,
+        cgstPct: parseFloat(it.cgst_pct) || 0,
+        sgstPct: parseFloat(it.sgst_pct) || 0,
+        igstPct: it.igst_pct ? parseFloat(it.igst_pct) : 0,
+        cgstAmount: it.cgst_amount ? parseFloat(it.cgst_amount) : 0,
+        sgstAmount: it.sgst_amount ? parseFloat(it.sgst_amount) : 0,
+        lineTotal: it.line_total ? parseFloat(it.line_total) : 0,
+      })),
+      totals: {
+        taxableSubtotal: parseFloat(inv.taxable_total) || 0,
+        discountPct: inv.discount_pct ? parseFloat(inv.discount_pct) : null,
+        discountTotal: inv.discount_total ? parseFloat(inv.discount_total) : null,
+        cgstTotal: parseFloat(inv.cgst_total) || 0,
+        sgstTotal: parseFloat(inv.sgst_total) || 0,
+        igstTotal: parseFloat(inv.igst_total) || 0,
+        roundOff: parseFloat(inv.round_off) || 0,
+        grandTotal: parseFloat(inv.grand_total) || 0,
+      },
+      uncertainFields: [],
+    };
+  };
+
+  const handleSaveEdit = async (payload: any) => {
+    if (!invoice) return;
+    try {
+      setSaving(true);
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          mode: "replace",
+          invoiceId: invoice.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error?.message || "Failed to update invoice");
+        return;
+      }
+
+      setToastMessage(
+        `Sales invoice #${payload.draft.invoice.number} updated to Version ${invoice.version + 1}`
+      );
+      setTimeout(() => setToastMessage(null), 3500);
+
+      await loadInvoice();
+      setIsEditing(false);
+    } catch (err: any) {
+      console.error(err);
+      alert("Error saving modifications: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!invoice) return;
@@ -167,6 +254,13 @@ export default function InvoiceDetailPage({
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-success-bg border border-success/30 text-success text-xs rounded-sm flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div className="space-y-1">
@@ -194,6 +288,23 @@ export default function InvoiceDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="h-8 px-3 border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-medium rounded-sm text-xs flex items-center gap-1.5 transition shadow-xs"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              <span>Edit Invoice</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsEditing(false)}
+              className="h-8 px-3 border border-border bg-surface text-ink-2 hover:bg-surface-2 rounded-sm text-xs font-medium flex items-center gap-1.5 transition"
+            >
+              <span>Cancel Edit</span>
+            </button>
+          )}
+
           {invoice.source_file_key && (
             <button
               onClick={() => setShowFile(!showFile)}
@@ -214,23 +325,71 @@ export default function InvoiceDetailPage({
         </div>
       </div>
 
-      {/* Warnings Banner if any */}
-      {warnings.length > 0 && (
-        <div className="bg-warning/10 border border-warning/30 rounded-sm p-3 flex items-start gap-3 text-xs text-warning-fg">
-          <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold">Review Warnings:</span>
-            <ul className="list-disc list-inside mt-1 space-y-0.5">
-              {warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
+      {isEditing ? (
+        <div className="bg-surface border border-border rounded-sm p-5 shadow-xs">
+          <div className="mb-4 pb-3 border-b border-border flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+                <Edit className="w-4 h-4 text-primary" />
+                Edit Sales Invoice #{invoice.invoice_number}
+              </h2>
+              <p className="text-xs text-ink-3 mt-0.5">
+                Modify line items, customer, dates, GST rates, or charges. Saving creates Revision v{invoice.version + 1} and recalculates inventory stock movements.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsEditing(false)}
+              className="px-3 py-1 border border-border text-xs text-ink-2 hover:bg-surface-2 rounded-sm"
+            >
+              Cancel
+            </button>
           </div>
+          <PreviewForm
+            initialDraft={buildInitialDraft(invoice)}
+            customerMatch={
+              invoice.customer
+                ? {
+                    status: "matched",
+                    confidence: 1,
+                    matchedCustomer: invoice.customer,
+                  }
+                : {
+                    status: "new",
+                    confidence: 0,
+                    suggestedName: invoice.customer_name_snapshot,
+                  }
+            }
+            productMatches={invoice.items.map((it) => ({
+              lineNo: it.line_no,
+              status: it.product ? "exact" : "new",
+              confidence: it.product ? 1 : 0,
+              matchedProduct: it.product,
+            }))}
+            mode="replace"
+            saving={saving}
+            onSave={handleSaveEdit}
+            onDiscard={() => setIsEditing(false)}
+          />
         </div>
-      )}
+      ) : (
+        <>
+          {/* Warnings Banner if any */}
+          {warnings.length > 0 && (
+            <div className="bg-warning/10 border border-warning/30 rounded-sm p-3 flex items-start gap-3 text-xs text-warning-fg">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold">Review Warnings:</span>
+                <ul className="list-disc list-inside mt-1 space-y-0.5">
+                  {warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
 
-      {/* Overview Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Overview Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Customer Box */}
         <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
           <div className="flex items-center justify-between text-xs text-ink-3">
@@ -537,6 +696,8 @@ export default function InvoiceDetailPage({
             </table>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -17,8 +17,12 @@ import {
   Truck,
   Hash,
   Globe,
+  Edit,
+  CheckCircle2,
 } from "lucide-react";
 import { formatINR, formatDate } from "@/lib/format";
+import { PurchasePreviewForm } from "@/components/upload/PurchasePreviewForm";
+import { ExtractedPurchaseInvoice } from "@/lib/llm/schema.purchase";
 
 interface PurchaseItem {
   id: string;
@@ -113,25 +117,120 @@ export default function PurchaseDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [showPdf, setShowPdf] = useState(false);
   const [selectedRevision, setSelectedRevision] = useState<PurchaseRevision | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const loadPurchase = async () => {
+    try {
+      const res = await fetch(`/api/purchases/${id}`);
+      if (!res.ok) {
+        throw new Error("Failed to load purchase invoice details");
+      }
+      const data = await res.json();
+      setPurchase(data.purchase);
+    } catch (err: any) {
+      setError(err.message || "Error loading purchase invoice");
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/purchases/${id}`);
-        if (!res.ok) {
-          throw new Error("Failed to load purchase invoice details");
-        }
-        const data = await res.json();
-        setPurchase(data.purchase);
-      } catch (err: any) {
-        setError(err.message || "Error loading purchase invoice");
-      } finally {
-        setLoading(false);
-      }
+    async function initialLoad() {
+      setLoading(true);
+      await loadPurchase();
+      setLoading(false);
     }
-    load();
+    initialLoad();
   }, [id]);
+
+  const buildInitialDraft = (p: PurchaseDetail): ExtractedPurchaseInvoice => {
+    return {
+      invoice: {
+        number: p.supplier_invoice_number,
+        date: p.invoice_date ? p.invoice_date.split("T")[0] : new Date().toISOString().split("T")[0],
+        receivedDate: p.received_date ? p.received_date.split("T")[0] : null,
+        referenceNo: p.reference_no,
+        vehicleNo: p.vehicle_no,
+      },
+      isImport: Boolean(p.is_import),
+      supplier: {
+        name: p.supplier.name || p.supplier_name_snapshot,
+        gstin: p.is_import ? null : (p.supplier.gstin || p.supplier_gstin_snapshot),
+        address: p.supplier.address || "",
+      },
+      buyer: {
+        name: "INDOBEST CHEMICALS",
+        gstin: p.buyer_gstin_snapshot || "19AVZPC2361G1ZA",
+      },
+      referenceNo: p.reference_no,
+      vehicleNo: p.vehicle_no,
+      items: p.items.map((it, idx) => ({
+        lineNo: it.line_no || idx + 1,
+        productNameRaw: it.product_name_raw,
+        hsn: it.hsn || "",
+        qtyPrinted: parseFloat(it.qty_printed) || 0,
+        unitPrinted: it.unit_printed || "KG",
+        qtyKg: parseFloat(it.qty_kg) || parseFloat(it.qty_printed) || 0,
+        packSizeKg: it.product.pack_size_kg ? parseFloat(it.product.pack_size_kg) : null,
+        rate: parseFloat(it.rate) || 0,
+        ratePerKg: parseFloat(it.rate_per_kg) || parseFloat(it.rate) || 0,
+        discount: parseFloat(it.discount) || 0,
+        taxableAmount: parseFloat(it.taxable_amount) || 0,
+        cgstPct: parseFloat(it.cgst_pct) || 0,
+        sgstPct: parseFloat(it.sgst_pct) || 0,
+        igstPct: parseFloat(it.igst_pct) || 0,
+        cgstAmount: it.cgst_amount ? parseFloat(it.cgst_amount) : 0,
+        sgstAmount: it.sgst_amount ? parseFloat(it.sgst_amount) : 0,
+        igstAmount: it.igst_amount ? parseFloat(it.igst_amount) : 0,
+        lineTotal: it.line_total ? parseFloat(it.line_total) : 0,
+      })),
+      totals: {
+        taxableSubtotal: parseFloat(p.taxable_total) || 0,
+        cgstTotal: parseFloat(p.cgst_total) || 0,
+        sgstTotal: parseFloat(p.sgst_total) || 0,
+        igstTotal: parseFloat(p.igst_total) || 0,
+        otherCharges: parseFloat(p.other_charges) || 0,
+        tcs: parseFloat(p.tcs) || 0,
+        roundOff: parseFloat(p.round_off) || 0,
+        grandTotal: parseFloat(p.grand_total) || 0,
+      },
+    };
+  };
+
+  const handleSaveEdit = async (payload: any) => {
+    if (!purchase) return;
+    try {
+      setSaving(true);
+      const res = await fetch("/api/purchases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          mode: "replace",
+          invoiceId: purchase.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error?.message || "Failed to update purchase invoice");
+        return;
+      }
+
+      setToastMessage(
+        `Purchase invoice #${payload.draft.invoice.number} updated to Version ${purchase.version + 1}`
+      );
+      setTimeout(() => setToastMessage(null), 3500);
+
+      await loadPurchase();
+      setIsEditing(false);
+    } catch (err: any) {
+      console.error(err);
+      alert("Error saving modifications: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!purchase) return;
@@ -188,6 +287,13 @@ export default function PurchaseDetailPage({
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-success-bg border border-success/30 text-success text-xs rounded-sm flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div className="space-y-1">
@@ -224,6 +330,23 @@ export default function PurchaseDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-3.5 py-1.5 border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent font-medium rounded-sm text-xs transition flex items-center gap-1.5 shadow-xs"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              <span>Edit Purchase</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsEditing(false)}
+              className="px-3.5 py-1.5 border border-border bg-surface text-ink-2 hover:bg-surface-2 rounded-sm text-xs font-medium transition flex items-center gap-1.5"
+            >
+              <span>Cancel Edit</span>
+            </button>
+          )}
+
           {purchase.source_file_key && (
             <button
               onClick={() => setShowPdf(!showPdf)}
@@ -265,8 +388,47 @@ export default function PurchaseDetailPage({
         </div>
       )}
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {isEditing ? (
+        <div className="bg-surface border border-border rounded-sm p-5 shadow-xs">
+          <div className="mb-4 pb-3 border-b border-border flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+                <Edit className="w-4 h-4 text-accent" />
+                Edit Purchase Invoice #{purchase.supplier_invoice_number}
+              </h2>
+              <p className="text-xs text-ink-3 mt-0.5">
+                Modify line items, supplier, dates, GST rates, or charges. Saving creates Revision v{purchase.version + 1} and recalculates stock movements.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsEditing(false)}
+              className="px-3 py-1 border border-border text-xs text-ink-2 hover:bg-surface-2 rounded-sm"
+            >
+              Cancel
+            </button>
+          </div>
+          <PurchasePreviewForm
+            initialDraft={buildInitialDraft(purchase)}
+            supplierMatch={
+              purchase.supplier
+                ? {
+                    supplierId: purchase.supplier.id,
+                    confidence: 1,
+                    status: "matched",
+                    matchedSupplier: purchase.supplier,
+                  }
+                : null
+            }
+            mode="replace"
+            saving={saving}
+            onSave={handleSaveEdit}
+            onDiscard={() => setIsEditing(false)}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Supplier Info */}
         <div className="bg-surface border border-border rounded-sm p-4 space-y-2 shadow-xs">
           <div className="flex items-center justify-between pb-2 border-b border-border">
@@ -553,6 +715,8 @@ export default function PurchaseDetailPage({
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
