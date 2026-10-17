@@ -103,3 +103,74 @@
   background: var(--border-strong);
   border-radius: var(--radius-sm);
 }
+
+/* Ensure form controls are always readable in light and dark mode */
+input, select, textarea {
+  color: var(--ink);
+  background-color: var(--surface);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--ink-3);
+  opacity: 0.8;
+}
+
+select option {
+  color: var(--ink);
+  background-color: var(--surface);
+}
+
+/* ==========================================================================
+   Print Styles: Clean A4 Statement Output & Suppress Browser Headers/Footers
+   ========================================================================== */
+@page {
+  size: A4 portrait;
+  margin: 0; /* Zero margin suppresses browser title, date, URL and page header/footer */
+}
+
+@media print {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Printable statement container with controlled page padding */
+  .print-statement-page {
+    padding: 10mm 12mm !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  /* Hide app navigation, topbar, sidebars, buttons and modals */
+  header,
+  aside,
+  nav,
+  .print\:hidden,
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+
+  /* Tables formatting for print */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+}

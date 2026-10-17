@@ -24,18 +24,18 @@ export function StatementHeader({ account, period }: StatementHeaderProps) {
   const isCustomer = account.accountType === "CUSTOMER";
 
   return (
-    <div className="bg-surface border border-border rounded-sm p-5 shadow-xs space-y-4">
+    <div className="bg-surface border border-border rounded-sm p-5 shadow-xs space-y-4 print:p-3 print:space-y-2 print:border-slate-300 print:shadow-none print:break-inside-avoid">
       {/* Letterhead Banner */}
-      <div className="text-center border-b border-border pb-4 space-y-1">
-        <h2 className="text-xl font-bold tracking-tight text-ink font-mono uppercase">
+      <div className="text-center border-b border-border pb-4 space-y-1 print:pb-2 print:border-slate-300">
+        <h2 className="text-xl font-bold tracking-tight text-ink font-mono uppercase print:text-lg print:text-black">
           INDOBEST
         </h2>
-        <p className="text-xs text-ink-2 font-medium">
+        <p className="text-xs text-ink-2 font-medium print:text-[10px] print:text-slate-700">
           19/10/2, GOBINDA KHATICK ROAD, KOLKATA-700046
         </p>
-        <p className="text-[11px] text-ink-3">
-          Phone: <span className="font-mono text-ink">8240892993</span> &nbsp;|&nbsp; E-Mail:{" "}
-          <span className="font-mono text-ink">indobest@gmail.com</span>
+        <p className="text-[11px] text-ink-3 print:text-[9px] print:text-slate-600">
+          Phone: <span className="font-mono text-ink print:text-black">8240892993</span> &nbsp;|&nbsp; E-Mail:{" "}
+          <span className="font-mono text-ink print:text-black">indobest@gmail.com</span>
         </p>
       </div>
 

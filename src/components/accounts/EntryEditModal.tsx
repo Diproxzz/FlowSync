@@ -240,7 +240,7 @@ export function EntryEditModal({
           {/* Row 1: Date & Entry Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Transaction Date *
               </label>
               <input
@@ -248,37 +248,37 @@ export function EntryEditModal({
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-primary font-mono"
               />
-              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+              <span className="text-[10px] text-ink-3 mt-0.5 block">
                 Can be a future date for scheduled / post-dated payments.
               </span>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Entry Type *
               </label>
               <select
                 value={entryType}
                 onChange={(e) => handleTypeChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 {isCustomer ? (
                   <>
-                    <option value="RECEIPT">Payment / Receipt (Credit)</option>
-                    <option value="SALE_INVOICE">Sale Invoice / Bill (Debit)</option>
-                    <option value="CREDIT_NOTE">Credit Note (Credit)</option>
-                    <option value="DEBIT_NOTE">Debit Note (Debit)</option>
-                    <option value="ADJUSTMENT">Journal Adjustment</option>
+                    <option value="RECEIPT" className="bg-surface text-ink">Payment / Receipt (Credit)</option>
+                    <option value="SALE_INVOICE" className="bg-surface text-ink">Sale Invoice / Bill (Debit)</option>
+                    <option value="CREDIT_NOTE" className="bg-surface text-ink">Credit Note (Credit)</option>
+                    <option value="DEBIT_NOTE" className="bg-surface text-ink">Debit Note (Debit)</option>
+                    <option value="ADJUSTMENT" className="bg-surface text-ink">Journal Adjustment</option>
                   </>
                 ) : (
                   <>
-                    <option value="PAYMENT">Payment to Supplier (Debit)</option>
-                    <option value="PURCHASE_INVOICE">Purchase Invoice (Credit)</option>
-                    <option value="DEBIT_NOTE">Debit Note (Debit)</option>
-                    <option value="CREDIT_NOTE">Credit Note (Credit)</option>
-                    <option value="ADJUSTMENT">Journal Adjustment</option>
+                    <option value="PAYMENT" className="bg-surface text-ink">Payment to Supplier (Debit)</option>
+                    <option value="PURCHASE_INVOICE" className="bg-surface text-ink">Purchase Invoice (Credit)</option>
+                    <option value="DEBIT_NOTE" className="bg-surface text-ink">Debit Note (Debit)</option>
+                    <option value="CREDIT_NOTE" className="bg-surface text-ink">Credit Note (Credit)</option>
+                    <option value="ADJUSTMENT" className="bg-surface text-ink">Journal Adjustment</option>
                   </>
                 )}
               </select>
@@ -286,9 +286,9 @@ export function EntryEditModal({
           </div>
 
           {/* Row 2: Debit & Credit */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-lg bg-muted/30 border border-border">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-lg bg-surface-2/40 border border-border">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Debit (₹)
               </label>
               <input
@@ -301,15 +301,15 @@ export function EntryEditModal({
                   setDebit(e.target.value);
                   if (parseFloat(e.target.value) > 0) setCredit("");
                 }}
-                className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+              <span className="text-[10px] text-ink-3 mt-0.5 block">
                 {isCustomer ? "Increases customer receivable (Dr)" : "Reduces supplier payable"}
               </span>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Credit (₹)
               </label>
               <input
@@ -322,9 +322,9 @@ export function EntryEditModal({
                   setCredit(e.target.value);
                   if (parseFloat(e.target.value) > 0) setDebit("");
                 }}
-                className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+              <span className="text-[10px] text-ink-3 mt-0.5 block">
                 {isCustomer ? "Reduces customer balance (Payment / Cr)" : "Increases supplier payable"}
               </span>
             </div>
@@ -333,7 +333,7 @@ export function EntryEditModal({
           {/* Row 3: Particulars & Doc No */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Particulars / Description *
               </label>
               <input
@@ -342,12 +342,12 @@ export function EntryEditModal({
                 placeholder="e.g. By Cheque No. 492011, Advance payment, NEFT..."
                 value={particulars}
                 onChange={(e) => setParticulars(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Doc / Bill / Receipt No.
               </label>
               <input
@@ -355,7 +355,7 @@ export function EntryEditModal({
                 placeholder="e.g. RCP-001 or Bill No."
                 value={docNo}
                 onChange={(e) => setDocNo(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary font-mono"
               />
             </div>
           </div>
@@ -363,26 +363,26 @@ export function EntryEditModal({
           {/* Row 4: Payment Mode & Instrument Details */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Payment Mode
               </label>
               <select
                 value={paymentMode}
                 onChange={(e) => setPaymentMode(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                <option value="NONE">None / Not applicable</option>
-                <option value="CHEQUE">Cheque</option>
-                <option value="NEFT">NEFT</option>
-                <option value="RTGS">RTGS</option>
-                <option value="UPI">UPI</option>
-                <option value="CASH">Cash</option>
-                <option value="OTHER">Other</option>
+                <option value="NONE" className="bg-surface text-ink">None / Not applicable</option>
+                <option value="CHEQUE" className="bg-surface text-ink">Cheque</option>
+                <option value="NEFT" className="bg-surface text-ink">NEFT</option>
+                <option value="RTGS" className="bg-surface text-ink">RTGS</option>
+                <option value="UPI" className="bg-surface text-ink">UPI</option>
+                <option value="CASH" className="bg-surface text-ink">Cash</option>
+                <option value="OTHER" className="bg-surface text-ink">Other</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Instrument / Ref No.
               </label>
               <input
@@ -390,26 +390,26 @@ export function EntryEditModal({
                 placeholder="Cheque No / UTR / Txn ID"
                 value={instrumentNo}
                 onChange={(e) => setInstrumentNo(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-ink mb-1">
                 Instrument Date
               </label>
               <input
                 type="date"
                 value={instrumentDate}
                 onChange={(e) => setInstrumentDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-1 focus:ring-primary font-mono"
               />
             </div>
           </div>
 
           {/* Row 5: Notes / Narration */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label className="block text-xs font-semibold text-ink mb-1">
               Internal Narration / Remarks
             </label>
             <input
@@ -417,7 +417,7 @@ export function EntryEditModal({
               placeholder="Optional remarks or reconciliation note"
               value={narration}
               onChange={(e) => setNarration(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -427,16 +427,16 @@ export function EntryEditModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="px-4 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
+              className="px-4 py-2 text-xs font-medium rounded-lg border border-border bg-surface hover:bg-surface-2 text-ink transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              className="px-5 py-2 text-xs font-semibold rounded-lg bg-primary text-white hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-4 h-4 text-white" />
               <span>{submitting ? "Saving..." : isEditMode ? "Save Changes" : "Add Line to Statement"}</span>
             </button>
           </div>

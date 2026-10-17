@@ -45,17 +45,17 @@ interface StatementTableProps {
 
 export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: StatementTableProps) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left border-collapse">
+    <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm print:rounded-none print:border print:border-slate-400 print:shadow-none print:overflow-visible">
+      <div className="overflow-x-auto print:overflow-visible">
+        <table className="w-full text-sm text-left border-collapse print:text-xs print:text-black">
           <thead>
-            <tr className="bg-muted/50 border-b border-border text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-              <th className="py-3 px-4 w-[110px]">Date</th>
-              <th className="py-3 px-4">Particulars</th>
-              <th className="py-3 px-4 text-right w-[140px]">Debit</th>
-              <th className="py-3 px-4 text-right w-[140px]">Credit</th>
-              <th className="py-3 px-4 text-right w-[150px]">Balance</th>
-              <th className="py-3 px-2 w-[50px] text-center"></th>
+            <tr className="bg-muted/50 border-b border-border text-xs uppercase tracking-wider text-muted-foreground font-semibold print:bg-slate-100 print:text-black print:border-b-2 print:border-black">
+              <th className="py-3 px-4 w-[110px] print:py-1.5 print:px-2 print:w-[90px] print:text-black">Date</th>
+              <th className="py-3 px-4 print:py-1.5 print:px-2 print:text-black">Particulars</th>
+              <th className="py-3 px-4 text-right w-[140px] print:py-1.5 print:px-2 print:w-[110px] print:text-black">Debit</th>
+              <th className="py-3 px-4 text-right w-[140px] print:py-1.5 print:px-2 print:w-[110px] print:text-black">Credit</th>
+              <th className="py-3 px-4 text-right w-[150px] print:py-1.5 print:px-2 print:w-[120px] print:text-black">Balance</th>
+              <th className="py-3 px-2 w-[50px] text-center print:hidden"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
@@ -153,32 +153,32 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: S
                     </td>
 
                     {/* Debit */}
-                    <td className="py-2.5 px-4 text-right font-mono text-xs text-foreground align-top">
+                    <td className="py-2.5 px-4 text-right font-mono text-xs text-foreground align-top print:py-1.5 print:px-2 print:text-xs print:text-black">
                       {isDebit ? formatINR(row.debit) : "—"}
                     </td>
 
                     {/* Credit */}
-                    <td className="py-2.5 px-4 text-right font-mono text-xs text-foreground align-top">
+                    <td className="py-2.5 px-4 text-right font-mono text-xs text-foreground align-top print:py-1.5 print:px-2 print:text-xs print:text-black">
                       {isCredit ? formatINR(row.credit) : "—"}
                     </td>
 
                     {/* Running Balance */}
-                    <td className="py-2.5 px-4 text-right font-mono text-xs font-semibold whitespace-nowrap text-foreground align-top">
+                    <td className="py-2.5 px-4 text-right font-mono text-xs font-semibold whitespace-nowrap text-foreground align-top print:py-1.5 print:px-2 print:text-xs print:text-black">
                       {formatINR(Math.abs(row.running_balance))}{" "}
                       <span
                         className={cn(
-                          "ml-1 font-bold text-[11px]",
+                          "ml-1 font-bold text-[11px] print:text-[10px]",
                           row.balance_side === "Dr"
-                            ? "text-rose-600 dark:text-rose-400"
-                            : "text-emerald-600 dark:text-emerald-400"
+                            ? "text-rose-600 dark:text-rose-400 print:text-rose-700"
+                            : "text-emerald-600 dark:text-emerald-400 print:text-emerald-700"
                         )}
                       >
                         {row.balance_side}
                       </span>
                     </td>
 
-                    {/* Actions */}
-                    <td className="py-2.5 px-2 text-center align-top">
+                    {/* Actions (Hidden in print) */}
+                    <td className="py-2.5 px-2 text-center align-top print:hidden">
                       {!row.is_void && (
                         <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           {onEditEntry && (
@@ -212,31 +212,31 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: S
 
           {/* Marg Totals Row */}
           <tfoot>
-            <tr className="bg-muted/80 border-t-2 border-border font-semibold text-xs uppercase tracking-wide">
-              <td className="py-3 px-4 font-mono">TOTAL</td>
-              <td className="py-3 px-4 text-muted-foreground text-xs normal-case">
-                Total (incl. opening) &bull; <span className="italic font-mono text-[11px]">Debit − Credit = Closing</span>
+            <tr className="bg-muted/80 border-t-2 border-border font-semibold text-xs uppercase tracking-wide print:bg-slate-100 print:text-black print:border-t-2 print:border-b-2 print:border-black print:break-inside-avoid">
+              <td className="py-3 px-4 font-mono print:py-2 print:px-2 print:text-xs">TOTAL</td>
+              <td className="py-3 px-4 text-muted-foreground text-xs normal-case print:py-2 print:px-2 print:text-[10px] print:text-slate-700">
+                Total (incl. opening) &bull; <span className="italic font-mono text-[11px] print:text-[10px]">Debit − Credit = Closing</span>
               </td>
-              <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
+              <td className="py-3 px-4 text-right font-mono text-sm text-foreground print:py-2 print:px-2 print:text-xs print:text-black">
                 {formatINR(margTotals.debitTotal)}
               </td>
-              <td className="py-3 px-4 text-right font-mono text-sm text-foreground">
+              <td className="py-3 px-4 text-right font-mono text-sm text-foreground print:py-2 print:px-2 print:text-xs print:text-black">
                 {formatINR(margTotals.creditTotal)}
               </td>
-              <td className="py-3 px-4 text-right font-mono text-sm whitespace-nowrap text-foreground">
+              <td className="py-3 px-4 text-right font-mono text-sm whitespace-nowrap text-foreground print:py-2 print:px-2 print:text-xs print:text-black">
                 {formatINR(Math.abs(margTotals.closing))}{" "}
                 <span
                   className={cn(
                     "ml-1 font-bold",
                     margTotals.closingSide === "Dr"
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-emerald-600 dark:text-emerald-400"
+                      ? "text-rose-600 dark:text-rose-400 print:text-rose-700"
+                      : "text-emerald-600 dark:text-emerald-400 print:text-emerald-700"
                   )}
                 >
                   {margTotals.closingSide}
                 </span>
               </td>
-              <td></td>
+              <td className="print:hidden"></td>
             </tr>
           </tfoot>
         </table>

@@ -175,7 +175,7 @@ export default function AccountStatementPage() {
   const isCustomer = account.accountType === "CUSTOMER";
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 print:p-0 print:space-y-4">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-3 print-statement-page">
       {/* Top Navigation & Toolbar (hidden during print) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <Link

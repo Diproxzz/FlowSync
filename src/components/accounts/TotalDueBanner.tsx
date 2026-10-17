@@ -118,7 +118,7 @@ export function TotalDueBanner({
           <button
             type="button"
             onClick={handleCopyReminder}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-border bg-background hover:bg-muted transition-colors text-foreground"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-border bg-surface hover:bg-surface-2 transition-colors text-ink"
           >
             {copied ? (
               <>
@@ -127,7 +127,7 @@ export function TotalDueBanner({
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                <Copy className="w-3.5 h-3.5 text-ink-3" />
                 <span>Copy Reminder</span>
               </>
             )}
@@ -137,9 +137,9 @@ export function TotalDueBanner({
             <button
               type="button"
               onClick={onPrint}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-border bg-background hover:bg-muted transition-colors text-foreground"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-border bg-surface hover:bg-surface-2 transition-colors text-ink"
             >
-              <Printer className="w-3.5 h-3.5 text-muted-foreground" />
+              <Printer className="w-3.5 h-3.5 text-ink-3" />
               <span>Print</span>
             </button>
           )}
@@ -148,9 +148,9 @@ export function TotalDueBanner({
             <button
               type="button"
               onClick={onAddReceipt}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-primary text-white hover:opacity-90 transition-all shadow-sm"
             >
-              <PlusCircle className="w-4 h-4" />
+              <PlusCircle className="w-4 h-4 text-white" />
               <span>{isCustomer ? "Add Receipt" : "Add Payment"}</span>
             </button>
           )}

@@ -11,6 +11,16 @@ const config: Config = {
     extend: {
       colors: {
         bg: "var(--bg)",
+        background: "var(--bg)",
+        foreground: "var(--ink)",
+        card: {
+          DEFAULT: "var(--surface)",
+          foreground: "var(--ink)",
+        },
+        muted: {
+          DEFAULT: "var(--surface-2)",
+          foreground: "var(--ink-2)",
+        },
         surface: {
           DEFAULT: "var(--surface)",
           2: "var(--surface-2)",
@@ -27,6 +37,7 @@ const config: Config = {
         primary: {
           DEFAULT: "var(--primary)",
           fg: "var(--primary-fg)",
+          foreground: "var(--primary-fg)",
           soft: "var(--primary-soft)",
         },
         accent: {

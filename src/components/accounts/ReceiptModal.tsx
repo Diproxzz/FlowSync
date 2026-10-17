@@ -203,30 +203,30 @@ export function ReceiptModal({
           {/* Row 1: Date & Amount */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label className="block text-xs font-semibold text-ink mb-1.5">
                 Posting Date <span className="text-rose-500">*</span>
               </label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-primary/20"
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label className="block text-xs font-semibold text-ink mb-1.5">
                 Amount (₹) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-xs font-mono text-muted-foreground">₹</span>
+                <span className="absolute left-3 top-2.5 text-xs font-mono text-ink-3">₹</span>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm font-mono font-medium rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full pl-8 pr-3 py-2 text-sm font-mono font-medium rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary/20"
                   required
                   autoFocus
                 />
@@ -237,24 +237,24 @@ export function ReceiptModal({
           {/* Row 2: Mode, Instrument No., Instrument Date */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label className="block text-xs font-semibold text-ink mb-1.5">
                 Payment Mode
               </label>
               <select
                 value={paymentMode}
                 onChange={(e) => setPaymentMode(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="CHEQUE">Cheque</option>
-                <option value="NEFT">NEFT</option>
-                <option value="RTGS">RTGS</option>
-                <option value="UPI">UPI</option>
-                <option value="CASH">Cash</option>
-                <option value="OTHER">Other</option>
+                <option value="CHEQUE" className="bg-surface text-ink">Cheque</option>
+                <option value="NEFT" className="bg-surface text-ink">NEFT</option>
+                <option value="RTGS" className="bg-surface text-ink">RTGS</option>
+                <option value="UPI" className="bg-surface text-ink">UPI</option>
+                <option value="CASH" className="bg-surface text-ink">Cash</option>
+                <option value="OTHER" className="bg-surface text-ink">Other</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label className="block text-xs font-semibold text-ink mb-1.5">
                 {paymentMode === "CHEQUE" ? "Cheque Number" : "Reference / UTR No."}
               </label>
               <input
@@ -262,18 +262,18 @@ export function ReceiptModal({
                 placeholder={paymentMode === "CHEQUE" ? "e.g. 002200" : "UTR or Ref #"}
                 value={instrumentNo}
                 onChange={(e) => setInstrumentNo(e.target.value)}
-                className="w-full px-3 py-2 text-sm font-mono rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 text-sm font-mono rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label className="block text-xs font-semibold text-ink mb-1.5">
                 Instrument Date
               </label>
               <input
                 type="date"
                 value={instrumentDate}
                 onChange={(e) => setInstrumentDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -331,7 +331,7 @@ export function ReceiptModal({
                             step="0.01"
                             value={item.allocatedAmount || ""}
                             onChange={(e) => handleAllocationChange(idx, e.target.value)}
-                            className="w-full text-right px-2 py-1 text-xs font-mono font-medium rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="w-full text-right px-2 py-1 text-xs font-mono font-medium rounded border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
                             placeholder="0.00"
                           />
                         </td>
@@ -343,9 +343,9 @@ export function ReceiptModal({
             </div>
 
             {/* Allocation Footer Summary */}
-            <div className="flex items-center justify-between text-xs px-2 py-1 text-muted-foreground">
+            <div className="flex items-center justify-between text-xs px-2 py-1 text-ink-2">
               <span>
-                Allocated: <strong className="text-foreground font-mono">{formatINR(totalAllocated)}</strong>
+                Allocated: <strong className="text-ink font-mono">{formatINR(totalAllocated)}</strong>
               </span>
               <span>
                 Advance: <strong className="text-emerald-600 font-mono">{formatINR(currentUnallocated)}</strong>
@@ -354,18 +354,18 @@ export function ReceiptModal({
           </div>
 
           {/* Row 4: Live Particulars Preview */}
-          <div className="p-3 rounded-xl bg-muted/40 border border-border/80 text-xs space-y-1">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+          <div className="p-3 rounded-xl bg-surface-2 border border-border text-xs space-y-1">
+            <span className="text-[11px] font-semibold text-ink-3 uppercase tracking-wider flex items-center gap-1">
               <Info className="w-3 h-3" /> Particulars Preview
             </span>
-            <div className="font-mono text-foreground font-medium break-all">
+            <div className="font-mono text-ink font-medium break-all">
               {particularsPreview || "—"}
             </div>
           </div>
 
           {/* Row 5: Narration */}
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label className="block text-xs font-semibold text-ink mb-1.5">
               Internal Narration / Notes (Optional)
             </label>
             <input
@@ -373,17 +373,17 @@ export function ReceiptModal({
               placeholder="e.g. Received via cheque handed over by driver"
               value={narration}
               onChange={(e) => setNarration(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-border flex items-center justify-between bg-muted/20">
+        <div className="px-6 py-4 border-t border-border flex items-center justify-between bg-surface-2/40">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="px-4 py-2 rounded-lg text-xs font-medium text-ink-2 hover:text-ink hover:bg-surface-2 transition-colors"
           >
             Cancel
           </button>
@@ -393,7 +393,7 @@ export function ReceiptModal({
               type="button"
               disabled={submitting}
               onClick={() => handleSubmit(true)}
-              className="px-3 py-2 rounded-lg text-xs font-medium border border-border bg-background hover:bg-muted transition-colors text-foreground"
+              className="px-3 py-2 rounded-lg text-xs font-medium border border-border bg-surface hover:bg-surface-2 transition-colors text-ink"
             >
               Save & Add Another
             </button>
@@ -401,7 +401,7 @@ export function ReceiptModal({
               type="button"
               disabled={submitting}
               onClick={() => handleSubmit(false)}
-              className="px-4 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+              className="px-4 py-2 rounded-lg text-xs font-semibold bg-primary text-white hover:opacity-90 transition-all shadow-sm"
             >
               {submitting ? "Saving..." : "Save Entry"}
             </button>
