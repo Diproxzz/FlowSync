@@ -23,6 +23,17 @@ export async function GET(
         supplier: {
           select: { id: true, name: true, gstin: true, gstin_source: true, address: true, state_code: true },
         },
+        import_batches: {
+          select: {
+            id: true,
+            file_name: true,
+            period_from: true,
+            period_to: true,
+            entries_added: true,
+            created_at: true,
+          },
+          orderBy: { created_at: "desc" },
+        },
       },
     });
 
@@ -243,6 +254,7 @@ export async function GET(
       entries: finalEntries,
       margTotals: margTotalsPayload,
       totalDue: totalDueData,
+      importBatches: account.import_batches || [],
     };
 
     return NextResponse.json({
@@ -256,5 +268,149 @@ export async function GET(
       { error: { code: "FETCH_FAILED", message: error.message || "Failed to generate statement" } },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params;
+    const body = await request.json();
+    const { openingBalance, openingSide, openingDate, statementThroughDate, creditDays } = body;
+
+    const account = await prisma.ledgerAccount.findUnique({ where: { id } });
+    if (!account) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const accountUpdate: any = {};
+      if (creditDays !== undefined) accountUpdate.credit_days = Number(creditDays);
+      if (statementThroughDate !== undefined) {
+        accountUpdate.statement_through_date = statementThroughDate ? new Date(statementThroughDate) : null;
+      }
+
+      if (openingBalance !== undefined) {
+        const numBalance = parseFloat(openingBalance) || 0;
+        const side = openingSide === "Cr" ? "Cr" : "Dr";
+
+        const existingOpening = await tx.ledgerEntry.findFirst({
+          where: { account_id: id, entry_type: "OPENING", is_void: false },
+        });
+
+        if (existingOpening) {
+          if (numBalance === 0) {
+            await tx.ledgerEntry.delete({ where: { id: existingOpening.id } });
+            accountUpdate.opening_balance_set = false;
+          } else {
+            await tx.ledgerEntry.update({
+              where: { id: existingOpening.id },
+              data: {
+                debit: side === "Dr" ? numBalance : 0,
+                credit: side === "Cr" ? numBalance : 0,
+                entry_date: openingDate ? new Date(openingDate) : existingOpening.entry_date,
+              },
+            });
+            accountUpdate.opening_balance_set = true;
+          }
+        } else if (numBalance > 0) {
+          await tx.ledgerEntry.create({
+            data: {
+              account_id: id,
+              entry_date: openingDate ? new Date(openingDate) : new Date("2026-04-01"),
+              sort_seq: 0,
+              entry_type: "OPENING",
+              debit: side === "Dr" ? numBalance : 0,
+              credit: side === "Cr" ? numBalance : 0,
+              particulars_raw: "Opening Balance",
+              source: "MANUAL",
+            },
+          });
+          accountUpdate.opening_balance_set = true;
+        }
+      }
+
+      if (Object.keys(accountUpdate).length > 0) {
+        await tx.ledgerAccount.update({
+          where: { id },
+          data: accountUpdate,
+        });
+      }
+    });
+
+    return NextResponse.json({ success: true, message: "Statement updated successfully" });
+  } catch (error: any) {
+    console.error("Statement update error:", error);
+    return NextResponse.json({ error: error.message || "Failed to update statement" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params;
+    const { searchParams } = request.nextUrl;
+    const mode = searchParams.get("mode") || "all_imported"; // 'all_imported' | 'all_entries' | 'batch'
+    const batchId = searchParams.get("batchId");
+
+    const account = await prisma.ledgerAccount.findUnique({ where: { id } });
+    if (!account) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (batchId) {
+        await tx.ledgerEntry.deleteMany({
+          where: { account_id: id, import_batch_id: batchId },
+        });
+        await tx.statementImport.delete({ where: { id: batchId } }).catch(() => null);
+      } else if (mode === "all_entries") {
+        // Delete all entries in ledger (including manual)
+        await tx.ledgerEntry.deleteMany({ where: { account_id: id } });
+        await tx.statementImport.deleteMany({ where: { account_id: id } });
+        await tx.ledgerAccount.update({
+          where: { id },
+          data: {
+            statement_through_date: null,
+            opening_balance_set: false,
+          },
+        });
+      } else {
+        // Default: delete all entries imported via statement
+        await tx.ledgerEntry.deleteMany({
+          where: {
+            account_id: id,
+            source: "STATEMENT_IMPORT",
+          },
+        });
+        await tx.statementImport.deleteMany({ where: { account_id: id } });
+        const remaining = await tx.ledgerEntry.findMany({
+          where: { account_id: id, is_void: false },
+          orderBy: { entry_date: "desc" },
+        });
+        const hasOpening = remaining.some((e) => e.entry_type === "OPENING");
+        await tx.ledgerAccount.update({
+          where: { id },
+          data: {
+            statement_through_date: remaining.length > 0 ? remaining[0].entry_date : null,
+            opening_balance_set: hasOpening,
+          },
+        });
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: batchId
+        ? "Imported statement batch deleted successfully"
+        : "Statement and all imported entries deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete statement error:", error);
+    return NextResponse.json({ error: error.message || "Failed to delete statement" }, { status: 500 });
   }
 }

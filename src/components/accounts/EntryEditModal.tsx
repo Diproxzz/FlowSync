@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { formatINR } from "@/lib/format";
-import { X, Check, AlertCircle, Plus, Edit2, Calendar, FileText } from "lucide-react";
+import { X, Check, AlertCircle, Plus, Edit2, Calendar, FileText, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StatementRowForEdit {
@@ -199,6 +199,28 @@ export function EntryEditModal({
     }
   };
 
+  const handleDeleteEntry = async () => {
+    if (!entryToEdit) return;
+    if (!confirm("Are you sure you want to permanently delete this line from the statement?")) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/ledger/entries/${entryToEdit.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || "Failed to delete entry");
+      }
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete entry");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -268,6 +290,7 @@ export function EntryEditModal({
                   <>
                     <option value="RECEIPT" className="bg-surface text-ink">Payment / Receipt (Credit)</option>
                     <option value="SALE_INVOICE" className="bg-surface text-ink">Sale Invoice / Bill (Debit)</option>
+                    <option value="OPENING" className="bg-surface text-ink">Opening Balance</option>
                     <option value="CREDIT_NOTE" className="bg-surface text-ink">Credit Note (Credit)</option>
                     <option value="DEBIT_NOTE" className="bg-surface text-ink">Debit Note (Debit)</option>
                     <option value="ADJUSTMENT" className="bg-surface text-ink">Journal Adjustment</option>
@@ -276,6 +299,7 @@ export function EntryEditModal({
                   <>
                     <option value="PAYMENT" className="bg-surface text-ink">Payment to Supplier (Debit)</option>
                     <option value="PURCHASE_INVOICE" className="bg-surface text-ink">Purchase Invoice (Credit)</option>
+                    <option value="OPENING" className="bg-surface text-ink">Opening Balance</option>
                     <option value="DEBIT_NOTE" className="bg-surface text-ink">Debit Note (Debit)</option>
                     <option value="CREDIT_NOTE" className="bg-surface text-ink">Credit Note (Credit)</option>
                     <option value="ADJUSTMENT" className="bg-surface text-ink">Journal Adjustment</option>
@@ -422,23 +446,39 @@ export function EntryEditModal({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="px-4 py-2 text-xs font-medium rounded-lg border border-border bg-surface hover:bg-surface-2 text-ink transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-5 py-2 text-xs font-semibold rounded-lg bg-primary text-white hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-            >
-              <Check className="w-4 h-4 text-white" />
-              <span>{submitting ? "Saving..." : isEditMode ? "Save Changes" : "Add Line to Statement"}</span>
-            </button>
+          <div className="flex items-center justify-between gap-3 pt-4 border-t border-border">
+            {isEditMode && entryToEdit ? (
+              <button
+                type="button"
+                onClick={handleDeleteEntry}
+                disabled={submitting}
+                className="px-3.5 py-2 text-xs font-medium rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:border-rose-900 dark:text-rose-400 transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>Delete Line</span>
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="px-4 py-2 text-xs font-medium rounded-lg border border-border bg-surface hover:bg-surface-2 text-ink transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-primary text-white hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              >
+                <Check className="w-4 h-4 text-white" />
+                <span>{submitting ? "Saving..." : isEditMode ? "Save Changes" : "Add Line to Statement"}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

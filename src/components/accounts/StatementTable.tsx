@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { formatINR, formatDate } from "@/lib/format";
-import { FileText, ExternalLink, Ban, Edit2 } from "lucide-react";
+import { FileText, ExternalLink, Ban, Edit2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StatementRow {
@@ -41,9 +41,10 @@ interface StatementTableProps {
   };
   onVoidEntry?: (entryId: string) => void;
   onEditEntry?: (row: StatementRow) => void;
+  onDeleteEntry?: (entryId: string) => void;
 }
 
-export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: StatementTableProps) {
+export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry, onDeleteEntry }: StatementTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm print:rounded-none print:border print:border-slate-400 print:shadow-none print:overflow-visible">
       <div className="overflow-x-auto print:overflow-visible">
@@ -180,11 +181,21 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry }: S
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                           )}
+                          {onDeleteEntry && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteEntry(row.id)}
+                              className="text-muted-foreground hover:text-rose-600 p-1 rounded hover:bg-muted transition-colors"
+                              title="Delete entry"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {row.source === "MANUAL" && onVoidEntry && (
                             <button
                               type="button"
                               onClick={() => onVoidEntry(row.id)}
-                              className="text-muted-foreground hover:text-rose-600 p-1 rounded hover:bg-muted transition-colors"
+                              className="text-muted-foreground hover:text-amber-600 p-1 rounded hover:bg-muted transition-colors"
                               title="Void entry"
                             >
                               <Ban className="w-3.5 h-3.5" />

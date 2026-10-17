@@ -128,3 +128,34 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params;
+    const existing = await prisma.ledgerEntry.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+    }
+
+    await prisma.ledgerEntry.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Entry deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete entry error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to delete entry" },
+      { status: 500 }
+    );
+  }
+}

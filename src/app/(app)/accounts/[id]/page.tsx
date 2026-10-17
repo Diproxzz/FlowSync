@@ -10,6 +10,7 @@ import { OutstandingTable, OpenItemRow } from "@/components/accounts/Outstanding
 import { TotalDueBanner } from "@/components/accounts/TotalDueBanner";
 import { ReceiptModal } from "@/components/accounts/ReceiptModal";
 import { EntryEditModal } from "@/components/accounts/EntryEditModal";
+import { ManageStatementModal } from "@/components/accounts/ManageStatementModal";
 import { formatINR } from "@/lib/format";
 import {
   ArrowLeft,
@@ -22,6 +23,8 @@ import {
   Layers,
   Filter,
   Plus,
+  Settings,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +46,7 @@ export default function AccountStatementPage() {
   // Modals
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [selectedEntryForEdit, setSelectedEntryForEdit] = useState<any | null>(null);
 
   useEffect(() => {
@@ -122,6 +126,22 @@ export default function AccountStatementPage() {
       }
     } catch (err) {
       alert("Error voiding entry");
+    }
+  };
+
+  const handleDeleteEntry = async (entryId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this line from the statement?")) return;
+    try {
+      const res = await fetch(`/api/ledger/entries/${entryId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        loadStatement();
+        loadOpenItems();
+      } else {
+        alert(json.error || "Failed to delete entry");
+      }
+    } catch (err) {
+      alert("Error deleting entry");
     }
   };
 
@@ -234,6 +254,17 @@ export default function AccountStatementPage() {
             <span>Add Line</span>
           </button>
 
+          {/* Manage Statement (Edit/Delete) */}
+          <button
+            type="button"
+            onClick={() => setIsManageModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
+            title="Edit statement settings, opening balance, or delete/reset imported statement"
+          >
+            <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>Manage Statement</span>
+          </button>
+
           {/* Export CSV */}
           <button
             type="button"
@@ -322,6 +353,7 @@ export default function AccountStatementPage() {
           rows={statementData.entries}
           margTotals={statementData.margTotals}
           onVoidEntry={handleVoidEntry}
+          onDeleteEntry={handleDeleteEntry}
           onEditEntry={(row) => {
             setSelectedEntryForEdit(row);
             setIsEntryModalOpen(true);
@@ -375,6 +407,25 @@ export default function AccountStatementPage() {
         accountName={account.displayName}
         accountType={account.accountType}
         entryToEdit={selectedEntryForEdit}
+        onSuccess={() => {
+          loadStatement();
+          loadOpenItems();
+        }}
+      />
+
+      {/* 8. Manage / Delete Statement Modal */}
+      <ManageStatementModal
+        isOpen={isManageModalOpen}
+        onClose={() => setIsManageModalOpen(false)}
+        accountId={account.id}
+        accountName={account.displayName}
+        accountType={account.accountType}
+        currentOpeningBalance={statementData.summary?.openingBalance ?? statementData.margTotals?.openingBalance ?? 0}
+        currentOpeningSide={statementData.summary?.openingSide ?? statementData.margTotals?.openingSide ?? "Dr"}
+        currentOpeningDate={statementData.period?.from}
+        currentThroughDate={account.statementThroughDate}
+        creditDays={account.creditDays}
+        importBatches={statementData.importBatches || []}
         onSuccess={() => {
           loadStatement();
           loadOpenItems();
