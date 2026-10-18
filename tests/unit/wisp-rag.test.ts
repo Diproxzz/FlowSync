@@ -123,6 +123,15 @@ describe("Wisp AI Assistant & RAG System", () => {
       expect(res.reply).toMatch(/₹|invoice/i);
       expect(res.sources.some((s) => s.url.includes("/invoices"))).toBe(true);
     }, 15000);
+
+    it("answers 'How much has SNA been purchased by Tiger International' taking ALL invoices into consideration", async () => {
+      const res = await askWisp("How much has SNA been purchased by Tiger International");
+      expect(res.reply).toBeDefined();
+      expect(res.reply).toMatch(/2,?040\s*kg/i);
+      expect(res.reply).toMatch(/3,?08,?121|3\.08/i);
+      expect(res.reply).toMatch(/5\s*invoices?/i);
+      expect(res.sources.some((s) => s.url.includes("/invoices/"))).toBe(true);
+    }, 15000);
   });
 });
 

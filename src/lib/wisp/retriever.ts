@@ -2,6 +2,14 @@ import { prisma } from "@/lib/db";
 import { findMatchingGuides, TaskGuide } from "./knowledge";
 import { formatINR } from "@/lib/format";
 
+export interface PartyProductBreakdown {
+  name: string;
+  code: string;
+  qtyKg: number;
+  amount: string;
+  count: number;
+}
+
 export interface PartyDeepSummary {
   id: string;
   name: string;
@@ -12,9 +20,18 @@ export interface PartyDeepSummary {
   dueExplanation: string;
   totalBilled: string;
   totalPaidReceived: string;
+  totalInvoicesCount?: number;
+  productsBreakdown?: PartyProductBreakdown[];
   recentInvoices: Array<{ number: string; date: string; amount: string; url: string }>;
   recentReceipts: Array<{ date: string; amount: string; mode?: string | null; particulars?: string | null }>;
   url: string;
+}
+
+export interface ProductCustomerBreakdown {
+  customerName: string;
+  qtyKg: number;
+  amount: string;
+  count: number;
 }
 
 export interface ProductDeepSummary {
@@ -30,8 +47,29 @@ export interface ProductDeepSummary {
   soldThisYearAmount: string;
   soldTotalKg: number;
   soldTotalAmount: string;
+  topBuyers?: ProductCustomerBreakdown[];
   recentSales: Array<{ invoiceNumber: string; date: string; buyer: string; qtyKg: number; amount: string; url: string }>;
   url: string;
+}
+
+export interface PartyProductTransactionSummary {
+  partyId: string;
+  partyName: string;
+  partyType: "CUSTOMER" | "SUPPLIER";
+  productId: string;
+  productName: string;
+  productCode: string;
+  totalQtyKg: number;
+  totalAmountFormatted: string;
+  totalAmountRaw: number;
+  invoiceCount: number;
+  invoices: Array<{
+    invoiceNumber: string;
+    date: string;
+    qtyKg: number;
+    amount: string;
+    url: string;
+  }>;
 }
 
 export interface OverallSalesSummary {
@@ -148,6 +186,7 @@ export interface RetrievedContext {
   topDebtors?: Array<{ name: string; due: string; url: string }>;
   analytics?: BusinessAnalyticsSummary;
   filterSummary?: AdHocFilterSummary;
+  partyProductTransactions?: PartyProductTransactionSummary[];
   systemStats?: {
     totalSalesInvoices: number;
     totalPurchases: number;
@@ -164,7 +203,8 @@ const STOPWORDS = new Set([
   "yesterday", "what", "balance", "total", "in", "for", "to", "from", "and", "or", "tell",
   "me", "show", "give", "can", "you", "we", "our", "customer", "supplier", "party", "product",
   "chemical", "stock", "outstanding", "overdue", "rate", "price", "rupees", "rs", "inr", "amount",
-  "find", "lookup", "check", "view", "get", "details", "info", "record", "list"
+  "find", "lookup", "check", "view", "get", "details", "info", "record", "list",
+  "by", "purchased", "purchase", "purchases", "buy", "bought", "buying", "order", "ordered"
 ]);
 
 function extractCandidateSearchTerms(query: string): string[] {
@@ -458,36 +498,37 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
     ...searchCandidates,
   ].filter((t) => t.length >= 2);
 
-  if (partyFilters.length > 0) {
-    const matchedAccounts = await prisma.ledgerAccount.findMany({
-      where: {
-        OR: [
-          ...partyFilters.map((term) => ({
-            display_name: { contains: term, mode: "insensitive" as const },
-          })),
-          ...partyFilters.map((term) => ({
-            customer: { name: { contains: term, mode: "insensitive" as const } },
-          })),
-          ...partyFilters.map((term) => ({
-            customer: { aliases: { some: { alias: { contains: term, mode: "insensitive" as const } } } },
-          })),
-          ...partyFilters.map((term) => ({
-            supplier: { name: { contains: term, mode: "insensitive" as const } },
-          })),
-        ],
-      },
-      include: {
-        customer: true,
-        supplier: true,
-        entries: {
-          where: { is_void: false },
-          orderBy: { entry_date: "asc" },
+  const matchedAccounts = partyFilters.length > 0
+    ? await prisma.ledgerAccount.findMany({
+        where: {
+          OR: [
+            ...partyFilters.map((term) => ({
+              display_name: { contains: term, mode: "insensitive" as const },
+            })),
+            ...partyFilters.map((term) => ({
+              customer: { name: { contains: term, mode: "insensitive" as const } },
+            })),
+            ...partyFilters.map((term) => ({
+              customer: { aliases: { some: { alias: { contains: term, mode: "insensitive" as const } } } },
+            })),
+            ...partyFilters.map((term) => ({
+              supplier: { name: { contains: term, mode: "insensitive" as const } },
+            })),
+          ],
         },
-      },
-      take: 4,
-    });
+        include: {
+          customer: true,
+          supplier: true,
+          entries: {
+            where: { is_void: false },
+            orderBy: { entry_date: "asc" },
+          },
+        },
+        take: 4,
+      })
+    : [];
 
-    for (const acc of matchedAccounts) {
+  for (const acc of matchedAccounts) {
       let balance = 0;
       let totalBilled = 0;
       let totalPaidReceived = 0;
@@ -526,13 +567,53 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
         }
       }
 
-      // Fetch recent invoices
+      // Fetch recent invoices and products breakdown
       let recentInvoices: Array<{ number: string; date: string; amount: string; url: string }> = [];
+      let productsBreakdown: PartyProductBreakdown[] = [];
+      let totalInvoicesCount = 0;
+
       if (acc.customer_id) {
+        totalInvoicesCount = await prisma.invoice.count({
+          where: { customer_id: acc.customer_id },
+        });
+
+        const customerItems = await prisma.invoiceItem.findMany({
+          where: { invoice: { customer_id: acc.customer_id } },
+          select: {
+            qty_kg: true,
+            line_total: true,
+            taxable_amount: true,
+            product: { select: { id: true, name: true, code: true } },
+            product_name_raw: true,
+          },
+        });
+
+        const prodMap: Record<string, { name: string; code: string; qty: number; amt: number; count: number }> = {};
+        for (const it of customerItems) {
+          const key = it.product?.code || it.product_name_raw;
+          const name = it.product?.name || it.product_name_raw;
+          if (!prodMap[key]) {
+            prodMap[key] = { name, code: key, qty: 0, amt: 0, count: 0 };
+          }
+          prodMap[key].qty += Number(it.qty_kg);
+          prodMap[key].amt += Number(it.line_total || it.taxable_amount || 0);
+          prodMap[key].count += 1;
+        }
+
+        productsBreakdown = Object.values(prodMap)
+          .sort((a, b) => b.qty - a.qty)
+          .map((p) => ({
+            name: p.name,
+            code: p.code,
+            qtyKg: Math.round(p.qty * 1000) / 1000,
+            amount: formatINR(p.amt),
+            count: p.count,
+          }));
+
         const invs = await prisma.invoice.findMany({
           where: { customer_id: acc.customer_id },
           orderBy: { invoice_date: "desc" },
-          take: 4,
+          take: 8,
         });
         recentInvoices = invs.map((i) => ({
           number: i.invoice_number,
@@ -541,10 +622,14 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
           url: `/invoices/${i.id}`,
         }));
       } else if (acc.supplier_id) {
+        totalInvoicesCount = await prisma.purchaseInvoice.count({
+          where: { supplier_id: acc.supplier_id },
+        });
+
         const pinvs = await prisma.purchaseInvoice.findMany({
           where: { supplier_id: acc.supplier_id },
           orderBy: { invoice_date: "desc" },
-          take: 4,
+          take: 8,
         });
         recentInvoices = pinvs.map((pi) => ({
           number: pi.supplier_invoice_number,
@@ -575,6 +660,8 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
         dueExplanation,
         totalBilled: formatINR(totalBilled),
         totalPaidReceived: formatINR(totalPaidReceived),
+        totalInvoicesCount,
+        productsBreakdown,
         recentInvoices,
         recentReceipts,
         url,
@@ -584,39 +671,39 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
         sources.push({ title: `${acc.display_name} Ledger`, url });
       }
     }
-  }
 
   // 3. Deep Product Sales & Inventory Match (e.g. "how much sna has been sold this month")
   const productSummaries: ProductDeepSummary[] = [];
   const productTerms = [cleanQuery, ...searchCandidates].filter((t) => t.length >= 2);
 
-  if (productTerms.length > 0) {
-    const matchedProducts = await prisma.product.findMany({
-      where: {
-        OR: [
-          ...productTerms.map((term) => ({
-            code: { equals: term, mode: "insensitive" as const },
-          })),
-          ...productTerms.map((term) => ({
-            code: { contains: term, mode: "insensitive" as const },
-          })),
-          ...productTerms.map((term) => ({
-            name: { contains: term, mode: "insensitive" as const },
-          })),
-          ...productTerms.map((term) => ({
-            aliases: { some: { alias: { contains: term, mode: "insensitive" as const } } },
-          })),
-        ],
-      },
-      include: {
-        stock_movements: {
-          select: { type: true, qty_kg: true },
+  const matchedProducts = productTerms.length > 0
+    ? await prisma.product.findMany({
+        where: {
+          OR: [
+            ...productTerms.map((term) => ({
+              code: { equals: term, mode: "insensitive" as const },
+            })),
+            ...productTerms.map((term) => ({
+              code: { contains: term, mode: "insensitive" as const },
+            })),
+            ...productTerms.map((term) => ({
+              name: { contains: term, mode: "insensitive" as const },
+            })),
+            ...productTerms.map((term) => ({
+              aliases: { some: { alias: { contains: term, mode: "insensitive" as const } } },
+            })),
+          ],
         },
-      },
-      take: 4,
-    });
+        include: {
+          stock_movements: {
+            select: { type: true, qty_kg: true },
+          },
+        },
+        take: 4,
+      })
+    : [];
 
-    for (const prod of matchedProducts) {
+  for (const prod of matchedProducts) {
       // Calculate live stock from movements
       let totalStock = 0;
       for (const m of prod.stock_movements) {
@@ -656,6 +743,7 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
       let soldTotalAmount = 0;
 
       const recentSales: ProductDeepSummary["recentSales"] = [];
+      const buyerMap: Record<string, { name: string; qty: number; amt: number; count: number }> = {};
 
       for (const item of salesItems) {
         const qty = Number(item.qty_kg);
@@ -664,6 +752,14 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
 
         soldTotalKg += qty;
         soldTotalAmount += amount;
+
+        const bName = item.invoice.customer_name_snapshot;
+        if (!buyerMap[bName]) {
+          buyerMap[bName] = { name: bName, qty: 0, amt: 0, count: 0 };
+        }
+        buyerMap[bName].qty += qty;
+        buyerMap[bName].amt += amount;
+        buyerMap[bName].count += 1;
 
         if (invDate >= startOfThisMonth && invDate <= endOfThisMonth) {
           soldThisMonthKg += qty;
@@ -687,6 +783,16 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
         }
       }
 
+      const topBuyers: ProductCustomerBreakdown[] = Object.values(buyerMap)
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 10)
+        .map((b) => ({
+          customerName: b.name,
+          qtyKg: Math.round(b.qty * 1000) / 1000,
+          amount: formatINR(b.amt),
+          count: b.count,
+        }));
+
       const url = `/products`;
       productSummaries.push({
         id: prod.id,
@@ -701,12 +807,148 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
         soldThisYearAmount: formatINR(soldThisYearAmount),
         soldTotalKg: Math.round(soldTotalKg * 1000) / 1000,
         soldTotalAmount: formatINR(soldTotalAmount),
+        topBuyers,
         recentSales,
         url,
       });
 
       if (!sources.some((s) => s.url === url)) {
         sources.push({ title: `${prod.name} Stock & Sales`, url });
+      }
+    }
+
+  // 4. Cross-Entity Transaction History: Customer/Supplier + Product Pairs
+  // (e.g. "How much has SNA been purchased by Tiger International")
+  const partyProductTransactions: PartyProductTransactionSummary[] = [];
+
+  for (const acc of matchedAccounts) {
+    for (const prod of matchedProducts) {
+      if (acc.customer_id) {
+        const items = await prisma.invoiceItem.findMany({
+          where: {
+            product_id: prod.id,
+            invoice: { customer_id: acc.customer_id },
+          },
+          include: {
+            invoice: {
+              select: {
+                id: true,
+                invoice_number: true,
+                invoice_date: true,
+                grand_total: true,
+              },
+            },
+          },
+          orderBy: {
+            invoice: { invoice_date: "desc" },
+          },
+        });
+
+        if (items.length > 0) {
+          let totalKg = 0;
+          let totalAmountRaw = 0;
+          const invoiceList: PartyProductTransactionSummary["invoices"] = [];
+
+          for (const it of items) {
+            const q = Number(it.qty_kg);
+            const amt = Number(it.line_total || it.taxable_amount || 0);
+            totalKg += q;
+            totalAmountRaw += amt;
+
+            const url = `/invoices/${it.invoice.id}`;
+            invoiceList.push({
+              invoiceNumber: it.invoice.invoice_number,
+              date: it.invoice.invoice_date.toISOString().split("T")[0],
+              qtyKg: q,
+              amount: formatINR(amt),
+              url,
+            });
+
+            if (!sources.some((s) => s.url === url)) {
+              sources.push({ title: `Invoice ${it.invoice.invoice_number}`, url });
+            }
+          }
+
+          partyProductTransactions.push({
+            partyId: acc.id,
+            partyName: acc.display_name,
+            partyType: "CUSTOMER",
+            productId: prod.id,
+            productName: prod.name,
+            productCode: prod.code,
+            totalQtyKg: Math.round(totalKg * 1000) / 1000,
+            totalAmountFormatted: formatINR(totalAmountRaw),
+            totalAmountRaw,
+            invoiceCount: items.length,
+            invoices: invoiceList,
+          });
+        }
+      } else if (acc.supplier_id) {
+        const pItems = await prisma.purchaseInvoiceItem.findMany({
+          where: {
+            product_id: prod.id,
+            purchase_invoice: { supplier_id: acc.supplier_id },
+          },
+          include: {
+            purchase_invoice: {
+              select: {
+                id: true,
+                supplier_invoice_number: true,
+                invoice_date: true,
+                grand_total: true,
+              },
+            },
+          },
+          orderBy: {
+            purchase_invoice: { invoice_date: "desc" },
+          },
+        });
+
+        if (pItems.length > 0) {
+          let totalKg = 0;
+          let totalAmountRaw = 0;
+          const invoiceList: PartyProductTransactionSummary["invoices"] = [];
+
+          for (const it of pItems) {
+            const q = Number(it.qty_kg);
+            const amt = Number(it.line_total || it.taxable_amount || 0);
+            totalKg += q;
+            totalAmountRaw += amt;
+
+            const url = `/purchases`;
+            invoiceList.push({
+              invoiceNumber: it.purchase_invoice.supplier_invoice_number,
+              date: it.purchase_invoice.invoice_date.toISOString().split("T")[0],
+              qtyKg: q,
+              amount: formatINR(amt),
+              url,
+            });
+          }
+
+          partyProductTransactions.push({
+            partyId: acc.id,
+            partyName: acc.display_name,
+            partyType: "SUPPLIER",
+            productId: prod.id,
+            productName: prod.name,
+            productCode: prod.code,
+            totalQtyKg: Math.round(totalKg * 1000) / 1000,
+            totalAmountFormatted: formatINR(totalAmountRaw),
+            totalAmountRaw,
+            invoiceCount: pItems.length,
+            invoices: invoiceList,
+          });
+        }
+      }
+    }
+  }
+
+  if (partyProductTransactions.length > 0) {
+    for (const tx of partyProductTransactions) {
+      for (const inv of tx.invoices.slice(0, 3)) {
+        if (!sources.some((s) => s.url === inv.url)) {
+          sources.unshift({ title: `Invoice ${inv.invoiceNumber}`, url: inv.url });
+        }
       }
     }
   }
@@ -877,6 +1119,31 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
     }
   }
 
+  // Prioritize specific invoice links and party-product transaction sources at the front
+  const prioritizedSources: Array<{ title: string; url: string }> = [];
+
+  if (partyProductTransactions.length > 0) {
+    for (const tx of partyProductTransactions) {
+      for (const inv of tx.invoices.slice(0, 3)) {
+        if (!prioritizedSources.some((s) => s.url === inv.url)) {
+          prioritizedSources.push({ title: `Invoice ${inv.invoiceNumber}`, url: inv.url });
+        }
+      }
+    }
+  }
+
+  for (const inv of invoicesFound) {
+    if (!prioritizedSources.some((s) => s.url === inv.url)) {
+      prioritizedSources.push({ title: `Invoice ${inv.invoiceNumber}`, url: inv.url });
+    }
+  }
+
+  for (const s of sources) {
+    if (!prioritizedSources.some((p) => p.url === s.url)) {
+      prioritizedSources.push(s);
+    }
+  }
+
   return {
     guides: matchedGuides,
     invoices: invoicesFound,
@@ -887,7 +1154,8 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
     topDebtors,
     analytics,
     filterSummary,
-    sources: sources.slice(0, 5),
+    partyProductTransactions,
+    sources: prioritizedSources.slice(0, 6),
   };
 }
 

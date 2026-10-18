@@ -31,6 +31,10 @@ YOUR STRICT SCOPE & RULES:
      * State the EXACT count and total rupee sum from the retrieved context immediately in the first sentence (e.g. "There are **100 sales invoices** with an amount over **₹1,00,000.00**, totaling **₹2,25,96,267.00**.").
      * Mention the percentage of total records and revenue it represents.
      * Provide the top matching records or sample invoices with clickable links.
+   - PARTY + PRODUCT TRANSACTION QUERIES (e.g. "How much has SNA been purchased by Tiger International"):
+     * NEVER report only the latest invoice! You MUST ALWAYS state the cumulative total across ALL invoices (in kg, total rupees, and invoice count).
+     * State the grand total clearly in the first sentence (e.g. "Across **5 invoices**, **Tiger International** has purchased a total of **2,040 kg** of **SNA** amounting to **₹3,08,121.60**.").
+     * Then list all individual invoices with invoice number, date, kg, amount, and clickable link.
    - Guiding the user on how to use InVoiceR and perform tasks (e.g., how to upload an invoice, how to view the debtor list, how to record receipts/payments, how to import Marg statements, how to adjust stock, how to edit extracted items before saving).
 2. OFF-TOPIC QUESTIONS:
    - If and ONLY if the user asks a question completely unrelated to business, accounting, invoicing, products, or this software (such as "how to make a cup of coffee", cooking recipes, general world trivia, weather, sports, personal advice, general coding outside this app):
@@ -105,6 +109,30 @@ function buildContextString(context: RetrievedContext): string {
       (f.totalSumFormatted ? `- Combined Total Amount: **${f.totalSumFormatted}**\n` : "") +
       (f.percentageOfRevenue ? `- Percentage of Total Company Sales Revenue: **${f.percentageOfRevenue}**\n` : "") +
       (samplesText ? `### Sample Records Matching Criteria:\n${samplesText}` : "")
+    );
+  }
+
+  // 0.1 Specific Cross-Entity Party-Product History (Ground truth for e.g. "How much has SNA been purchased by Tiger International")
+  if (context.partyProductTransactions && context.partyProductTransactions.length > 0) {
+    const txTexts = context.partyProductTransactions.map((tx) => {
+      const invLines = tx.invoices
+        .map((inv, idx) => `  ${idx + 1}. Invoice **${inv.invoiceNumber}** (${inv.date}): **${inv.qtyKg.toLocaleString("en-IN")} kg** for **${inv.amount}** — [View Invoice](${inv.url})`)
+        .join("\n");
+
+      return (
+        `### PARTY + PRODUCT TRANSACTION HISTORY: ${tx.partyName} & ${tx.productName} (${tx.productCode})\n` +
+        `- Party Type: ${tx.partyType}\n` +
+        `- CUMULATIVE LIFETIME TOTAL: **${tx.totalQtyKg.toLocaleString("en-IN")} kg** across **${tx.invoiceCount} invoices**\n` +
+        `- CUMULATIVE TOTAL VALUE: **${tx.totalAmountFormatted}**\n` +
+        `- COMPLETE LIST OF ALL ${tx.invoiceCount} INVOICES (ALL TRANSACTIONS):\n` +
+        invLines
+      );
+    });
+
+    sections.push(
+      `[SPECIFIC PARTY-PRODUCT PURCHASE/SALE HISTORY (GROUND TRUTH - ALL INVOICES)]:\n` +
+      `CRITICAL INSTRUCTION: When answering how much of this product this party bought or sold, you MUST state the CUMULATIVE TOTAL across ALL ${context.partyProductTransactions[0].invoiceCount} invoices (**${context.partyProductTransactions[0].totalQtyKg.toLocaleString("en-IN")} kg** totaling **${context.partyProductTransactions[0].totalAmountFormatted}**) in your first sentence. NEVER report only the latest invoice!\n\n` +
+      txTexts.join("\n\n")
     );
   }
 
@@ -187,12 +215,18 @@ function buildContextString(context: RetrievedContext): string {
     const partyTexts = context.partySummaries.map((p) => {
       const invs = p.recentInvoices.map((i) => `    * Invoice ${i.number} (${i.date}): ${i.amount} [Link](${i.url})`).join("\n");
       const receipts = p.recentReceipts.map((r) => `    * Receipt (${r.date}): ${r.amount} via ${r.mode || "Bank"}`).join("\n");
+      const prods = p.productsBreakdown && p.productsBreakdown.length > 0
+        ? `\n- Products Breakdown (All-Time Purchases):\n` +
+          p.productsBreakdown.slice(0, 8).map((pr) => `    * ${pr.name} (\`${pr.code}\`): **${pr.qtyKg.toLocaleString("en-IN")} kg** across ${pr.count} invoices (${pr.amount})`).join("\n")
+        : "";
 
       return `### PARTY: ${p.name} (${p.type})\n` +
+        (p.totalInvoicesCount ? `- Total Invoices on File: ${p.totalInvoicesCount}\n` : "") +
         `- Current Balance: ${p.balanceFormatted} ${p.balanceSide}\n` +
         `- Due Status: ${p.dueExplanation}\n` +
         `- Total Lifetime Billed: ${p.totalBilled}\n` +
         `- Total Lifetime Paid/Received: ${p.totalPaidReceived}\n` +
+        prods + "\n" +
         (invs ? `- Recent Invoices:\n${invs}\n` : "") +
         (receipts ? `- Recent Receipts/Payments:\n${receipts}\n` : "") +
         `- Statement Link: [Open ${p.name} Ledger](${p.url})`;
@@ -204,6 +238,10 @@ function buildContextString(context: RetrievedContext): string {
   if (context.productSummaries && context.productSummaries.length > 0) {
     const prodTexts = context.productSummaries.map((p) => {
       const sales = p.recentSales.map((s) => `    * Inv ${s.invoiceNumber} (${s.date}) to ${s.buyer}: ${s.qtyKg} kg (${s.amount})`).join("\n");
+      const buyers = p.topBuyers && p.topBuyers.length > 0
+        ? `\n- Top Buyers for this Product:\n` +
+          p.topBuyers.slice(0, 8).map((b) => `    * **${b.customerName}**: **${b.qtyKg.toLocaleString("en-IN")} kg** across ${b.count} invoices (${b.amount})`).join("\n")
+        : "";
 
       return `### PRODUCT: ${p.name} (Code: ${p.code})\n` +
         `- Current Live Stock: ${p.currentStockKg.toLocaleString("en-IN")} kg\n` +
@@ -211,6 +249,7 @@ function buildContextString(context: RetrievedContext): string {
         `- Sold This FY (2026-27): ${p.soldThisYearKg.toLocaleString("en-IN")} kg (Revenue: ${p.soldThisYearAmount})\n` +
         `- Sold All-Time: ${p.soldTotalKg.toLocaleString("en-IN")} kg (Total: ${p.soldTotalAmount})\n` +
         `- Standard Sale Rate: ${p.saleRate} | Pack: ${p.packSize}\n` +
+        buyers + "\n" +
         (sales ? `- Recent Sales:\n${sales}\n` : "") +
         `- Inventory Link: [Stock Summary](/stock)`;
     });
@@ -402,6 +441,23 @@ function generateFallbackReply(query: string, context: RetrievedContext): string
         `\n\n👉 [Open Debtor List](/accounts)`
       );
     }
+  }
+
+  // Party + Product Cross-Entity Fallback (e.g. "How much has SNA been purchased by Tiger International")
+  if (context.partyProductTransactions && context.partyProductTransactions.length > 0) {
+    const tx = context.partyProductTransactions[0];
+    const invList = tx.invoices
+      .map((inv, idx) => `${idx + 1}. **Invoice ${inv.invoiceNumber}** (${inv.date}): **${inv.qtyKg.toLocaleString("en-IN")} kg** — **${inv.amount}** ([View Invoice](${inv.url}))`)
+      .join("\n");
+
+    const verb = tx.partyType === "CUSTOMER" ? "purchased" : "supplied";
+    return (
+      `### Total ${tx.productName} (${tx.productCode}) ${verb} by ${tx.partyName}\n\n` +
+      `Across **${tx.invoiceCount} invoices**, **${tx.partyName}** has ${verb} a cumulative total of **${tx.totalQtyKg.toLocaleString("en-IN")} kg** of **${tx.productName}**, totaling **${tx.totalAmountFormatted}**.\n\n` +
+      `**Complete Breakdown of All ${tx.invoiceCount} Invoices:**\n` +
+      invList +
+      `\n\n👉 [Open ${tx.partyName} Ledger](/accounts/${tx.partyId}) | [View Invoices](/invoices)`
+    );
   }
 
   // Party / Customer / Supplier Due Fallback (e.g. "how much money of Abdin is due")
