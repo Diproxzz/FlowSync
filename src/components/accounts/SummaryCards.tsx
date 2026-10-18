@@ -59,8 +59,20 @@ export function SummaryCards({
           <Scale className="w-4 h-4 text-muted-foreground/70 print:w-3 print:h-3" />
         </div>
         <div className="mt-2 print:mt-1">
-          <div className="text-xl font-semibold tracking-tight text-foreground font-mono print:text-sm print:text-black">
-            {openingLabel}
+          <div className="text-xl font-semibold tracking-tight text-foreground font-mono print:text-sm print:text-black flex items-baseline gap-1">
+            {openingDr ? (
+              <>
+                <span>{formatINR(openingBalance)}</span>
+                <span className="text-rose-600 dark:text-rose-400 font-bold text-sm">Dr</span>
+              </>
+            ) : openingCr ? (
+              <>
+                <span>{formatINR(Math.abs(openingBalance))}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">Cr</span>
+              </>
+            ) : (
+              "₹0.00"
+            )}
           </div>
           <div className="text-xs text-muted-foreground mt-0.5 print:text-[9px] print:text-slate-500">
             {!openingBalanceSet ? (
@@ -147,7 +159,7 @@ export function SummaryCards({
         <div className="mt-2 print:mt-1">
           <div
             className={cn(
-              "text-2xl font-bold tracking-tight font-mono print:text-sm",
+              "text-2xl font-bold tracking-tight font-mono print:text-sm flex items-baseline gap-1.5",
               isClosingZero
                 ? "text-foreground print:text-black"
                 : (isCustomer && isClosingDr) || (!isCustomer && isClosingCr)
@@ -155,7 +167,22 @@ export function SummaryCards({
                 : "text-emerald-700 dark:text-emerald-400 print:text-emerald-700"
             )}
           >
-            {closingFormatted}
+            {isClosingZero ? (
+              "₹0.00 (Settled)"
+            ) : (
+              <>
+                <span>{formatINR(closingAbs)}</span>
+                <span
+                  className={
+                    isClosingDr
+                      ? "text-rose-600 dark:text-rose-400 font-bold"
+                      : "text-emerald-600 dark:text-emerald-400 font-bold"
+                  }
+                >
+                  {isClosingDr ? "Dr" : "Cr"}
+                </span>
+              </>
+            )}
           </div>
           <div className="text-xs font-medium text-muted-foreground mt-0.5 print:text-[9px] print:text-slate-500">
             {closingSubtext}

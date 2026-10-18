@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { calculateMargTotals, calculatePeriodOpening, computeRunningBalances } from "@/lib/ledger/balances";
 import { calculateOpenItems } from "@/lib/ledger/openItems";
 import { formatParticularsText } from "@/lib/ledger/particulars";
+import { normalizePartyName } from "@/lib/matching/party";
 
 export async function GET(
   request: NextRequest,
@@ -278,7 +279,7 @@ export async function PATCH(
   try {
     const { id } = params;
     const body = await request.json();
-    const { openingBalance, openingSide, openingDate, statementThroughDate, creditDays } = body;
+    const { openingBalance, openingSide, openingDate, statementThroughDate, creditDays, accountType } = body;
 
     const account = await prisma.ledgerAccount.findUnique({ where: { id } });
     if (!account) {
@@ -290,6 +291,52 @@ export async function PATCH(
       if (creditDays !== undefined) accountUpdate.credit_days = Number(creditDays);
       if (statementThroughDate !== undefined) {
         accountUpdate.statement_through_date = statementThroughDate ? new Date(statementThroughDate) : null;
+      }
+
+      if (accountType && (accountType === "CUSTOMER" || accountType === "SUPPLIER") && accountType !== account.account_type) {
+        if (accountType === "SUPPLIER") {
+          let sup = await tx.supplier.findFirst({
+            where: { name: { equals: account.display_name, mode: "insensitive" } },
+          });
+          if (!sup) {
+            sup = await tx.supplier.create({
+              data: {
+                name: account.display_name,
+                name_norm: normalizePartyName(account.display_name),
+              },
+            });
+          }
+          accountUpdate.account_type = "SUPPLIER";
+          accountUpdate.supplier_id = sup.id;
+          accountUpdate.customer_id = null;
+          if (account.customer_id) {
+            const custInvoices = await tx.invoice.count({ where: { customer_id: account.customer_id } });
+            if (custInvoices === 0) {
+              await tx.customer.delete({ where: { id: account.customer_id } }).catch(() => null);
+            }
+          }
+        } else {
+          let cust = await tx.customer.findFirst({
+            where: { name: { equals: account.display_name, mode: "insensitive" } },
+          });
+          if (!cust) {
+            cust = await tx.customer.create({
+              data: {
+                name: account.display_name,
+                name_norm: normalizePartyName(account.display_name),
+              },
+            });
+          }
+          accountUpdate.account_type = "CUSTOMER";
+          accountUpdate.customer_id = cust.id;
+          accountUpdate.supplier_id = null;
+          if (account.supplier_id) {
+            const supPurchases = await tx.purchaseInvoice.count({ where: { supplier_id: account.supplier_id } });
+            if (supPurchases === 0) {
+              await tx.supplier.delete({ where: { id: account.supplier_id } }).catch(() => null);
+            }
+          }
+        }
       }
 
       if (openingBalance !== undefined) {

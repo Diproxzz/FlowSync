@@ -7,7 +7,7 @@ import { validateStatement } from "@/lib/ledger/parse/validate";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { draft, statement, partyMatch, fileHash, fileName, accountType = "CUSTOMER" } = body;
+    const { draft, statement, partyMatch, fileHash, fileName } = body;
 
     // Validate the draft structure
     const rawDraft = draft || statement;
@@ -27,6 +27,14 @@ export async function POST(request: NextRequest) {
         { status: 422 }
       );
     }
+
+    // Default account type by closing balance side if not explicitly specified (Cr = Supplier, Dr = Customer)
+    const closingBalanceSide =
+      parsedDraft.printedTotals?.balanceSide ||
+      validation.replayedSide ||
+      (parsedDraft.openingSide === "Cr" ? "Cr" : "Dr");
+    const inferredType: "CUSTOMER" | "SUPPLIER" = closingBalanceSide === "Cr" ? "SUPPLIER" : "CUSTOMER";
+    const accountType: "CUSTOMER" | "SUPPLIER" = body.accountType || inferredType;
 
     const result = await prisma.$transaction(async (tx) => {
       let customerId: string | null = null;

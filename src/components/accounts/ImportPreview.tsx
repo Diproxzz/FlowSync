@@ -47,7 +47,14 @@ export function ImportPreview({
   onSaveSuccess,
   onCancel,
 }: ImportPreviewProps) {
-  const [accountType, setAccountType] = useState<"CUSTOMER" | "SUPPLIER">("CUSTOMER");
+  const closingSide =
+    extracted?.totals?.closingSide ??
+    extracted?.printedTotals?.balanceSide ??
+    (extracted?.openingSide === "Cr" ? "Cr" : "Dr");
+  const suggestedType: "CUSTOMER" | "SUPPLIER" =
+    extracted?.suggestedAccountType || (closingSide === "Cr" ? "SUPPLIER" : "CUSTOMER");
+
+  const [accountType, setAccountType] = useState<"CUSTOMER" | "SUPPLIER">(suggestedType);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -289,7 +296,17 @@ export function ImportPreview({
             <div>
               <span className="text-xs text-muted-foreground">Opening Balance:</span>
               <p className="font-mono text-xs text-foreground font-medium">
-                {formatINR(extracted.openingBalance)} {extracted.openingBalanceSide}
+                {formatINR(extracted.openingBalance)}{" "}
+                <span
+                  className={cn(
+                    "font-bold ml-0.5",
+                    (extracted.openingBalanceSide || extracted.openingSide) === "Cr"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-rose-600 dark:text-rose-400"
+                  )}
+                >
+                  {extracted.openingBalanceSide || extracted.openingSide}
+                </span>
               </p>
             </div>
           </div>
@@ -322,8 +339,13 @@ export function ImportPreview({
 
           <div className="space-y-3 text-sm">
             {/* Account Type Selector */}
-            <div className="flex items-center justify-between gap-3 pb-2 border-b border-border">
-              <label className="text-xs font-medium text-muted-foreground">Account Type:</label>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground">Account Type:</label>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-primary/10 text-primary">
+                  Suggested from {closingSide === "Cr" ? "Credit (Cr)" : "Debit (Dr)"} closing
+                </span>
+              </div>
               <div className="flex items-center gap-4 text-xs font-medium">
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
@@ -536,7 +558,16 @@ export function ImportPreview({
             <span className="text-xs text-muted-foreground block">Closing Balance</span>
             <span className="font-mono font-semibold text-sm text-foreground">
               {formatINR(extracted?.totals?.closing ?? extracted?.printedTotals?.balance ?? 0)}{" "}
-              {extracted?.totals?.closingSide ?? extracted?.printedTotals?.balanceSide ?? "Dr"}
+              <span
+                className={cn(
+                  "font-bold ml-0.5",
+                  (extracted?.totals?.closingSide ?? extracted?.printedTotals?.balanceSide ?? "Dr") === "Cr"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400"
+                )}
+              >
+                {extracted?.totals?.closingSide ?? extracted?.printedTotals?.balanceSide ?? "Dr"}
+              </span>
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
@@ -599,7 +630,17 @@ export function ImportPreview({
                   {extracted.openingSide === "Cr" ? formatINR(extracted.openingBalance) : "—"}
                 </td>
                 <td className="py-2.5 px-3.5 text-right font-semibold">
-                  {formatINR(extracted.openingBalance)} {extracted.openingSide}
+                  {formatINR(extracted.openingBalance)}{" "}
+                  <span
+                    className={cn(
+                      "font-bold ml-0.5",
+                      extracted.openingSide === "Cr"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    )}
+                  >
+                    {extracted.openingSide}
+                  </span>
                 </td>
                 <td className="py-2.5 px-3.5 text-center font-sans">
                   <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
@@ -632,7 +673,18 @@ export function ImportPreview({
                       {row.printedBalance !== null && row.printedBalance !== undefined
                         ? formatINR(row.printedBalance)
                         : "—"}{" "}
-                      {row.printedBalanceSide || ""}
+                      {row.printedBalanceSide && (
+                        <span
+                          className={cn(
+                            "font-bold ml-0.5",
+                            row.printedBalanceSide === "Cr"
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
+                          )}
+                        >
+                          {row.printedBalanceSide}
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 px-3 text-center font-sans">
                       {row.entryType === "SALE_INVOICE" ? (

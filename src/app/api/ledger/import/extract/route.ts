@@ -53,8 +53,16 @@ export async function POST(request: NextRequest) {
     // 2. Validate Statement by Replay & Marg Totals
     const validation = validateStatement(draft);
 
-    // 3. Resolve Party Match
-    const partyMatch = await matchParty(draft.accountName, "CUSTOMER");
+    // 3. Determine Suggested Party Type by Closing Balance (Cr = Supplier / Creditor, Dr = Customer / Debtor)
+    const closingSide =
+      draft.printedTotals?.balanceSide ||
+      validation.replayedSide ||
+      (draft.openingSide === "Cr" ? "Cr" : "Dr");
+    const suggestedAccountType: "CUSTOMER" | "SUPPLIER" =
+      closingSide === "Cr" ? "SUPPLIER" : "CUSTOMER";
+
+    // 4. Resolve Party Match against suggested party type
+    const partyMatch = await matchParty(draft.accountName, suggestedAccountType);
 
     // 4. Check for Existing Invoices in the system
     const enrichedEntries = await Promise.all(
@@ -103,10 +111,12 @@ export async function POST(request: NextRequest) {
             debitTotal: draft.printedTotals?.debit ?? 0,
             creditTotal: draft.printedTotals?.credit ?? 0,
             closing: draft.printedTotals?.balance ?? 0,
-            closingSide: draft.printedTotals?.balanceSide ?? "Dr",
+            closingSide,
           },
+          suggestedAccountType,
           entries: enrichedEntries,
         },
+        suggestedAccountType,
         validation,
         partyMatch,
         existingInvoicesFound: enrichedEntries

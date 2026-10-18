@@ -34,28 +34,28 @@ export function TotalDueBanner({
   const isZero = !isDr && !isCr;
   const absDue = Math.abs(totalDue);
 
-  const formattedAmount = `${formatINR(absDue)} ${isDr ? "Dr" : isCr ? "Cr" : ""}`;
-
-  let title = "ACCOUNT SETTLED";
+  let titlePrefix = "ACCOUNT SETTLED";
   let subtitle = "No pending dues on record.";
 
   if (isCustomer) {
     if (isDr) {
-      title = `TOTAL DUE: ${formattedAmount}`;
+      titlePrefix = "TOTAL DUE";
       subtitle = "Party owes you";
     } else if (isCr) {
-      title = `ADVANCE HELD: ${formattedAmount}`;
+      titlePrefix = "ADVANCE HELD";
       subtitle = "You owe party (credit balance)";
     }
   } else {
     if (isCr) {
-      title = `TOTAL PAYABLE: ${formattedAmount}`;
+      titlePrefix = "TOTAL PAYABLE";
       subtitle = "You owe party";
     } else if (isDr) {
-      title = `ADVANCE PAID: ${formattedAmount}`;
+      titlePrefix = "ADVANCE PAID";
       subtitle = "Party owes you (debit balance)";
     }
   }
+
+  const formattedAmount = `${formatINR(absDue)} ${isDr ? "Dr" : isCr ? "Cr" : ""}`;
 
   const handleCopyReminder = () => {
     let text = `Dear ${partyName},\nThis is a friendly reminder that your outstanding balance with Indobest is ${formattedAmount}.`;
@@ -89,8 +89,23 @@ export function TotalDueBanner({
           />
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-lg tracking-tight font-mono text-foreground">
-                {title}
+              <span className="font-bold text-lg tracking-tight font-mono text-foreground flex items-baseline gap-1.5">
+                {isZero ? (
+                  titlePrefix
+                ) : (
+                  <>
+                    <span>{titlePrefix}: {formatINR(absDue)}</span>
+                    <span
+                      className={
+                        isDr
+                          ? "text-rose-600 dark:text-rose-400 font-bold"
+                          : "text-emerald-600 dark:text-emerald-400 font-bold"
+                      }
+                    >
+                      {isDr ? "Dr" : "Cr"}
+                    </span>
+                  </>
+                )}
               </span>
               <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground">
                 {subtitle}

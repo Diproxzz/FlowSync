@@ -13,6 +13,7 @@ import {
   Calendar,
   FileText,
   Clock,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ export function ManageStatementModal({
   const [activeTab, setActiveTab] = useState<"edit" | "delete">("edit");
 
   // Form states for Edit
+  const [selectedAccountType, setSelectedAccountType] = useState<"CUSTOMER" | "SUPPLIER">(accountType);
   const [openingBalance, setOpeningBalance] = useState<string>(
     currentOpeningBalance > 0 ? String(Math.abs(currentOpeningBalance)) : ""
   );
@@ -87,6 +89,7 @@ export function ManageStatementModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          accountType: selectedAccountType,
           openingBalance: parseFloat(openingBalance) || 0,
           openingSide,
           openingDate: openingDate || undefined,
@@ -295,6 +298,42 @@ export function ManageStatementModal({
                 <span>{successMsg}</span>
               </div>
             )}
+
+            {/* Account Type Selector */}
+            <div className="p-4 rounded-xl border border-border bg-surface-2/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-primary" /> Party Account Type
+                </span>
+                <span className="text-[11px] text-ink-3">Switch between Debtor (Customer) and Creditor (Supplier)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAccountType("CUSTOMER")}
+                  className={cn(
+                    "py-2 px-3 rounded-lg text-xs font-semibold border flex items-center justify-center gap-2 transition-all",
+                    selectedAccountType === "CUSTOMER"
+                      ? "bg-primary text-white border-primary shadow-xs"
+                      : "bg-surface border-border text-ink hover:bg-surface-2"
+                  )}
+                >
+                  <span>Customer (Debtor)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAccountType("SUPPLIER")}
+                  className={cn(
+                    "py-2 px-3 rounded-lg text-xs font-semibold border flex items-center justify-center gap-2 transition-all",
+                    selectedAccountType === "SUPPLIER"
+                      ? "bg-primary text-white border-primary shadow-xs"
+                      : "bg-surface border-border text-ink hover:bg-surface-2"
+                  )}
+                >
+                  <span>Supplier (Creditor)</span>
+                </button>
+              </div>
+            </div>
 
             {/* Opening Balance Row */}
             <div className="p-4 rounded-xl border border-border bg-surface-2/30 space-y-3">
