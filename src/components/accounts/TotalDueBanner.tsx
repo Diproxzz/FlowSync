@@ -59,7 +59,7 @@ export function TotalDueBanner({
 
   const handleCopyReminder = () => {
     let text = `Dear ${partyName},\nThis is a friendly reminder that your outstanding balance with Indobest is ${formattedAmount}.`;
-    if (overdueAmount > 0) {
+    if (isCustomer && overdueAmount > 0) {
       text += ` Overdue amount: ${formatINR(overdueAmount)}.`;
     }
     if (oldestBillNo) {
@@ -113,7 +113,7 @@ export function TotalDueBanner({
             </div>
 
             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-              {overdueAmount > 0 && (
+              {isCustomer && overdueAmount > 0 && (
                 <span className="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   Overdue: {formatINR(overdueAmount)}

@@ -166,7 +166,7 @@ export function calculateOpenItems(
       dueDate.setDate(dueDate.getDate() + creditDays);
       dueDateStr = dueDate.toISOString().slice(0, 10);
 
-      isOverdue = dueDate < asOf && outAmt > 0;
+      isOverdue = isCustomer && dueDate < asOf && outAmt > 0;
       if (isOverdue) {
         totalOverdue = totalOverdue.plus(it.outstanding);
       }
@@ -174,8 +174,8 @@ export function calculateOpenItems(
       const diffTime = asOf.getTime() - entryDate.getTime();
       ageDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
     } else {
-      // Opening balance prior-year item: overdue if still outstanding
-      isOverdue = outAmt > 0;
+      // Opening balance prior-year item: overdue if still outstanding (only for customers)
+      isOverdue = isCustomer && outAmt > 0;
       if (isOverdue) {
         totalOverdue = totalOverdue.plus(it.outstanding);
       }

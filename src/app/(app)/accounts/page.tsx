@@ -350,8 +350,8 @@ export default function AccountsPage() {
                 </tr>
               ) : (
                 filteredAccounts.map((acc) => {
-                  const isDr = acc.closingBalance > 0.005;
-                  const isCr = acc.closingBalance < -0.005;
+                  const isDr = acc.closingSide === "Dr";
+                  const isCr = acc.closingSide === "Cr";
 
                   return (
                     <tr
@@ -399,7 +399,7 @@ export default function AccountsPage() {
                         <span
                           className={cn(
                             "text-[10px] font-bold ml-1",
-                            isDr ? "text-rose-600" : isCr ? "text-emerald-600" : "text-muted-foreground"
+                            isCr ? "text-emerald-600 dark:text-emerald-400" : isDr ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
                           )}
                         >
                           {acc.closingSide}
@@ -408,7 +408,7 @@ export default function AccountsPage() {
 
                       {/* Overdue */}
                       <td className="py-3 px-3 text-right font-mono">
-                        {acc.overdueAmount > 0 ? (
+                        {acc.accountType === "CUSTOMER" && acc.overdueAmount > 0 ? (
                           <span className="text-rose-600 font-semibold">
                             {formatINR(acc.overdueAmount)}
                           </span>

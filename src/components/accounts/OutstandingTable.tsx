@@ -32,6 +32,7 @@ interface OutstandingTableProps {
   closingBalance: number;
   closingSide: "Dr" | "Cr";
   creditDays?: number;
+  accountType?: "CUSTOMER" | "SUPPLIER";
 }
 
 export function OutstandingTable({
@@ -40,8 +41,10 @@ export function OutstandingTable({
   closingBalance,
   closingSide,
   creditDays = 90,
+  accountType = "CUSTOMER",
 }: OutstandingTableProps) {
   const [filterMode, setFilterMode] = useState<"PENDING_ONLY" | "ALL">("PENDING_ONLY");
+  const isSupplier = accountType === "SUPPLIER" || closingSide === "Cr";
 
   const normalizedItems = useMemo(() => {
     return items.map((item, idx) => {
@@ -73,12 +76,12 @@ export function OutstandingTable({
         outstandingAmount: outAmt,
         isPaid,
         isPart,
-        isOverdue: item.overdue && outAmt > 0.005,
+        isOverdue: !isSupplier && item.overdue && outAmt > 0.005,
         ageDays: item.ageDays,
         isOpening: item.isOpening || /opening/i.test(item.docNo || ""),
       };
     });
-  }, [items]);
+  }, [items, isSupplier]);
 
   const pendingItems = useMemo(
     () => normalizedItems.filter((it) => it.outstandingAmount > 0.005),

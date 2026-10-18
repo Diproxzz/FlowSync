@@ -81,7 +81,9 @@ export async function GET(request: NextRequest) {
       } else {
         totalPayable += closingBalance;
       }
-      grandOverdue += openItems.totalOverdue;
+      if (acc.account_type === "CUSTOMER") {
+        grandOverdue += openItems.totalOverdue;
+      }
 
       // Find last receipt date
       const receipts = acc.entries.filter((e) => e.entry_type === "RECEIPT" || e.entry_type === "PAYMENT");
@@ -91,6 +93,9 @@ export async function GET(request: NextRequest) {
       const openBills = openItems.items.filter((it) => it.status === "OPEN" || it.status === "PART");
       const oldestBillNo = openBills.length > 0 ? openBills[0].docNo : null;
       const oldestBillDate = openBills.length > 0 ? openBills[0].entryDate : null;
+
+      const isCustomer = acc.account_type === "CUSTOMER";
+      const overdueVal = isCustomer ? openItems.totalOverdue : 0;
 
       return {
         id: acc.id,
@@ -109,8 +114,8 @@ export async function GET(request: NextRequest) {
         totalCreditWithOpening: totals.totalCreditWithOpening,
         closingBalance,
         closingSide,
-        totalOverdue: openItems.totalOverdue,
-        overdueAmount: openItems.totalOverdue,
+        totalOverdue: overdueVal,
+        overdueAmount: overdueVal,
         oldestBill: oldestBillNo,
         oldestBillNo,
         oldestBillDate,

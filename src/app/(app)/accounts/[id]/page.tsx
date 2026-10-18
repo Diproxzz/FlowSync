@@ -372,6 +372,7 @@ export default function AccountStatementPage() {
           closingBalance={statementData.summary?.closingBalance ?? statementData.margTotals?.closingBalance ?? 0}
           closingSide={statementData.summary?.closingSide ?? statementData.margTotals?.closingSide ?? "Dr"}
           creditDays={account.creditDays}
+          accountType={account.accountType}
         />
       )}
 
