@@ -26,6 +26,11 @@ YOUR STRICT SCOPE & RULES:
      * "What is our total stock in kg and total inventory valuation?"
      * Calculations comparing customers, products, months, or calculating percentages and balances.
      * These calculative tasks are 100% IN-SCOPE business operations questions. NEVER decline them as off-topic! Always provide the exact figures, the #1 leader, rankings, and clickable links.
+   - FILTERED & THRESHOLD QUERIES:
+     * When asked about invoices, purchases, or debtors with amounts over/under/greater than a threshold (e.g. "How many invoices amount is over 100000", "debtors owing over 50k", "invoices above 1 lakh"):
+     * State the EXACT count and total rupee sum from the retrieved context immediately in the first sentence (e.g. "There are **100 sales invoices** with an amount over **₹1,00,000.00**, totaling **₹2,25,96,267.00**.").
+     * Mention the percentage of total records and revenue it represents.
+     * Provide the top matching records or sample invoices with clickable links.
    - Guiding the user on how to use InVoiceR and perform tasks (e.g., how to upload an invoice, how to view the debtor list, how to record receipts/payments, how to import Marg statements, how to adjust stock, how to edit extracted items before saving).
 2. OFF-TOPIC QUESTIONS:
    - If and ONLY if the user asks a question completely unrelated to business, accounting, invoicing, products, or this software (such as "how to make a cup of coffee", cooking recipes, general world trivia, weather, sports, personal advice, general coding outside this app):
@@ -86,9 +91,35 @@ export async function askWisp(
 function buildContextString(context: RetrievedContext): string {
   const sections: string[] = [];
 
-  // 0. Live Business Analytics & Calculations (Top rankings, sales totals, stock valuation, debtors)
+  // 0. Specific Ad-Hoc Filtered Query Result (Ground truth for queries like "how many invoices amount is over 100000")
+  if (context.filterSummary) {
+    const f = context.filterSummary;
+    const samplesText = f.samples
+      .map((s, idx) => `  ${idx + 1}. **${s.title}** (${s.subtitle}): **${s.value}** — [View Record](${s.url})`)
+      .join("\n");
+
+    sections.push(
+      `[SPECIFIC FILTERED QUERY RESULT (GROUND TRUTH)]:\n` +
+      `Criteria: ${f.description}\n` +
+      `- Exact Matched Count: **${f.matchedCount}** (out of ${f.totalCount} total ${f.entityType.toLowerCase()} records, representing **${f.percentageOfCount}** of all records)\n` +
+      (f.totalSumFormatted ? `- Combined Total Amount: **${f.totalSumFormatted}**\n` : "") +
+      (f.percentageOfRevenue ? `- Percentage of Total Company Sales Revenue: **${f.percentageOfRevenue}**\n` : "") +
+      (samplesText ? `### Sample Records Matching Criteria:\n${samplesText}` : "")
+    );
+  }
+
+  // 1. Live Business Analytics & Calculations (Top rankings, sales totals, stock valuation, debtors)
   if (context.analytics) {
     const a = context.analytics;
+    const slabsText = a.invoiceValueSlabs
+      ? a.invoiceValueSlabs
+          .map((s) => `  * **${s.label}:** **${s.count} invoices** totaling **${s.totalRevenue}** (${s.shareOfInvoicesPct} of invoices, ${s.shareOfRevenuePct} of sales)`)
+          .join("\n")
+      : "";
+    const over1LText = a.invoicesOver1Lakh
+      ? `- Invoices with Amount Over ₹1,00,000 (≥ 1 Lakh): **${a.invoicesOver1Lakh.count} invoices** totaling **${a.invoicesOver1Lakh.totalRevenue}** (${a.invoicesOver1Lakh.shareOfInvoicesPct} of all invoices, ${a.invoicesOver1Lakh.shareOfRevenuePct} of total sales)\n`
+      : "";
+
     const topCustText = a.topCustomersByRevenue
       .map(
         (c, idx) =>
@@ -132,6 +163,8 @@ function buildContextString(context: RetrievedContext): string {
       `### Overall Company Sales Summary:\n` +
       `- Total Sales Invoices Issued: ${a.totalSalesInvoicesCount}\n` +
       `- Lifetime Total Sales: **${a.totalSalesLifetime}**\n` +
+      over1LText +
+      (slabsText ? `### Invoice Slabs & Value Distribution:\n${slabsText}\n\n` : "") +
       `- Average Invoice Value: **${a.averageInvoiceValue}**\n` +
       `- Highest Single Sale Invoice: ${a.highestInvoice ? `Invoice ${a.highestInvoice.number} on ${a.highestInvoice.date} to ${a.highestInvoice.customer} for **${a.highestInvoice.amount}** ([View Invoice](${a.highestInvoice.url}))` : "None"}\n` +
       `- Current Month Sales: **${a.thisMonthSales.revenue}** (${a.thisMonthSales.count} invoices, ${a.thisMonthSales.volumeKg.toLocaleString("en-IN")} kg)\n` +
@@ -327,6 +360,48 @@ function generateFallbackReply(query: string, context: RetrievedContext): string
       "and guiding you through tasks in this system.\n\n" +
       "Would you like to check a party's balance, find an invoice, or learn how to perform an action?"
     );
+  }
+
+  // Ad-hoc Filter Summary Fallback (e.g. "how many invoices amount is over 100000")
+  if (context.filterSummary) {
+    const f = context.filterSummary;
+    const samplesText = f.samples.length > 0
+      ? `\n\n**Top Matching Records:**\n` +
+        f.samples.map((s, idx) => `${idx + 1}. **${s.title}** (${s.subtitle}): **${s.value}** — [View Record](${s.url})`).join("\n")
+      : "";
+
+    if (f.entityType === "INVOICE") {
+      const opWord = f.operator === "LTE" ? "under" : "over";
+      return (
+        `### Invoices Amount ${f.operator === "LTE" ? "Under" : "Over"} ${f.thresholdFormatted}\n\n` +
+        `There are **${f.matchedCount} sales invoices** with an amount ${opWord} **${f.thresholdFormatted}** (out of **${f.totalCount} total invoices**, representing **${f.percentageOfCount}** of all invoices).\n\n` +
+        (f.totalSumFormatted ? `- **Total Combined Revenue:** **${f.totalSumFormatted}**\n` : "") +
+        (f.percentageOfRevenue ? `- **Share of Total Sales:** **${f.percentageOfRevenue}**\n` : "") +
+        samplesText +
+        `\n\n👉 [View All Invoices](/invoices)`
+      );
+    }
+
+    if (f.entityType === "PURCHASE") {
+      const opWord = f.operator === "LTE" ? "under" : "over";
+      return (
+        `### Purchase Bills Amount ${f.operator === "LTE" ? "Under" : "Over"} ${f.thresholdFormatted}\n\n` +
+        `There are **${f.matchedCount} purchase bills** with an amount ${opWord} **${f.thresholdFormatted}** (out of **${f.totalCount} total bills**, representing **${f.percentageOfCount}** of all purchases).\n\n` +
+        (f.totalSumFormatted ? `- **Total Combined Purchases:** **${f.totalSumFormatted}**\n` : "") +
+        samplesText +
+        `\n\n👉 [View All Purchases](/purchases)`
+      );
+    }
+
+    if (f.entityType === "DEBTOR") {
+      return (
+        `### Debtors with Balance Over ${f.thresholdFormatted}\n\n` +
+        `There are **${f.matchedCount} debtors** with an outstanding balance over **${f.thresholdFormatted}**.\n\n` +
+        (f.totalSumFormatted ? `- **Total Combined Outstanding:** **${f.totalSumFormatted}**\n` : "") +
+        samplesText +
+        `\n\n👉 [Open Debtor List](/accounts)`
+      );
+    }
   }
 
   // Party / Customer / Supplier Due Fallback (e.g. "how much money of Abdin is due")

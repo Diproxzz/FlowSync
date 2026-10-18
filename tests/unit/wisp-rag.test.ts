@@ -115,6 +115,14 @@ describe("Wisp AI Assistant & RAG System", () => {
       expect(res.reply).toBeDefined();
       expect(res.reply).toMatch(/Dr|owes|₹|receivable/i);
     }, 15000);
+
+    it("answers 'How many invoices amount is over 100000' with exact count and total amount", async () => {
+      const res = await askWisp("How many invoices amount is over 100000");
+      expect(res.reply).toBeDefined();
+      expect(res.reply).toMatch(/100/);
+      expect(res.reply).toMatch(/₹|invoice/i);
+      expect(res.sources.some((s) => s.url.includes("/invoices"))).toBe(true);
+    }, 15000);
   });
 });
 

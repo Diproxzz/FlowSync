@@ -86,6 +86,41 @@ export interface BusinessAnalyticsSummary {
   totalStockVolumeKg: number;
   totalStockEstimatedValue: string;
   topStockProducts: Array<{ name: string; code: string; stockKg: number; rate: string }>;
+  invoiceValueSlabs?: InvoiceValueSlab[];
+  invoicesOver1Lakh?: {
+    count: number;
+    totalRevenue: string;
+    shareOfInvoicesPct: string;
+    shareOfRevenuePct: string;
+  };
+}
+
+export interface InvoiceValueSlab {
+  label: string;
+  count: number;
+  totalRevenue: string;
+  shareOfInvoicesPct: string;
+  shareOfRevenuePct: string;
+}
+
+export interface AdHocFilterSummary {
+  entityType: "INVOICE" | "PURCHASE" | "DEBTOR" | "PRODUCT";
+  operator: "GTE" | "LTE";
+  threshold: number;
+  thresholdFormatted: string;
+  matchedCount: number;
+  totalCount: number;
+  percentageOfCount: string;
+  totalSumFormatted?: string;
+  totalSumRaw?: number;
+  percentageOfRevenue?: string;
+  description: string;
+  samples: Array<{
+    title: string;
+    subtitle: string;
+    value: string;
+    url: string;
+  }>;
 }
 
 export interface RetrievedContext {
@@ -112,6 +147,7 @@ export interface RetrievedContext {
   overallSales?: OverallSalesSummary;
   topDebtors?: Array<{ name: string; due: string; url: string }>;
   analytics?: BusinessAnalyticsSummary;
+  filterSummary?: AdHocFilterSummary;
   systemStats?: {
     totalSalesInvoices: number;
     totalPurchases: number;
@@ -160,6 +196,240 @@ function extractCandidateSearchTerms(query: string): string[] {
   }
 
   return Array.from(new Set(candidates));
+}
+
+/**
+ * Evaluates ad-hoc filtered or threshold queries on invoices, purchases, or debtors.
+ * (e.g. "How many invoices amount is over 100000", "debtors owing more than 50,000", "invoices above 1 lakh")
+ */
+export async function evaluateAdHocFilter(query: string): Promise<AdHocFilterSummary | undefined> {
+  const qLower = query.toLowerCase();
+
+  // Check if query is looking for a filtered/threshold list or count
+  const hasFilterIntent =
+    /\b(over|above|more\s+than|greater\s+than|exceeding|higher\s+than|under|below|less\s+than|at\s+least|at\s+most|is\s+over|is\s+above|amount\s+is|value\s+is|>\s*=?|<\s*=?)\b/i.test(query) ||
+    (/\b(how\s+many|count\s+of|number\s+of|list|show)\b/i.test(query) && /\b(invoices?|bills?|debtors?|purchases?|sales?)\b/i.test(query));
+
+  if (!hasFilterIntent) return undefined;
+
+  // 1. Extract threshold
+  let threshold: number | null = null;
+
+  // Lakh / lac match (e.g. "1 lakh", "1.5 lakhs", "2 lac")
+  const lakhMatch = query.match(/(?:(?:rs\.?|inr|₹)\s*)?([0-9]+(?:\.[0-9]+)?)\s*(?:lakhs?|lacs?)\b/i);
+  if (lakhMatch) {
+    threshold = parseFloat(lakhMatch[1]) * 100000;
+  }
+
+  // Crore / cr match (e.g. "1 crore", "0.5 cr")
+  if (threshold === null) {
+    const crMatch = query.match(/(?:(?:rs\.?|inr|₹)\s*)?([0-9]+(?:\.[0-9]+)?)\s*(?:crores?|cr)\b/i);
+    if (crMatch) {
+      threshold = parseFloat(crMatch[1]) * 10000000;
+    }
+  }
+
+  // K / thousand match (e.g. "50k", "100 thousand")
+  if (threshold === null) {
+    const kMatch = query.match(/(?:(?:rs\.?|inr|₹)\s*)?([0-9]+(?:\.[0-9]+)?)\s*(?:k|thousands?)\b/i);
+    if (kMatch) {
+      threshold = parseFloat(kMatch[1]) * 1000;
+    }
+  }
+
+  // Number with comparison keywords or currency symbols
+  if (threshold === null) {
+    const compMatch = query.match(
+      /(?:over|above|more\s+than|greater\s+than|exceeding|higher\s+than|under|below|less\s+than|at\s+least|at\s+most|is\s+over|is\s+above|amount\s+is\s+over|amount\s+is|value\s+is|>\s*=?|<\s*=?|rs\.?|inr|₹)\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]+)?|[0-9]{3,})/i
+    );
+    if (compMatch) {
+      const parsed = parseFloat(compMatch[1].replace(/,/g, ""));
+      if (!isNaN(parsed) && parsed > 0) threshold = parsed;
+    }
+  }
+
+  // Any 3+ digit number in query if "invoices" or "debtors" is mentioned
+  if (threshold === null && /\b(invoices?|bills?|debtors?)\b/i.test(query)) {
+    const numMatch = query.match(/(?:(?:rs\.?|inr|₹)\s*)?([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]+)?|[0-9]{3,})/i);
+    if (numMatch) {
+      const parsed = parseFloat(numMatch[1].replace(/,/g, ""));
+      if (!isNaN(parsed) && parsed >= 100) threshold = parsed;
+    }
+  }
+
+  if (threshold === null || threshold <= 0) return undefined;
+
+  // 2. Determine Operator
+  const isLte = /\b(under|below|less\s+than|at\s+most|lower\s+than|fewer\s+than|<\s*=?)\b/i.test(query);
+  const operator: "GTE" | "LTE" = isLte ? "LTE" : "GTE";
+
+  // 3. Determine Entity
+  let entityType: "INVOICE" | "PURCHASE" | "DEBTOR" | "PRODUCT" = "INVOICE";
+  if (/\b(debtor|debtors|due|owe|owes|receivable|receivables|customer\s+balance)\b/i.test(query)) {
+    entityType = "DEBTOR";
+  } else if (/\b(purchase|purchases|vendor\s+bill|supplier\s+bill)\b/i.test(query)) {
+    entityType = "PURCHASE";
+  }
+
+  const thresholdFormatted = formatINR(threshold);
+
+  if (entityType === "INVOICE") {
+    const whereClause = operator === "LTE"
+      ? { grand_total: { lte: threshold } }
+      : { grand_total: { gte: threshold } };
+
+    const [matchedCount, totalCount, aggregateResult, topInvoices, overallTotal] = await Promise.all([
+      prisma.invoice.count({ where: whereClause }),
+      prisma.invoice.count(),
+      prisma.invoice.aggregate({
+        where: whereClause,
+        _sum: { grand_total: true },
+      }),
+      prisma.invoice.findMany({
+        where: whereClause,
+        orderBy: { grand_total: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          invoice_number: true,
+          invoice_date: true,
+          customer_name_snapshot: true,
+          grand_total: true,
+        },
+      }),
+      prisma.invoice.aggregate({
+        _sum: { grand_total: true },
+      }),
+    ]);
+
+    const totalSumRaw = Number(aggregateResult._sum.grand_total || 0);
+    const overallRev = Number(overallTotal._sum.grand_total || 0);
+    const pctCount = totalCount > 0 ? ((matchedCount / totalCount) * 100).toFixed(1) + "%" : "0%";
+    const pctRev = overallRev > 0 ? ((totalSumRaw / overallRev) * 100).toFixed(1) + "%" : "0%";
+    const opText = operator === "LTE" ? "<=" : ">=";
+
+    return {
+      entityType: "INVOICE",
+      operator,
+      threshold,
+      thresholdFormatted,
+      matchedCount,
+      totalCount,
+      percentageOfCount: pctCount,
+      totalSumFormatted: formatINR(totalSumRaw),
+      totalSumRaw,
+      percentageOfRevenue: pctRev,
+      description: `Sales invoices where grand_total ${opText} ${thresholdFormatted}`,
+      samples: topInvoices.map((inv) => ({
+        title: `Invoice ${inv.invoice_number}`,
+        subtitle: `${inv.invoice_date.toISOString().split("T")[0]} to ${inv.customer_name_snapshot}`,
+        value: formatINR(Number(inv.grand_total)),
+        url: `/invoices/${inv.id}`,
+      })),
+    };
+  }
+
+  if (entityType === "PURCHASE") {
+    const whereClause = operator === "LTE"
+      ? { grand_total: { lte: threshold } }
+      : { grand_total: { gte: threshold } };
+
+    const [matchedCount, totalCount, aggregateResult, topPurchases, overallTotal] = await Promise.all([
+      prisma.purchaseInvoice.count({ where: whereClause }),
+      prisma.purchaseInvoice.count(),
+      prisma.purchaseInvoice.aggregate({
+        where: whereClause,
+        _sum: { grand_total: true },
+      }),
+      prisma.purchaseInvoice.findMany({
+        where: whereClause,
+        orderBy: { grand_total: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          supplier_invoice_number: true,
+          invoice_date: true,
+          supplier_name_snapshot: true,
+          grand_total: true,
+        },
+      }),
+      prisma.purchaseInvoice.aggregate({
+        _sum: { grand_total: true },
+      }),
+    ]);
+
+    const totalSumRaw = Number(aggregateResult._sum.grand_total || 0);
+    const overallPurchases = Number(overallTotal._sum.grand_total || 0);
+    const pctCount = totalCount > 0 ? ((matchedCount / totalCount) * 100).toFixed(1) + "%" : "0%";
+    const pctPurchases = overallPurchases > 0 ? ((totalSumRaw / overallPurchases) * 100).toFixed(1) + "%" : "0%";
+    const opText = operator === "LTE" ? "<=" : ">=";
+
+    return {
+      entityType: "PURCHASE",
+      operator,
+      threshold,
+      thresholdFormatted,
+      matchedCount,
+      totalCount,
+      percentageOfCount: pctCount,
+      totalSumFormatted: formatINR(totalSumRaw),
+      totalSumRaw,
+      percentageOfRevenue: pctPurchases,
+      description: `Purchase bills where grand_total ${opText} ${thresholdFormatted}`,
+      samples: topPurchases.map((inv) => ({
+        title: `Bill ${inv.supplier_invoice_number}`,
+        subtitle: `${inv.invoice_date.toISOString().split("T")[0]} from ${inv.supplier_name_snapshot}`,
+        value: formatINR(Number(inv.grand_total)),
+        url: `/purchases/${inv.id}`,
+      })),
+    };
+  }
+
+  if (entityType === "DEBTOR") {
+    const customerAccounts = await prisma.ledgerAccount.findMany({
+      where: { account_type: "CUSTOMER" },
+      include: {
+        entries: { where: { is_void: false } },
+      },
+    });
+
+    const debtors = customerAccounts
+      .map((acc) => {
+        let bal = 0;
+        for (const e of acc.entries) bal += Number(e.debit) - Number(e.credit);
+        return {
+          id: acc.id,
+          name: acc.display_name,
+          balance: bal,
+        };
+      })
+      .filter((d) => (operator === "LTE" ? d.balance <= threshold && d.balance > 0 : d.balance >= threshold))
+      .sort((a, b) => b.balance - a.balance);
+
+    const totalSumRaw = debtors.reduce((sum, d) => sum + d.balance, 0);
+    const opText = operator === "LTE" ? "<=" : ">=";
+
+    return {
+      entityType: "DEBTOR",
+      operator,
+      threshold,
+      thresholdFormatted,
+      matchedCount: debtors.length,
+      totalCount: customerAccounts.length,
+      percentageOfCount: customerAccounts.length > 0 ? ((debtors.length / customerAccounts.length) * 100).toFixed(1) + "%" : "0%",
+      totalSumFormatted: formatINR(totalSumRaw),
+      totalSumRaw,
+      description: `Debtors with balance ${opText} ${thresholdFormatted}`,
+      samples: debtors.slice(0, 5).map((d) => ({
+        title: d.name,
+        subtitle: "Debtor Ledger",
+        value: formatINR(d.balance),
+        url: `/accounts/${d.id}`,
+      })),
+    };
+  }
+
+  return undefined;
 }
 
 export async function retrieveContextForQuery(query: string): Promise<RetrievedContext> {
@@ -583,6 +853,30 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
     }
   }
 
+  // 8. Evaluates Ad-Hoc Filter / Threshold Queries (e.g. "How many invoices amount is over 100000")
+  const filterSummary = await evaluateAdHocFilter(cleanQuery);
+  if (filterSummary) {
+    if (filterSummary.entityType === "INVOICE") {
+      if (!sources.some((s) => s.url === "/invoices")) {
+        sources.push({ title: "Sales Invoices", url: "/invoices" });
+      }
+    } else if (filterSummary.entityType === "PURCHASE") {
+      if (!sources.some((s) => s.url === "/purchases")) {
+        sources.push({ title: "Purchase Bills", url: "/purchases" });
+      }
+    } else if (filterSummary.entityType === "DEBTOR") {
+      if (!sources.some((s) => s.url === "/accounts")) {
+        sources.push({ title: "Debtor List", url: "/accounts" });
+      }
+    }
+
+    for (const sample of filterSummary.samples) {
+      if (!sources.some((s) => s.url === sample.url)) {
+        sources.push({ title: sample.title, url: sample.url });
+      }
+    }
+  }
+
   return {
     guides: matchedGuides,
     invoices: invoicesFound,
@@ -592,6 +886,7 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
     overallSales,
     topDebtors,
     analytics,
+    filterSummary,
     sources: sources.slice(0, 5),
   };
 }
@@ -663,6 +958,12 @@ export async function computeBusinessAnalytics(): Promise<BusinessAnalyticsSumma
   let mCount = 0, mKg = 0, mRev = 0;
   let yCount = 0, yKg = 0, yRev = 0;
 
+  let slabGte5LCount = 0, slabGte5LRev = 0;
+  let slab1Lto5LCount = 0, slab1Lto5LRev = 0;
+  let slab50Kto1LCount = 0, slab50Kto1LRev = 0;
+  let slabLt50KCount = 0, slabLt50KRev = 0;
+  let over1LCount = 0, over1LRev = 0;
+
   const customerMap: Record<string, { name: string; revenue: number; kg: number; count: number; url: string }> = {};
   const productRevenueMap: Record<string, { name: string; code: string; revenue: number; kg: number }> = {};
 
@@ -670,6 +971,24 @@ export async function computeBusinessAnalytics(): Promise<BusinessAnalyticsSumma
     const invAmt = Number(inv.grand_total);
     totalSalesLifetimeRaw += invAmt;
     const invDate = new Date(inv.invoice_date);
+
+    if (invAmt >= 100000) {
+      over1LCount++;
+      over1LRev += invAmt;
+    }
+    if (invAmt >= 500000) {
+      slabGte5LCount++;
+      slabGte5LRev += invAmt;
+    } else if (invAmt >= 100000) {
+      slab1Lto5LCount++;
+      slab1Lto5LRev += invAmt;
+    } else if (invAmt >= 50000) {
+      slab50Kto1LCount++;
+      slab50Kto1LRev += invAmt;
+    } else {
+      slabLt50KCount++;
+      slabLt50KRev += invAmt;
+    }
 
     if (invAmt > highestInvAmount) {
       highestInvAmount = invAmt;
@@ -821,6 +1140,45 @@ export async function computeBusinessAnalytics(): Promise<BusinessAnalyticsSumma
   }
   stockItems.sort((a, b) => b.stockKg - a.stockKg);
 
+  const totalInvCount = invoices.length;
+  const invoiceValueSlabs: InvoiceValueSlab[] = [
+    {
+      label: "₹5,00,000 and above (≥ 5 Lakhs)",
+      count: slabGte5LCount,
+      totalRevenue: formatINR(slabGte5LRev),
+      shareOfInvoicesPct: totalInvCount > 0 ? ((slabGte5LCount / totalInvCount) * 100).toFixed(1) + "%" : "0%",
+      shareOfRevenuePct: totalSalesLifetimeRaw > 0 ? ((slabGte5LRev / totalSalesLifetimeRaw) * 100).toFixed(1) + "%" : "0%",
+    },
+    {
+      label: "₹1,00,000 to ₹5,00,000 (1 Lakh – 5 Lakhs)",
+      count: slab1Lto5LCount,
+      totalRevenue: formatINR(slab1Lto5LRev),
+      shareOfInvoicesPct: totalInvCount > 0 ? ((slab1Lto5LCount / totalInvCount) * 100).toFixed(1) + "%" : "0%",
+      shareOfRevenuePct: totalSalesLifetimeRaw > 0 ? ((slab1Lto5LRev / totalSalesLifetimeRaw) * 100).toFixed(1) + "%" : "0%",
+    },
+    {
+      label: "₹50,000 to ₹1,00,000 (50k – 1 Lakh)",
+      count: slab50Kto1LCount,
+      totalRevenue: formatINR(slab50Kto1LRev),
+      shareOfInvoicesPct: totalInvCount > 0 ? ((slab50Kto1LCount / totalInvCount) * 100).toFixed(1) + "%" : "0%",
+      shareOfRevenuePct: totalSalesLifetimeRaw > 0 ? ((slab50Kto1LRev / totalSalesLifetimeRaw) * 100).toFixed(1) + "%" : "0%",
+    },
+    {
+      label: "Below ₹50,000 (< 50k)",
+      count: slabLt50KCount,
+      totalRevenue: formatINR(slabLt50KRev),
+      shareOfInvoicesPct: totalInvCount > 0 ? ((slabLt50KCount / totalInvCount) * 100).toFixed(1) + "%" : "0%",
+      shareOfRevenuePct: totalSalesLifetimeRaw > 0 ? ((slabLt50KRev / totalSalesLifetimeRaw) * 100).toFixed(1) + "%" : "0%",
+    },
+  ];
+
+  const invoicesOver1Lakh = {
+    count: over1LCount,
+    totalRevenue: formatINR(over1LRev),
+    shareOfInvoicesPct: totalInvCount > 0 ? ((over1LCount / totalInvCount) * 100).toFixed(1) + "%" : "0%",
+    shareOfRevenuePct: totalSalesLifetimeRaw > 0 ? ((over1LRev / totalSalesLifetimeRaw) * 100).toFixed(1) + "%" : "0%",
+  };
+
   return {
     totalSalesLifetime: formatINR(totalSalesLifetimeRaw),
     totalSalesLifetimeRaw,
@@ -852,5 +1210,7 @@ export async function computeBusinessAnalytics(): Promise<BusinessAnalyticsSumma
     totalStockVolumeKg: Math.round(totalStockVolumeKg),
     totalStockEstimatedValue: formatINR(totalStockValuationRaw),
     topStockProducts: stockItems.slice(0, 10),
+    invoiceValueSlabs,
+    invoicesOver1Lakh,
   };
 }
