@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, Building2, Calendar, CheckCircle2, AlertCircle } from "lucide-react";
+import React from "react";
 import { formatDate } from "@/lib/format";
 
 export interface StatementHeaderProps {
@@ -22,35 +21,37 @@ export interface StatementHeaderProps {
 
 export function StatementHeader({ account, period }: StatementHeaderProps) {
   const isCustomer = account.accountType === "CUSTOMER";
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const safeTo = period.to > todayStr ? todayStr : period.to;
 
   return (
-    <div className="bg-surface border border-border rounded-sm p-5 shadow-xs space-y-4 print:p-3 print:space-y-2 print:border-slate-300 print:shadow-none print:break-inside-avoid">
+    <div className="bg-card border border-border rounded-xl p-5 shadow-xs space-y-4 print:p-4 print:space-y-3 print:border-black print:rounded-none print:shadow-none print:break-inside-avoid">
       {/* Letterhead Banner */}
-      <div className="text-center border-b border-border pb-4 space-y-1 print:pb-2 print:border-slate-300">
-        <h2 className="text-xl font-bold tracking-tight text-ink font-mono uppercase print:text-lg print:text-black">
+      <div className="text-center border-b border-border pb-4 space-y-1 print:pb-2.5 print:border-black">
+        <h2 className="text-xl font-black tracking-tight text-foreground font-mono uppercase print:text-lg print:text-black">
           INDOBEST
         </h2>
-        <p className="text-xs text-ink-2 font-medium print:text-[10px] print:text-slate-700">
+        <p className="text-xs text-muted-foreground font-medium print:text-[11px] print:text-black">
           19/10/2, GOBINDA KHATICK ROAD, KOLKATA-700046
         </p>
-        <p className="text-[11px] text-ink-3 print:text-[9px] print:text-slate-600">
-          Phone: <span className="font-mono text-ink print:text-black">8240892993</span> &nbsp;|&nbsp; E-Mail:{" "}
-          <span className="font-mono text-ink print:text-black">indobest@gmail.com</span>
+        <p className="text-[11px] text-muted-foreground print:text-[10px] print:text-black">
+          Phone: <span className="font-mono text-foreground print:text-black font-semibold">8240892993</span> &nbsp;|&nbsp; E-Mail:{" "}
+          <span className="font-mono text-foreground print:text-black font-semibold">indobest@gmail.com</span>
         </p>
       </div>
 
       {/* Account Info and Period */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pt-1">
-        <div className="space-y-1">
+        <div className="space-y-1.5 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold uppercase tracking-wider text-ink-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground print:text-black">
               Ledger Account :
             </span>
-            <h1 className="text-lg font-bold text-ink tracking-tight font-mono">
+            <h1 className="text-lg font-bold text-foreground tracking-tight font-mono print:text-base print:text-black">
               {account.displayName}
             </h1>
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold border print:border-black print:text-black print:bg-white ${
                 isCustomer
                   ? "bg-primary/10 border-primary/20 text-primary"
                   : "bg-accent/10 border-accent/20 text-accent"
@@ -60,38 +61,35 @@ export function StatementHeader({ account, period }: StatementHeaderProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-ink-3 flex-wrap pt-0.5">
+          <div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap pt-0.5 print:text-black">
             {account.gstin ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xs bg-success-bg border border-success/30 text-success text-[11px] font-mono font-medium">
-                <CheckCircle2 className="w-3 h-3" />
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-muted/60 border border-border text-foreground text-[11px] font-mono font-medium print:bg-transparent print:border-none print:p-0 print:text-black">
                 GSTIN: {account.gstin}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xs bg-surface-2 border border-border text-ink-3 text-[11px] font-medium">
-                <AlertCircle className="w-3 h-3 text-ink-3" />
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-muted/40 border border-border text-muted-foreground text-[11px] font-medium print:bg-transparent print:border-none print:p-0 print:text-black">
                 GSTIN not on file
               </span>
             )}
             {account.stateCode && (
-              <span className="px-1.5 py-0.2 rounded-xs bg-surface-2 border border-border text-[11px] font-mono">
+              <span className="px-1.5 py-0.5 rounded bg-muted/60 border border-border text-[11px] font-mono text-foreground print:bg-transparent print:border-none print:p-0 print:text-black">
                 State: {account.stateCode}
               </span>
             )}
           </div>
           {account.address && (
-            <p className="text-xs text-ink-3 pt-0.5">{account.address}</p>
+            <p className="text-xs text-muted-foreground pt-0.5 print:text-[11px] print:text-black max-w-2xl">{account.address}</p>
           )}
         </div>
 
         {/* Period Box */}
         <div className="sm:text-right shrink-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 block mb-0.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1 print:text-black">
             Statement Period
           </span>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-surface-2 border border-border text-xs font-mono font-medium text-ink">
-            <Calendar className="w-3.5 h-3.5 text-accent" />
+          <div className="inline-flex items-center px-3 py-1.5 rounded-lg bg-card border border-border text-xs font-mono font-semibold text-foreground shadow-2xs print:bg-white print:border-black print:text-black print:rounded-none">
             <span>
-              {formatDate(period.from)} — {formatDate(period.to)}
+              {formatDate(period.from)} — {formatDate(safeTo)}
             </span>
           </div>
         </div>

@@ -64,8 +64,14 @@ export async function GET(
     const firstDate = allEntries.length > 0 ? allEntries[0].entry_date : new Date();
     const lastDate = allEntries.length > 0 ? allEntries[allEntries.length - 1].entry_date : new Date();
 
+    const now = new Date();
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
     const fromDate = fromParam ? new Date(fromParam) : firstDate;
-    const toDate = toParam ? new Date(toParam + "T23:59:59.999Z") : lastDate;
+    let toDate = toParam ? new Date(toParam + "T23:59:59.999Z") : lastDate;
+    if (toDate > endOfToday) {
+      toDate = endOfToday;
+    }
 
     // Opening balance before fromDate
     const periodOpening = calculatePeriodOpening(allEntries as any, fromDate);

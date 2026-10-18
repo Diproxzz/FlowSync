@@ -4,6 +4,7 @@ import React from "react";
 import { useSidebar } from "./SidebarContext";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { WispChat } from "@/components/wisp/WispChat";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 p-6 overflow-y-auto print:p-0 print:overflow-visible print:bg-white">
           {children}
         </main>
+        {/* Wisp Assistant Floating Drawer */}
+        <WispChat />
       </div>
     </div>
   );

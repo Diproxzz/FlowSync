@@ -1,5 +1,6 @@
 import { LLMProvider, ExtractionRequest, ExtractionResponse } from "../types";
 import { parseInvoiceTextToDraft } from "@/lib/ocr/parse-invoice-text";
+import { env } from "@/lib/env";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";

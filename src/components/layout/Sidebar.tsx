@@ -18,6 +18,7 @@ import {
   Truck,
   BookOpen,
   FileSpreadsheet,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -36,11 +37,28 @@ interface NavSection {
 const isPurchasesEnabled = process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false";
 const isLedgerEnabled = process.env.NEXT_PUBLIC_FEATURE_LEDGER !== "false";
 
+function WispNavIcon({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/wisp.png"
+      alt="Wisp"
+      className={cn("object-contain", className)}
+    />
+  );
+}
+
 const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Upload Invoice", href: "/upload", icon: FileUp },
+    ],
+  },
+  {
+    title: "AI Assistant",
+    items: [
+      { label: "Wisp Chat", href: "/wisp", icon: WispNavIcon },
     ],
   },
   {

@@ -34,10 +34,10 @@ export function formatExtractionErrorMessage(providerErrors: Array<{ provider: P
     let msg = pe.error;
     if (msg.includes("tokens per day (TPD)")) {
       const waitMatch = msg.match(/try again in ([^.]+s)/i);
-      msg = `Daily token limit reached (200,000 tokens/day on free tier)${waitMatch ? ` — please wait ${waitMatch[1]} or add an extra API key` : ""}`;
+      msg = `Daily token limit reached (200,000 tokens/day)${waitMatch ? ` — please wait ${waitMatch[1]} or add an extra API key` : ""}`;
     } else if (msg.includes("Quota exceeded for metric")) {
       const retryMatch = msg.match(/Please retry in ([^.]+s)/i);
-      msg = `Daily free tier quota (20 requests/day) exceeded${retryMatch ? ` — resets in ${retryMatch[1]}` : ""}`;
+      msg = `Daily quota (20 requests/day) exceeded${retryMatch ? ` — resets in ${retryMatch[1]}` : ""}`;
     }
     return `[${pe.provider.toUpperCase()}]: ${msg}`;
   });

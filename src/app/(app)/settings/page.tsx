@@ -124,7 +124,7 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h2 className="text-xl font-semibold text-ink">System Settings</h2>
-        <p className="text-xs text-ink-3">Issuer company details, inventory defaults, and free-tier LLM configuration</p>
+        <p className="text-xs text-ink-3">Issuer company details, inventory defaults, and LLM configuration</p>
       </div>
 
       <form onSubmit={handleSaveSettings} className="space-y-6">
@@ -250,7 +250,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
               <Cpu className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold text-ink">Free-Tier LLM Extraction Providers</h3>
+              <h3 className="text-sm font-semibold text-ink">LLM Extraction Providers</h3>
             </div>
             <span className="text-[11px] text-ink-3">Configured via .env on server</span>
           </div>

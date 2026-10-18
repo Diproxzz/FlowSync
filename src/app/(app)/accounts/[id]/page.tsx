@@ -41,7 +41,10 @@ export default function AccountStatementPage() {
   // Date range filters
   const [periodPreset, setPeriodPreset] = useState<string>("FY");
   const [fromDate, setFromDate] = useState<string>("2026-04-01");
-  const [toDate, setToDate] = useState<string>("2026-10-31");
+  const [toDate, setToDate] = useState<string>(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return today;
+  });
 
   // Modals
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
@@ -93,7 +96,8 @@ export default function AccountStatementPage() {
 
     if (preset === "FY") {
       setFromDate("2026-04-01");
-      setToDate("2027-03-31");
+      const fyEnd = "2027-03-31";
+      setToDate(fyEnd > today ? today : fyEnd);
     } else if (preset === "30D") {
       const d = new Date();
       d.setDate(d.getDate() - 30);
@@ -195,7 +199,7 @@ export default function AccountStatementPage() {
   const isCustomer = account.accountType === "CUSTOMER";
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-3 print-statement-page">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 print:max-w-none print:space-y-3 print-statement-page">
       {/* Top Navigation & Toolbar (hidden during print) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <Link
