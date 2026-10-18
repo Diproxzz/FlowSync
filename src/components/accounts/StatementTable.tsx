@@ -153,7 +153,14 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry, onD
                     </td>
 
                     {/* Running Balance */}
-                    <td className="py-2.5 px-4 text-right font-mono text-xs font-semibold whitespace-nowrap text-foreground align-top print:py-1.5 print:px-2 print:text-xs print:text-black">
+                    <td
+                      className={cn(
+                        "py-2.5 px-4 text-right font-mono text-xs font-semibold whitespace-nowrap align-top print:py-1.5 print:px-2 print:text-xs",
+                        row.balance_side === "Cr"
+                          ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700"
+                          : "text-foreground print:text-black"
+                      )}
+                    >
                       {formatINR(Math.abs(row.running_balance))}{" "}
                       <span
                         className={cn(
@@ -223,7 +230,14 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry, onD
               <td className="py-3 px-4 text-right font-mono text-sm text-foreground print:py-2 print:px-2 print:text-xs print:text-black">
                 {formatINR(margTotals.creditTotal)}
               </td>
-              <td className="py-3 px-4 text-right font-mono text-sm whitespace-nowrap text-foreground print:py-2 print:px-2 print:text-xs print:text-black">
+              <td
+                className={cn(
+                  "py-3 px-4 text-right font-mono text-sm whitespace-nowrap print:py-2 print:px-2 print:text-xs",
+                  margTotals.closingSide === "Cr"
+                    ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700"
+                    : "text-foreground print:text-black"
+                )}
+              >
                 {formatINR(Math.abs(margTotals.closing))}{" "}
                 <span
                   className={cn(

@@ -42,3 +42,6 @@ tsconfig.tsbuildinfo
 # Backups
 backups/
 
+# Scratch & local tests
+scratch/
+

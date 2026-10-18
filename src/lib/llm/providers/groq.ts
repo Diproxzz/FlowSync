@@ -1,17 +1,29 @@
 import { LLMProvider, ExtractionRequest, ExtractionResponse } from "../types";
 import { env } from "@/lib/env";
 
+export function getGroqKeys(): string[] {
+  const raw = [env.GROQ_API_KEYS, env.GROQ_API_KEY].filter(Boolean).join(",");
+  const keys = raw
+    .split(",")
+    .map((k) => k.trim())
+    .filter((k) => k.length > 0);
+  return Array.from(new Set(keys));
+}
+
+let activeKeyIndex = 0;
+
 export class GroqProvider implements LLMProvider {
   id = "groq" as const;
-  name = "Groq";
+  name = "Groq (Qwen 3.8)";
 
   isConfigured(): boolean {
-    return Boolean(env.GROQ_API_KEY && env.GROQ_API_KEY.trim());
+    return getGroqKeys().length > 0;
   }
 
   async extract(req: ExtractionRequest): Promise<ExtractionResponse> {
-    if (!this.isConfigured()) {
-      throw new Error("Groq API key is not configured in environment");
+    const keys = getGroqKeys();
+    if (keys.length === 0) {
+      throw new Error("No Groq API keys configured in environment");
     }
 
     const model = env.GROQ_MODEL || "qwen/qwen3.8-27b";
@@ -47,16 +59,20 @@ export class GroqProvider implements LLMProvider {
       response_format: { type: "json_object" },
     };
 
-    const maxRetries = 3;
     let lastError: Error | null = null;
+    const totalKeys = keys.length;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // Try keys sequentially, rotating if rate-limited or quota exceeded
+    for (let keyAttempt = 0; keyAttempt < totalKeys; keyAttempt++) {
+      const keyIndex = (activeKeyIndex + keyAttempt) % totalKeys;
+      const currentApiKey = keys[keyIndex];
+
       try {
         const res = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${env.GROQ_API_KEY}`,
+            Authorization: `Bearer ${currentApiKey}`,
           },
           body: JSON.stringify(body),
           signal: req.signal,
@@ -66,26 +82,15 @@ export class GroqProvider implements LLMProvider {
           const errJson = await res.json().catch(() => ({}));
           const message = errJson.error?.message || `Groq returned status ${res.status}`;
 
-          // If rate limited (429)
-          if (res.status === 429) {
-            let waitSeconds = 4;
-            const match = message.match(/try again in (?:(\d+)m)?([\d.]+)s/i);
-            if (match) {
-              const mins = match[1] ? parseInt(match[1], 10) : 0;
-              const secs = parseFloat(match[2]);
-              waitSeconds = mins * 60 + Math.ceil(secs);
-            }
-
-            // If it's a long delay (e.g. daily quota / minutes), fail fast so caller can switch provider or inform user
-            if (waitSeconds > 15) {
-              throw new Error(`Groq rate limit reached (resets in ${Math.ceil(waitSeconds / 60)}m): ${message}`);
-            }
-
-            if (attempt < maxRetries) {
-              console.warn(`[Groq] Rate limit reached. Pacing request: pausing for ${waitSeconds}s before retry ${attempt}/${maxRetries}...`);
-              await new Promise((r) => setTimeout(r, waitSeconds * 1000));
-              continue;
-            }
+          // Rate limit (429) or quota exceeded
+          if (res.status === 429 || res.status === 402 || res.status === 403) {
+            console.warn(
+              `[Groq] Key ${keyIndex + 1}/${totalKeys} rate-limited or quota reached (${res.status}). Rotating to next key...`
+            );
+            // Advance active key index for future requests
+            activeKeyIndex = (keyIndex + 1) % totalKeys;
+            lastError = new Error(`Groq key ${keyIndex + 1} exhausted: ${message}`);
+            continue; // Try next key immediately
           }
 
           throw new Error(`Groq error: ${message}`);
@@ -97,18 +102,27 @@ export class GroqProvider implements LLMProvider {
           throw new Error("Groq returned empty response");
         }
 
+        // Successfully processed with this key: stick to it for subsequent calls
+        activeKeyIndex = keyIndex;
+
         return {
           rawText,
           model,
           usage: data.usage,
         };
       } catch (err: any) {
-        lastError = err;
         if (err.name === "AbortError") throw err;
-        if (attempt === maxRetries) throw err;
+        lastError = err;
+
+        // If it's a network error or fetch failure, rotate to next key if available
+        if (keyAttempt < totalKeys - 1) {
+          console.warn(`[Groq] Error with key ${keyIndex + 1}: ${err.message}. Rotating...`);
+          activeKeyIndex = (keyIndex + 1) % totalKeys;
+          continue;
+        }
       }
     }
 
-    throw lastError || new Error("Groq extraction failed");
+    throw lastError || new Error(`All ${totalKeys} Groq API keys failed or were rate-limited.`);
   }
 }

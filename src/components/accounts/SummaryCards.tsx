@@ -67,7 +67,7 @@ export function SummaryCards({
               </>
             ) : openingCr ? (
               <>
-                <span>{formatINR(Math.abs(openingBalance))}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{formatINR(Math.abs(openingBalance))}</span>
                 <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">Cr</span>
               </>
             ) : (
@@ -124,9 +124,9 @@ export function SummaryCards({
           "p-4 rounded-xl border-2 shadow-sm flex flex-col justify-between transition-all print:p-2.5 print:rounded-sm print:border-slate-400 print:shadow-none print:bg-slate-50/50",
           isClosingZero
             ? "bg-slate-50 border-slate-200 dark:bg-slate-900/40 dark:border-slate-800"
-            : (isCustomer && isClosingDr) || (!isCustomer && isClosingCr)
-            ? "bg-rose-50/60 border-rose-300 dark:bg-rose-950/20 dark:border-rose-900"
-            : "bg-emerald-50/60 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900"
+            : isClosingCr
+            ? "bg-emerald-50/60 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900"
+            : "bg-rose-50/60 border-rose-300 dark:bg-rose-950/20 dark:border-rose-900"
         )}
       >
         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider print:text-[10px]">
@@ -134,9 +134,9 @@ export function SummaryCards({
             className={
               isClosingZero
                 ? "text-slate-600 print:text-slate-700"
-                : (isCustomer && isClosingDr) || (!isCustomer && isClosingCr)
-                ? "text-rose-700 dark:text-rose-400 print:text-rose-700"
-                : "text-emerald-700 dark:text-emerald-400 print:text-emerald-700"
+                : isClosingCr
+                ? "text-emerald-700 dark:text-emerald-400 print:text-emerald-700 font-bold"
+                : "text-rose-700 dark:text-rose-400 print:text-rose-700 font-bold"
             }
           >
             Total Due (Closing)
@@ -147,12 +147,12 @@ export function SummaryCards({
             <span
               className={cn(
                 "px-2 py-0.5 text-[11px] print:text-[9px] font-bold rounded-full uppercase",
-                isClosingDr
-                  ? "bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200"
-                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                isClosingCr
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                  : "bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200"
               )}
             >
-              {isClosingDr ? "Dr" : "Cr"}
+              {isClosingCr ? "Cr" : "Dr"}
             </span>
           )}
         </div>
@@ -162,24 +162,26 @@ export function SummaryCards({
               "text-2xl font-bold tracking-tight font-mono print:text-sm flex items-baseline gap-1.5",
               isClosingZero
                 ? "text-foreground print:text-black"
-                : (isCustomer && isClosingDr) || (!isCustomer && isClosingCr)
-                ? "text-rose-700 dark:text-rose-400 print:text-rose-700"
-                : "text-emerald-700 dark:text-emerald-400 print:text-emerald-700"
+                : isClosingCr
+                ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700 font-bold"
+                : "text-rose-700 dark:text-rose-400 print:text-rose-700 font-bold"
             )}
           >
             {isClosingZero ? (
               "₹0.00 (Settled)"
             ) : (
               <>
-                <span>{formatINR(closingAbs)}</span>
+                <span className={isClosingCr ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-700 dark:text-rose-400 font-bold"}>
+                  {formatINR(closingAbs)}
+                </span>
                 <span
                   className={
-                    isClosingDr
-                      ? "text-rose-600 dark:text-rose-400 font-bold"
-                      : "text-emerald-600 dark:text-emerald-400 font-bold"
+                    isClosingCr
+                      ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                      : "text-rose-600 dark:text-rose-400 font-bold"
                   }
                 >
-                  {isClosingDr ? "Dr" : "Cr"}
+                  {isClosingCr ? "Cr" : "Dr"}
                 </span>
               </>
             )}

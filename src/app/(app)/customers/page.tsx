@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -18,6 +19,7 @@ import {
   Building2,
   ChevronRight,
   ArrowUpRight,
+  BookOpen,
 } from "lucide-react";
 import { formatINR, formatKg, formatDate } from "@/lib/format";
 
@@ -29,6 +31,7 @@ interface Customer {
   address: string | null;
   state_code: string | null;
   aliases: Array<{ id: string; alias: string }>;
+  ledger_account?: { id: string; display_name: string } | null;
   _count?: { invoices: number };
 }
 
@@ -42,6 +45,26 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [targetCustomerId, setTargetCustomerId] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const router = useRouter();
+
+  const handleOpenLedger = async (c: Customer) => {
+    if (c.ledger_account?.id) {
+      router.push(`/accounts/${c.ledger_account.id}`);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/customers/${c.id}`);
+      const data = await res.json();
+      if (data.customer?.ledgerAccountId) {
+        router.push(`/accounts/${data.customer.ledgerAccountId}`);
+      } else {
+        router.push("/accounts");
+      }
+    } catch {
+      router.push("/accounts");
+    }
+  };
 
   // Customer Detail Drawer state (Debtor List & Products Portfolio)
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -330,6 +353,13 @@ export default function CustomersPage() {
                     </td>
                     <td className="py-2.5 px-3 text-right space-x-1" onClick={(e) => e.stopPropagation()}>
                       <button
+                        onClick={() => handleOpenLedger(c)}
+                        className="p-1 text-ink-3 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-surface-2 rounded-sm transition"
+                        title="View Ledger Statement"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         onClick={() => handleOpenDetail(c)}
                         className="p-1 text-ink-3 hover:text-primary hover:bg-surface-2 rounded-sm transition"
                         title="View Debtor Breakdown & Products"
@@ -602,6 +632,17 @@ export default function CustomersPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                {detailCustomer?.customer?.ledgerAccountId && (
+                  <Link
+                    href={`/accounts/${detailCustomer.customer.ledgerAccountId}`}
+                    className="px-2.5 py-1.5 rounded-sm bg-surface border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1.5 font-medium"
+                    title="View Account Ledger Statement"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>View Ledger</span>
+                    <ArrowUpRight className="w-3 h-3 opacity-70" />
+                  </Link>
+                )}
                 <button
                   onClick={() => handleDeleteCustomer(selectedCustomer)}
                   className="px-2.5 py-1.5 rounded-sm bg-danger-bg border border-danger/30 text-xs text-danger hover:bg-danger/20 transition flex items-center gap-1.5"
@@ -636,15 +677,15 @@ export default function CustomersPage() {
                 <span className="text-lg font-bold text-ink num">
                   {loadingDetail ? "..." : formatINR(detailCustomer?.customer?.totalOutstanding || 0)}
                 </span>
-                <span className="text-[10px] text-ink-3 block mt-0.5">Grand total across all invoices</span>
+                <span className="text-[10px] text-ink-3 block mt-0.5">Current pending ledger due</span>
               </div>
 
               <div className="p-3 rounded-sm bg-surface border border-border shadow-xs">
-                <span className="text-[11px] font-medium text-ink-3 block mb-0.5">Total Invoices</span>
+                <span className="text-[11px] font-medium text-ink-3 block mb-0.5">Total Invoiced</span>
                 <span className="text-lg font-bold text-ink num">
-                  {loadingDetail ? "..." : `${detailCustomer?.customer?.invoicesCount ?? selectedCustomer._count?.invoices ?? 0}`}
+                  {loadingDetail ? "..." : formatINR(detailCustomer?.customer?.totalInvoiced ?? detailCustomer?.customer?.totalOutstanding ?? 0)}
                 </span>
-                <span className="text-[10px] text-ink-3 block mt-0.5">Billed tax invoices</span>
+                <span className="text-[10px] text-ink-3 block mt-0.5">Billed tax invoices value</span>
               </div>
 
               <div className="p-3 rounded-sm bg-surface border border-border shadow-xs">
@@ -728,11 +769,19 @@ export default function CustomersPage() {
                               ({month.invoicesCount} invoice{month.invoicesCount === 1 ? "" : "s"})
                             </span>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[11px] text-ink-3 mr-2 font-mono">Month Billed:</span>
-                            <span className="text-xs font-bold text-primary font-mono">
-                              {formatINR(month.grandTotal)}
-                            </span>
+                          <div className="flex items-center gap-4 text-right">
+                            <div>
+                              <span className="text-[11px] text-ink-3 mr-1.5 font-mono">Billed:</span>
+                              <span className="text-xs font-semibold text-ink font-mono">
+                                {formatINR(month.grandTotal)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[11px] text-ink-3 mr-1.5 font-mono">Outstanding:</span>
+                              <span className="text-xs font-bold text-primary font-mono">
+                                {formatINR(month.outstandingTotal ?? 0)}
+                              </span>
+                            </div>
                           </div>
                         </div>
 
@@ -745,7 +794,9 @@ export default function CustomersPage() {
                                 <th className="py-2 px-3">Date</th>
                                 <th className="py-2 px-3">Products Included</th>
                                 <th className="py-2 px-3 text-right">Taxable</th>
-                                <th className="py-2 px-3 text-right">Outstanding (Total)</th>
+                                <th className="py-2 px-3 text-right">Invoice Value</th>
+                                <th className="py-2 px-3 text-right">Outstanding</th>
+                                <th className="py-2 px-3 text-center">Status</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -768,8 +819,26 @@ export default function CustomersPage() {
                                   <td className="py-2 px-3 text-right num text-ink-2">
                                     {formatINR(inv.taxableTotal)}
                                   </td>
-                                  <td className="py-2 px-3 text-right num font-bold text-ink">
+                                  <td className="py-2 px-3 text-right num font-medium text-ink">
                                     {formatINR(inv.grandTotal)}
+                                  </td>
+                                  <td className="py-2 px-3 text-right num font-bold text-foreground">
+                                    {formatINR(inv.outstandingAmount ?? 0)}
+                                  </td>
+                                  <td className="py-2 px-3 text-center">
+                                    {inv.status === "SETTLED" ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                        Settled
+                                      </span>
+                                    ) : inv.status === "PARTIAL" ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                        Part Paid
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
+                                        Open
+                                      </span>
+                                    )}
                                   </td>
                                 </tr>
                               ))}

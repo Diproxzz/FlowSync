@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeSupplierName } from "@/lib/matching/normalize";
+import { getOrCreateSupplierLedgerAccount, calculateAccountTotalDue } from "@/lib/ledger/account-utils";
+import { allocateBillwiseOutstanding } from "@/lib/ledger/billAllocation";
 
 export async function GET(
   request: NextRequest,
@@ -11,6 +13,9 @@ export async function GET(
     where: { id },
     include: {
       aliases: true,
+      ledger_account: {
+        select: { id: true, display_name: true },
+      },
       purchase_invoices: {
         orderBy: { invoice_date: "desc" },
         include: {
@@ -38,6 +43,9 @@ export async function GET(
       { status: 404 }
     );
   }
+
+  // Ensure / resolve linked ledger account
+  const ledgerAccount = await getOrCreateSupplierLedgerAccount(supplier.id);
 
   // Check if also a customer
   let alsoCustomer = null;
@@ -94,12 +102,44 @@ export async function GET(
     avgRatePerKg: p.totalQtyKg > 0 ? Math.round((p.totalSpend / p.totalQtyKg) * 100) / 100 : 0,
   }));
 
+  // Calculate total outstanding payable to supplier
+  let totalOutstanding = totalSpend;
+  if (ledgerAccount && ledgerAccount.entries && ledgerAccount.entries.length > 0) {
+    totalOutstanding = calculateAccountTotalDue(ledgerAccount, false);
+  }
+
+  // Prepare purchase bills for reverse-chronological allocation
+  const rawBills = supplier.purchase_invoices.map((inv) => ({
+    id: inv.id,
+    supplier_invoice_number: inv.supplier_invoice_number,
+    invoiceDate: inv.invoice_date.toISOString().split("T")[0],
+    taxable_total: Number(inv.taxable_total || 0),
+    grandTotal: Number(inv.grand_total || 0),
+    items: inv.items,
+  }));
+
+  const allocatedBills = allocateBillwiseOutstanding(rawBills, totalOutstanding);
+
   return NextResponse.json({
     supplier: {
       ...supplier,
       total_spend: totalSpend,
+      totalOutstanding: Math.round(totalOutstanding * 100) / 100,
       alsoCustomer,
       productsBought,
+      purchase_invoices: allocatedBills.map((b) => ({
+        id: b.id,
+        supplier_invoice_number: b.supplier_invoice_number,
+        invoice_date: b.invoiceDate,
+        taxable_total: b.taxable_total,
+        grand_total: b.grandTotal,
+        outstandingAmount: b.outstandingAmount,
+        settledAmount: b.settledAmount,
+        status: b.status,
+        items: b.items,
+      })),
+      ledgerAccountId: ledgerAccount?.id || null,
+      ledger_account: ledgerAccount ? { id: ledgerAccount.id, display_name: ledgerAccount.display_name } : null,
     },
   });
 }

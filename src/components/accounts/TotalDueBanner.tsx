@@ -82,9 +82,9 @@ export function TotalDueBanner({
               "w-3.5 h-12 rounded-full",
               isZero
                 ? "bg-slate-400"
-                : (isCustomer && isDr) || (!isCustomer && isCr)
-                ? "bg-rose-500"
-                : "bg-emerald-500"
+                : isCr
+                ? "bg-emerald-500"
+                : "bg-rose-500"
             )}
           />
           <div>
@@ -94,7 +94,10 @@ export function TotalDueBanner({
                   titlePrefix
                 ) : (
                   <>
-                    <span>{titlePrefix}: {formatINR(absDue)}</span>
+                    <span>{titlePrefix}: </span>
+                    <span className={isCr ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-foreground"}>
+                      {formatINR(absDue)}
+                    </span>
                     <span
                       className={
                         isDr

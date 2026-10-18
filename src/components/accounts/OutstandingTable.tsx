@@ -323,7 +323,14 @@ export function OutstandingTable({
               <td colSpan={5} className="py-3 px-4 text-foreground">
                 Net Closing Balance (Total Due)
               </td>
-              <td className="py-3 px-4 text-right font-mono text-base text-foreground">
+              <td
+                className={cn(
+                  "py-3 px-4 text-right font-mono text-base font-bold",
+                  closingSide === "Cr"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-foreground"
+                )}
+              >
                 {formatINR(Math.abs(closingBalance))}{" "}
                 <span
                   className={cn(

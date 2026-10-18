@@ -50,6 +50,22 @@ export function formatParticularsText(data: ParticularsData): string {
     return text;
   }
 
+  if (entryType === "CREDIT_NOTE") {
+    let text = `C/N No. ${docNo || ""}`.trim();
+    if (referencedDocs && referencedDocs.length > 0) {
+      text += ` Adj. in ${referencedDocs.join(",")}`;
+    }
+    return text || particularsRaw || "Credit Note";
+  }
+
+  if (entryType === "DEBIT_NOTE") {
+    let text = `D/N No. ${docNo || ""}`.trim();
+    if (referencedDocs && referencedDocs.length > 0) {
+      text += ` Adj. in ${referencedDocs.join(",")}`;
+    }
+    return text || particularsRaw || "Debit Note";
+  }
+
   if (narration) {
     return `${entryType}: ${narration}`;
   }
@@ -59,7 +75,7 @@ export function formatParticularsText(data: ParticularsData): string {
 
 /**
  * Extracts referenced bill numbers from raw particulars string:
- * e.g. "Ag. *IB25-26/0657,*IB25-26/0664,IB26-27/0011"
+ * e.g. "Ag. *IB25-26/0657,*IB25-26/0664,IB26-27/0011" or "Adj.in *IB25-26/0657"
  */
 export function extractReferencedBills(
   text: string,
@@ -72,12 +88,12 @@ export function extractReferencedBills(
   const referencedDocs: string[] = [];
   const priorYearRefs: string[] = [];
 
-  const agIndex = text.indexOf("Ag.");
-  if (agIndex === -1) {
+  const agMatch = text.match(/(?:Ag\.?|Agst\b|Against\b|Adj\.?\s*in)\s*/i);
+  if (!agMatch || agMatch.index === undefined) {
     return { referencedDocs, priorYearRefs, truncated: false };
   }
 
-  const afterAg = text.slice(agIndex + 3).trim();
+  const afterAg = text.slice(agMatch.index + agMatch[0].length).trim();
 
   // Regex to match bill references like *IB25-26/0657 or IB26-27/0011
   const refRegex = /\*?([A-Za-z0-9_-]+\/[A-Za-z0-9_-]+)/g;

@@ -6,7 +6,7 @@ export class OllamaProvider implements LLMProvider {
   name = "Ollama (Local)";
 
   isConfigured(): boolean {
-    return Boolean(env.OLLAMA_MODEL && env.OLLAMA_MODEL.trim());
+    return Boolean(env.ENABLE_LOCAL_MODELS && env.OLLAMA_MODEL && env.OLLAMA_MODEL.trim());
   }
 
   async extract(req: ExtractionRequest): Promise<ExtractionResponse> {

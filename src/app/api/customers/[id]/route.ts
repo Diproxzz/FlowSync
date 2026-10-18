@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeCustomerName } from "@/lib/matching/normalize";
 import { Prisma } from "@prisma/client";
+import { getOrCreateCustomerLedgerAccount, calculateAccountTotalDue } from "@/lib/ledger/account-utils";
+import { allocateBillwiseOutstanding } from "@/lib/ledger/billAllocation";
 
 export async function GET(
   request: NextRequest,
@@ -12,6 +14,9 @@ export async function GET(
     where: { id },
     include: {
       aliases: true,
+      ledger_account: {
+        select: { id: true, display_name: true },
+      },
       invoices: {
         orderBy: { invoice_date: "desc" },
         include: {
@@ -40,7 +45,47 @@ export async function GET(
     );
   }
 
-  // 1. Calculate Monthly Outstanding / Invoicing
+  // Ensure / resolve linked ledger account
+  const ledgerAccount = await getOrCreateCustomerLedgerAccount(customer.id);
+
+  // Compute total billed invoices
+  let totalInvoiced = 0;
+  for (const inv of customer.invoices) {
+    totalInvoiced += Number(inv.grand_total);
+  }
+
+  // Total due comes from ledger account closing balance if available, otherwise total invoiced
+  let totalDue = totalInvoiced;
+  if (ledgerAccount && ledgerAccount.entries && ledgerAccount.entries.length > 0) {
+    totalDue = calculateAccountTotalDue(ledgerAccount, true);
+  }
+
+  // Prepare flat invoice array for billwise allocation
+  const rawInvoices = customer.invoices.map((inv) => {
+    const taxable = Number(inv.taxable_total);
+    const grand = Number(inv.grand_total);
+    const gst = Number(inv.cgst_total) + Number(inv.sgst_total) + Number(inv.igst_total || 0);
+    const itemsSummary = inv.items
+      .map((it) => `${it.product?.name || it.product_name_raw} (${Number(it.qty_kg)} kg)`)
+      .join(", ");
+
+    return {
+      id: inv.id,
+      invoiceNumber: inv.invoice_number,
+      invoiceDate: inv.invoice_date.toISOString().split("T")[0],
+      taxableTotal: taxable,
+      grandTotal: grand,
+      gstTotal: gst,
+      itemsSummary,
+      itemsCount: inv.items.length,
+      items: inv.items,
+    };
+  });
+
+  // Reverse-chronological billwise outstanding allocation (newest bills first)
+  const allocatedInvoices = allocateBillwiseOutstanding(rawInvoices, totalDue);
+
+  // 1. Group allocated invoices by month
   const monthlyMap = new Map<string, {
     monthKey: string;
     monthLabel: string;
@@ -49,16 +94,9 @@ export async function GET(
     taxableTotal: number;
     gstTotal: number;
     grandTotal: number;
+    outstandingTotal: number;
     invoicesCount: number;
-    invoices: Array<{
-      id: string;
-      invoiceNumber: string;
-      invoiceDate: string;
-      taxableTotal: number;
-      grandTotal: number;
-      itemsSummary: string;
-      itemsCount: number;
-    }>;
+    invoices: any[];
   }>();
 
   // 2. Calculate Products Bought Portfolio
@@ -76,18 +114,12 @@ export async function GET(
     invoicesCount: number;
   }>();
 
-  let totalOutstanding = 0;
   let totalVolumeKg = 0;
 
-  for (const inv of customer.invoices) {
-    const d = new Date(inv.invoice_date);
+  for (const inv of allocatedInvoices) {
+    const d = new Date(inv.invoiceDate);
     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const monthLabel = d.toLocaleString("en-IN", { month: "long", year: "numeric" });
-    const grand = Number(inv.grand_total);
-    const taxable = Number(inv.taxable_total);
-    const gst = Number(inv.cgst_total) + Number(inv.sgst_total) + Number(inv.igst_total || 0);
-
-    totalOutstanding += grand;
 
     if (!monthlyMap.has(monthKey)) {
       monthlyMap.set(monthKey, {
@@ -98,29 +130,30 @@ export async function GET(
         taxableTotal: 0,
         gstTotal: 0,
         grandTotal: 0,
+        outstandingTotal: 0,
         invoicesCount: 0,
         invoices: [],
       });
     }
 
     const m = monthlyMap.get(monthKey)!;
-    m.taxableTotal += taxable;
-    m.gstTotal += gst;
-    m.grandTotal += grand;
+    m.taxableTotal += inv.taxableTotal;
+    m.gstTotal += inv.gstTotal;
+    m.grandTotal += inv.grandTotal;
+    m.outstandingTotal += inv.outstandingAmount;
     m.invoicesCount += 1;
-
-    const itemsSummary = inv.items
-      .map((it) => `${it.product?.name || it.product_name_raw} (${Number(it.qty_kg)} kg)`)
-      .join(", ");
 
     m.invoices.push({
       id: inv.id,
-      invoiceNumber: inv.invoice_number,
-      invoiceDate: inv.invoice_date.toISOString().split("T")[0],
-      taxableTotal: taxable,
-      grandTotal: grand,
-      itemsSummary,
-      itemsCount: inv.items.length,
+      invoiceNumber: inv.invoiceNumber,
+      invoiceDate: inv.invoiceDate,
+      taxableTotal: inv.taxableTotal,
+      grandTotal: inv.grandTotal,
+      outstandingAmount: inv.outstandingAmount,
+      settledAmount: inv.settledAmount,
+      status: inv.status,
+      itemsSummary: inv.itemsSummary,
+      itemsCount: inv.itemsCount,
     });
 
     for (const it of inv.items) {
@@ -143,7 +176,7 @@ export async function GET(
           totalAmount: 0,
           lastRate: rate,
           rates: [],
-          lastDate: inv.invoice_date.toISOString().split("T")[0],
+          lastDate: inv.invoiceDate,
           invoicesCount: 0,
         });
       }
@@ -174,9 +207,12 @@ export async function GET(
   return NextResponse.json({
     customer: {
       ...customer,
-      totalOutstanding: Math.round(totalOutstanding * 100) / 100,
+      totalOutstanding: Math.round(totalDue * 100) / 100,
+      totalInvoiced: Math.round(totalInvoiced * 100) / 100,
       totalVolumeKg: Math.round(totalVolumeKg * 1000) / 1000,
       invoicesCount: customer.invoices.length,
+      ledgerAccountId: ledgerAccount?.id || null,
+      ledger_account: ledgerAccount ? { id: ledgerAccount.id, display_name: ledgerAccount.display_name } : null,
     },
     monthlyBreakdown,
     productsBought,

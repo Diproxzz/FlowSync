@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
+import { getGroqKeys } from "@/lib/llm/providers/groq";
 
 export async function GET() {
   const dbSettings = await prisma.setting.findMany();
@@ -9,12 +10,14 @@ export async function GET() {
     settingsMap[s.key] = s.value;
   }
 
+  const groqKeyCount = getGroqKeys().length;
+
   // Combine DB settings with environment provider status (keys are NEVER exposed to browser)
   const providers = [
     {
       id: "groq",
-      name: "Groq (qwen-3.8)",
-      isConfigured: Boolean(env.GROQ_API_KEY && env.GROQ_API_KEY.trim()),
+      name: groqKeyCount > 1 ? `Groq (qwen-3.8, ${groqKeyCount} keys active)` : "Groq (qwen-3.8)",
+      isConfigured: groqKeyCount > 0,
       model: env.GROQ_MODEL || "qwen/qwen3.8-27b",
     },
     {
@@ -26,20 +29,20 @@ export async function GET() {
     {
       id: "glm-ocr",
       name: "GLM-OCR (0.9B)",
-      isConfigured: true,
+      isConfigured: Boolean(env.ENABLE_LOCAL_MODELS),
       model: "glm-ocr-0.9b (Ollama / Local)",
       baseUrl: env.OLLAMA_BASE_URL,
     },
     {
       id: "paddleocr-vl",
       name: "PaddleOCR-VL (0.9B)",
-      isConfigured: true,
+      isConfigured: Boolean(env.ENABLE_LOCAL_MODELS),
       model: "paddleocr-vl-0.9b (Python / Local)",
     },
     {
       id: "qwen2-vl",
       name: "Qwen2-VL-2B (Quantized INT4)",
-      isConfigured: true,
+      isConfigured: Boolean(env.ENABLE_LOCAL_MODELS),
       model: "qwen2-vl-2b-int4 (Ollama / Transformers)",
       baseUrl: env.OLLAMA_BASE_URL,
     },
@@ -52,7 +55,7 @@ export async function GET() {
     {
       id: "ollama",
       name: "Ollama (Local)",
-      isConfigured: Boolean(env.OLLAMA_MODEL && env.OLLAMA_MODEL.trim()),
+      isConfigured: Boolean(env.ENABLE_LOCAL_MODELS && env.OLLAMA_MODEL && env.OLLAMA_MODEL.trim()),
       model: env.OLLAMA_MODEL || "llama3.2-vision",
       baseUrl: env.OLLAMA_BASE_URL,
     },

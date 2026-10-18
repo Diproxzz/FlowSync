@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     where,
     include: {
       aliases: true,
+      ledger_account: { select: { id: true, display_name: true } },
       _count: { select: { invoices: true } },
     },
     orderBy: { name: "asc" },

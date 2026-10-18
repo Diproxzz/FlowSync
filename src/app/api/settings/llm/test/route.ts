@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { getGroqKeys } from "@/lib/llm/providers/groq";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,25 +67,43 @@ export async function POST(request: NextRequest) {
     }
 
     if (providerId === "groq") {
-      if (!env.GROQ_API_KEY) {
+      const keys = getGroqKeys();
+      if (keys.length === 0) {
         return NextResponse.json(
-          { ok: false, message: "GROQ_API_KEY is not set in .env" },
+          { ok: false, message: "No GROQ_API_KEY set in .env" },
           { status: 400 }
         );
       }
 
-      const res = await fetch("https://api.groq.com/openai/v1/models", {
-        headers: { Authorization: `Bearer ${env.GROQ_API_KEY}` },
+      let validCount = 0;
+      let lastErr = "";
+      for (const k of keys) {
+        try {
+          const res = await fetch("https://api.groq.com/openai/v1/models", {
+            headers: { Authorization: `Bearer ${k}` },
+          });
+          if (res.ok) {
+            validCount++;
+          } else {
+            const errJson = await res.json().catch(() => ({}));
+            lastErr = errJson.error?.message || `HTTP ${res.status}`;
+          }
+        } catch (e: any) {
+          lastErr = e.message;
+        }
+      }
+
+      if (validCount === 0) {
+        return NextResponse.json(
+          { ok: false, message: `All Groq keys failed. Last error: ${lastErr}` },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: `Groq connected! (${validCount}/${keys.length} keys validated, Model: ${env.GROQ_MODEL})`,
       });
-
-      if (!res.ok) {
-        return NextResponse.json(
-          { ok: false, message: `Groq returned HTTP ${res.status}` },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json({ ok: true, message: "Groq connection successful!" });
     }
 
     if (providerId === "glm-ocr") {

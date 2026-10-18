@@ -14,8 +14,8 @@ export class GlmOcrProvider implements LLMProvider {
   name = "GLM-OCR (0.9B)";
 
   isConfigured(): boolean {
-    // Available via Ollama or local Python environment
-    return true;
+    // Available via Ollama or local Python environment when running on this system
+    return Boolean(env.ENABLE_LOCAL_MODELS);
   }
 
   async extract(req: ExtractionRequest): Promise<ExtractionResponse> {

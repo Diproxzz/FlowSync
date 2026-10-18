@@ -16,8 +16,15 @@ import {
   Building,
   CheckCircle,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DebtorListView,
+  type DebtorItem,
+  type MonthColumn,
+  type DebtorSummary,
+} from "@/components/accounts/DebtorListView";
 
 interface AccountOverviewItem {
   id: string;
@@ -59,8 +66,40 @@ export default function AccountsPage() {
   const [filterType, setFilterType] = useState<"ALL" | "CUSTOMER" | "SUPPLIER">("ALL");
   const [filterBalance, setFilterBalance] = useState<"ALL" | "DR_ONLY" | "CR_ONLY" | "OVERDUE">("ALL");
 
+  const [isDebtorListOpen, setIsDebtorListOpen] = useState(false);
+  const [debtorData, setDebtorData] = useState<{
+    debtors: DebtorItem[];
+    months: MonthColumn[];
+    summary: DebtorSummary;
+  } | null>(null);
+  const [loadingDebtors, setLoadingDebtors] = useState(false);
+
+  const fetchDebtors = async () => {
+    try {
+      const res = await fetch("/api/ledger/debtors");
+      const json = await res.json();
+      if (json.data) {
+        setDebtorData(json.data);
+      } else if (json.debtors) {
+        setDebtorData(json);
+      }
+    } catch (err) {
+      console.error("Failed to load debtors list:", err);
+    }
+  };
+
+  const handleOpenDebtorList = async () => {
+    setIsDebtorListOpen(true);
+    if (!debtorData) {
+      setLoadingDebtors(true);
+      await fetchDebtors();
+      setLoadingDebtors(false);
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
+    fetchDebtors();
   }, []);
 
   const fetchAccounts = async () => {
@@ -155,6 +194,16 @@ export default function AccountsPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={handleOpenDebtorList}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors shadow-xs"
+            title="View Debtor List with monthwise classification and export"
+          >
+            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>Debtor List (Monthwise)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
           >
@@ -175,18 +224,30 @@ export default function AccountsPage() {
       {/* KPI Cards: Receivables & Payables (Never Netted) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Receivable */}
-        <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/40 dark:bg-rose-950/20 dark:border-rose-900 shadow-sm">
+        <div
+          onClick={handleOpenDebtorList}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") handleOpenDebtorList();
+          }}
+          className="p-4 rounded-xl border border-rose-200 bg-rose-50/40 dark:bg-rose-950/20 dark:border-rose-900 shadow-sm cursor-pointer hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-md transition-all group select-none"
+          title="Click to view monthwise Debtor List"
+        >
           <div className="flex items-center justify-between text-rose-700 dark:text-rose-400 text-xs font-semibold uppercase tracking-wider">
             <span>Total Receivable (Dr)</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-100 dark:bg-rose-900/60 font-bold">
-              Dr
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] lowercase text-rose-600/80 group-hover:underline">view list &rarr;</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-100 dark:bg-rose-900/60 font-bold uppercase">
+                Dr
+              </span>
+            </div>
           </div>
           <div className="text-2xl font-bold font-mono text-rose-700 dark:text-rose-400 mt-2">
             {formatINR(summary.totalReceivable)}
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">
-            Total amount parties owe you
+            Total amount parties owe you &bull; Click for debtor list
           </div>
         </div>
 
@@ -395,7 +456,9 @@ export default function AccountsPage() {
 
                       {/* Closing Balance */}
                       <td className="py-3 px-3 text-right font-mono font-bold whitespace-nowrap">
-                        {formatINR(Math.abs(acc.closingBalance))}{" "}
+                        <span className={isCr ? "text-emerald-600 dark:text-emerald-400 font-bold" : isDr ? "text-foreground" : "text-muted-foreground"}>
+                          {formatINR(Math.abs(acc.closingBalance))}
+                        </span>{" "}
                         <span
                           className={cn(
                             "text-[10px] font-bold ml-1",
@@ -450,6 +513,35 @@ export default function AccountsPage() {
           </table>
         </div>
       </div>
+
+      {/* Debtor List Monthwise View Modal */}
+      {isDebtorListOpen && (
+        debtorData ? (
+          <DebtorListView
+            debtors={debtorData.debtors}
+            months={debtorData.months}
+            summary={debtorData.summary}
+            onClose={() => setIsDebtorListOpen(false)}
+          />
+        ) : (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-xl p-8 max-w-sm w-full flex flex-col items-center text-center shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+              <div className="w-8 h-8 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin mb-4" />
+              <div className="font-semibold text-base text-foreground">Loading Debtor List...</div>
+              <div className="text-xs text-muted-foreground mt-1.5">
+                Classifying invoices and running balance month-by-month
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDebtorListOpen(false)}
+                className="mt-5 text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )
+      )}
     </div>
   );
 }

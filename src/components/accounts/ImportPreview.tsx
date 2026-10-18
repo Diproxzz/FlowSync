@@ -14,8 +14,15 @@ import {
   Link2,
   UserPlus,
   Check,
+  Pencil,
+  Trash2,
+  Plus,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { validateStatement } from "@/lib/ledger/parse/validate";
+import { ExtractedStatement, StatementEntry } from "@/lib/ledger/parse/schema";
 
 interface PartyOption {
   id: string;
@@ -47,16 +54,45 @@ export function ImportPreview({
   onSaveSuccess,
   onCancel,
 }: ImportPreviewProps) {
+  // Local state for statement data to allow in-place editing before saving
+  const [statementData, setStatementData] = useState<ExtractedStatement>(extracted);
+
   const closingSide =
-    extracted?.totals?.closingSide ??
-    extracted?.printedTotals?.balanceSide ??
-    (extracted?.openingSide === "Cr" ? "Cr" : "Dr");
+    statementData?.printedTotals?.balanceSide ??
+    (statementData?.openingSide === "Cr" ? "Cr" : "Dr");
   const suggestedType: "CUSTOMER" | "SUPPLIER" =
-    extracted?.suggestedAccountType || (closingSide === "Cr" ? "SUPPLIER" : "CUSTOMER");
+    (extracted as any)?.suggestedAccountType || (closingSide === "Cr" ? "SUPPLIER" : "CUSTOMER");
 
   const [accountType, setAccountType] = useState<"CUSTOMER" | "SUPPLIER">(suggestedType);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Row editing state
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editRowData, setEditRowData] = useState<{
+    date: string;
+    entryType: string;
+    docNo: string;
+    particularsRaw: string;
+    debit: string;
+    credit: string;
+  }>({
+    date: "",
+    entryType: "SALE_INVOICE",
+    docNo: "",
+    particularsRaw: "",
+    debit: "",
+    credit: "",
+  });
+
+  // Opening balance editing state
+  const [isEditingOpening, setIsEditingOpening] = useState(false);
+  const [editOpeningAmount, setEditOpeningAmount] = useState<string>(
+    String(statementData?.openingBalance || 0)
+  );
+  const [editOpeningSide, setEditOpeningSide] = useState<"Dr" | "Cr">(
+    statementData?.openingSide || "Dr"
+  );
 
   // Party matching & selection state
   const isAutoMatch = partyMatch?.status === "exact" || partyMatch?.status === "alias";
@@ -94,9 +130,18 @@ export function ImportPreview({
     };
   }, []);
 
-  const isValid = validation?.isValid ?? false;
-  const validationErrors: string[] = validation?.errors ?? [];
-  const validationWarnings: string[] = validation?.warnings ?? [];
+  // Live validation whenever statementData changes
+  const liveValidation = useMemo(() => {
+    try {
+      return validateStatement(statementData);
+    } catch {
+      return validation || { isValid: false, errors: [], warnings: [] };
+    }
+  }, [statementData, validation]);
+
+  const isValid = liveValidation?.isValid ?? false;
+  const validationErrors: string[] = liveValidation?.errors ?? [];
+  const validationWarnings: string[] = liveValidation?.warnings ?? [];
 
   // Active parties based on Account Type
   const activeParties = accountType === "CUSTOMER" ? customers : suppliers;
@@ -128,6 +173,126 @@ export function ImportPreview({
     }
   };
 
+  const handleStartEdit = (idx: number) => {
+    const row = statementData.entries[idx];
+    setEditingIndex(idx);
+    setEditRowData({
+      date: row.date || "",
+      entryType: row.entryType || (accountType === "SUPPLIER" ? "PURCHASE_INVOICE" : "SALE_INVOICE"),
+      docNo: row.docNo || "",
+      particularsRaw: row.particularsRaw || "",
+      debit: row.debit > 0 ? String(row.debit) : "",
+      credit: row.credit > 0 ? String(row.credit) : "",
+    });
+  };
+
+  const handleSaveRow = (idx: number) => {
+    const deb = parseFloat(editRowData.debit) || 0;
+    const cred = parseFloat(editRowData.credit) || 0;
+
+    const updatedEntries = [...statementData.entries];
+    const prev = updatedEntries[idx];
+
+    let docNo = editRowData.docNo.trim() || null;
+    if (docNo) {
+      docNo = docNo.replace(/^Bill\s*No\.?\s*/i, "").trim();
+    }
+
+    let cleanParticulars = editRowData.particularsRaw.trim();
+    if (!cleanParticulars && docNo) {
+      cleanParticulars = `Bill No. ${docNo}`;
+    } else if (cleanParticulars && (editRowData.entryType === "SALE_INVOICE" || editRowData.entryType === "PURCHASE_INVOICE") && docNo) {
+      cleanParticulars = `Bill No. ${docNo}`;
+    }
+
+    updatedEntries[idx] = {
+      ...prev,
+      date: editRowData.date || prev.date,
+      entryType: editRowData.entryType as any,
+      docNo,
+      particularsRaw: cleanParticulars || prev.particularsRaw,
+      debit: deb,
+      credit: cred,
+    };
+
+    // Keep entries sorted chronologically by date
+    updatedEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    setStatementData({
+      ...statementData,
+      entries: updatedEntries,
+    });
+    setEditingIndex(null);
+  };
+
+  const handleDeleteRow = (idx: number) => {
+    if (editingIndex === idx) setEditingIndex(null);
+    const updatedEntries = statementData.entries.filter((_, i) => i !== idx);
+    setStatementData({
+      ...statementData,
+      entries: updatedEntries,
+    });
+  };
+
+  const handleAddRow = () => {
+    const defaultDate =
+      statementData.periodTo || statementData.periodFrom || new Date().toISOString().slice(0, 10);
+    const defaultType = accountType === "SUPPLIER" ? "PURCHASE_INVOICE" : "SALE_INVOICE";
+    const newEntry: StatementEntry = {
+      date: defaultDate,
+      entryType: defaultType,
+      docNo: "",
+      paymentMode: null,
+      instrumentNo: null,
+      instrumentDate: null,
+      referencedDocs: [],
+      priorYearRefs: [],
+      referencesTruncated: false,
+      particularsRaw: "",
+      debit: 0,
+      credit: 0,
+      printedBalance: null,
+      printedBalanceSide: null,
+    };
+    const newEntries = [...statementData.entries, newEntry];
+    setStatementData({
+      ...statementData,
+      entries: newEntries,
+    });
+    setEditingIndex(newEntries.length - 1);
+    setEditRowData({
+      date: defaultDate,
+      entryType: defaultType,
+      docNo: "",
+      particularsRaw: "",
+      debit: "",
+      credit: "",
+    });
+  };
+
+  const handleSaveOpening = () => {
+    const amt = parseFloat(editOpeningAmount) || 0;
+    setStatementData({
+      ...statementData,
+      openingBalance: amt,
+      openingSide: editOpeningSide,
+    });
+    setIsEditingOpening(false);
+  };
+
+  const handleSyncTotals = () => {
+    if (!liveValidation) return;
+    setStatementData({
+      ...statementData,
+      printedTotals: {
+        debit: liveValidation.replayedDebitTotal,
+        credit: liveValidation.replayedCreditTotal,
+        balance: liveValidation.replayedClosing,
+        balanceSide: liveValidation.replayedSide,
+      },
+    });
+  };
+
   const canSave =
     isValid &&
     !saving &&
@@ -150,8 +315,8 @@ export function ImportPreview({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          statement: extracted,
-          draft: extracted,
+          statement: statementData,
+          draft: statementData,
           partyMatch: effectivePartyId
             ? { ...partyMatch, partyId: effectivePartyId, matchedPartyId: effectivePartyId }
             : null,
@@ -537,43 +702,74 @@ export function ImportPreview({
       </div>
 
       {/* Totals Comparison Check */}
-      <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-          Replay & Statement Totals Reconciled
-        </h4>
+      <div className="p-4 rounded-xl border border-border bg-card shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Replay & Statement Totals Reconciled
+          </h4>
+          {(!isValid && validationErrors.length > 0 && liveValidation && (
+            validationErrors.some((e) => e.includes("Total mismatch") || e.includes("Side mismatch"))
+          )) && (
+            <button
+              type="button"
+              onClick={handleSyncTotals}
+              className="text-xs text-primary hover:text-primary/80 font-medium underline inline-flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Sync Statement Totals with Replayed Sum
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
             <span className="text-xs text-muted-foreground block">Debit Total</span>
             <span className="font-mono font-semibold text-sm text-foreground">
-              {formatINR(extracted?.totals?.debitTotal ?? extracted?.printedTotals?.debit ?? 0)}
+              {formatINR(statementData?.printedTotals?.debit ?? 0)}
             </span>
+            {liveValidation && liveValidation.replayedDebitTotal !== statementData?.printedTotals?.debit && (
+              <span className="block text-[10px] text-muted-foreground font-mono mt-0.5">
+                Replayed: {formatINR(liveValidation.replayedDebitTotal)}
+              </span>
+            )}
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
             <span className="text-xs text-muted-foreground block">Credit Total</span>
             <span className="font-mono font-semibold text-sm text-foreground">
-              {formatINR(extracted?.totals?.creditTotal ?? extracted?.printedTotals?.credit ?? 0)}
+              {formatINR(statementData?.printedTotals?.credit ?? 0)}
             </span>
+            {liveValidation && liveValidation.replayedCreditTotal !== statementData?.printedTotals?.credit && (
+              <span className="block text-[10px] text-muted-foreground font-mono mt-0.5">
+                Replayed: {formatINR(liveValidation.replayedCreditTotal)}
+              </span>
+            )}
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
             <span className="text-xs text-muted-foreground block">Closing Balance</span>
             <span className="font-mono font-semibold text-sm text-foreground">
-              {formatINR(extracted?.totals?.closing ?? extracted?.printedTotals?.balance ?? 0)}{" "}
+              {formatINR(statementData?.printedTotals?.balance ?? 0)}{" "}
               <span
                 className={cn(
                   "font-bold ml-0.5",
-                  (extracted?.totals?.closingSide ?? extracted?.printedTotals?.balanceSide ?? "Dr") === "Cr"
+                  (statementData?.printedTotals?.balanceSide ?? "Dr") === "Cr"
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-rose-600 dark:text-rose-400"
                 )}
               >
-                {extracted?.totals?.closingSide ?? extracted?.printedTotals?.balanceSide ?? "Dr"}
+                {statementData?.printedTotals?.balanceSide ?? "Dr"}
               </span>
             </span>
+            {liveValidation &&
+              (liveValidation.replayedClosing !== statementData?.printedTotals?.balance ||
+                liveValidation.replayedSide !== statementData?.printedTotals?.balanceSide) && (
+                <span className="block text-[10px] text-muted-foreground font-mono mt-0.5">
+                  Replayed: {formatINR(liveValidation.replayedClosing)} {liveValidation.replayedSide}
+                </span>
+              )}
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
             <span className="text-xs text-muted-foreground block">Total Entries</span>
             <span className="font-mono font-semibold text-sm text-foreground">
-              {extracted?.entries?.length || 0} rows
+              {statementData?.entries?.length || 0} rows
             </span>
           </div>
         </div>
@@ -593,53 +789,117 @@ export function ImportPreview({
 
       {/* Extracted Ledger Table Preview */}
       <div className="p-4 rounded-xl border border-border bg-card shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Extracted Transactions ({extracted.entries?.length || 0} rows)
-          </h4>
-          <span className="text-xs text-muted-foreground font-mono">
-            {extracted.periodFrom} &rarr; {extracted.periodTo}
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Extracted Transactions ({statementData.entries?.length || 0} rows)
+            </h4>
+            <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded font-medium">
+              Editable
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground font-mono">
+              {statementData.periodFrom} &rarr; {statementData.periodTo}
+            </span>
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="px-2.5 py-1 text-xs font-medium rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Row
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-xs text-left">
             <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
               <tr>
-                <th className="py-2.5 px-3.5">Date</th>
+                <th className="py-2.5 px-3.5 whitespace-nowrap">Date</th>
                 <th className="py-2.5 px-3.5 min-w-[340px]">Particulars / Doc No</th>
-                <th className="py-2.5 px-3.5 text-right">Debit (₹)</th>
-                <th className="py-2.5 px-3.5 text-right">Credit (₹)</th>
-                <th className="py-2.5 px-3.5 text-right">Balance</th>
-                <th className="py-2.5 px-3.5 text-center">Status</th>
+                <th className="py-2.5 px-3.5 text-right whitespace-nowrap">Debit (₹)</th>
+                <th className="py-2.5 px-3.5 text-right whitespace-nowrap">Credit (₹)</th>
+                <th className="py-2.5 px-3.5 text-right whitespace-nowrap">Balance</th>
+                <th className="py-2.5 px-3.5 text-center whitespace-nowrap">Status</th>
+                <th className="py-2.5 px-3.5 text-center w-20 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 font-mono">
               {/* Line 1: Opening Balance */}
               <tr className="bg-muted/40 font-medium border-b border-border">
                 <td className="py-2.5 px-3.5 text-muted-foreground whitespace-nowrap">
-                  {formatDate(extracted.periodFrom)}
+                  {formatDate(statementData.periodFrom)}
                 </td>
                 <td className="py-2.5 px-3.5 text-foreground font-sans font-semibold min-w-[340px]">
-                  Opening Balance
+                  {isEditingOpening ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-sans">Opening Balance</span>
+                      <select
+                        value={editOpeningSide}
+                        onChange={(e) => setEditOpeningSide(e.target.value as "Dr" | "Cr")}
+                        className="px-2 py-0.5 text-xs rounded border border-border bg-background font-sans"
+                      >
+                        <option value="Dr">Dr (Customer / Debtor)</option>
+                        <option value="Cr">Cr (Supplier / Creditor)</option>
+                      </select>
+                    </div>
+                  ) : (
+                    "Opening Balance"
+                  )}
                 </td>
                 <td className="py-2.5 px-3.5 text-right">
-                  {extracted.openingSide === "Dr" ? formatINR(extracted.openingBalance) : "—"}
+                  {isEditingOpening ? (
+                    editOpeningSide === "Dr" ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editOpeningAmount}
+                        onChange={(e) => setEditOpeningAmount(e.target.value)}
+                        className="w-24 text-right px-2 py-0.5 text-xs rounded border border-primary/50 bg-background font-mono"
+                      />
+                    ) : (
+                      "—"
+                    )
+                  ) : statementData.openingSide === "Dr" ? (
+                    formatINR(statementData.openingBalance)
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-2.5 px-3.5 text-right">
-                  {extracted.openingSide === "Cr" ? formatINR(extracted.openingBalance) : "—"}
+                  {isEditingOpening ? (
+                    editOpeningSide === "Cr" ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editOpeningAmount}
+                        onChange={(e) => setEditOpeningAmount(e.target.value)}
+                        className="w-24 text-right px-2 py-0.5 text-xs rounded border border-primary/50 bg-background font-mono"
+                      />
+                    ) : (
+                      "—"
+                    )
+                  ) : statementData.openingSide === "Cr" ? (
+                    formatINR(statementData.openingBalance)
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-2.5 px-3.5 text-right font-semibold">
-                  {formatINR(extracted.openingBalance)}{" "}
+                  {formatINR(statementData.openingBalance)}{" "}
                   <span
                     className={cn(
                       "font-bold ml-0.5",
-                      extracted.openingSide === "Cr"
+                      statementData.openingSide === "Cr"
                         ? "text-emerald-600 dark:text-emerald-400"
                         : "text-rose-600 dark:text-rose-400"
                     )}
                   >
-                    {extracted.openingSide}
+                    {statementData.openingSide}
                   </span>
                 </td>
                 <td className="py-2.5 px-3.5 text-center font-sans">
@@ -647,18 +907,174 @@ export function ImportPreview({
                     Opening
                   </span>
                 </td>
+                <td className="py-2.5 px-3.5 text-center">
+                  {isEditingOpening ? (
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleSaveOpening}
+                        title="Save Opening Balance"
+                        className="p-1 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingOpening(false)}
+                        title="Cancel"
+                        className="p-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingOpening(true);
+                        setEditOpeningAmount(String(statementData.openingBalance || 0));
+                        setEditOpeningSide(statementData.openingSide || "Dr");
+                      }}
+                      title="Edit Opening Balance"
+                      className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </td>
               </tr>
 
               {/* Extracted Rows */}
-              {extracted.entries?.map((row: any, idx: number) => {
+              {statementData.entries?.map((row: any, idx: number) => {
+                const isEditing = editingIndex === idx;
                 const isMatchedInvoice =
                   row.docNo &&
                   existingInvoicesFound.some((inv: any) => inv.docNoNorm === row.docNoNorm);
 
                 const rowDate = row.date || row.entryDate;
 
+                if (isEditing) {
+                  return (
+                    <tr key={idx} className="bg-primary/5 border-l-2 border-l-primary">
+                      <td className="py-2.5 px-3.5">
+                        <input
+                          type="date"
+                          value={editRowData.date}
+                          onChange={(e) => setEditRowData((prev) => ({ ...prev, date: e.target.value }))}
+                          className="w-32 px-2 py-1 text-xs rounded border border-primary/50 bg-background font-mono"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3.5 min-w-[340px]">
+                        <div className="space-y-1.5 py-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <select
+                              value={editRowData.entryType}
+                              onChange={(e) =>
+                                setEditRowData((prev) => ({ ...prev, entryType: e.target.value }))
+                              }
+                              className="px-2 py-1 text-xs rounded border border-border bg-background font-sans"
+                            >
+                              <option value="SALE_INVOICE">Sale Invoice (Dr)</option>
+                              <option value="PURCHASE_INVOICE">Purchase Invoice (Cr)</option>
+                              <option value="RECEIPT">Payment Received (Cr)</option>
+                              <option value="PAYMENT">Payment Made (Dr)</option>
+                              <option value="CREDIT_NOTE">Credit Note (Cr)</option>
+                              <option value="DEBIT_NOTE">Debit Note (Dr)</option>
+                              <option value="ADJUSTMENT">Journal Adjustment</option>
+                            </select>
+                            <input
+                              type="text"
+                              placeholder="Doc / Bill No"
+                              value={editRowData.docNo}
+                              onChange={(e) =>
+                                setEditRowData((prev) => ({ ...prev, docNo: e.target.value }))
+                              }
+                              className="w-32 px-2 py-1 text-xs rounded border border-border bg-background font-sans"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Particulars text"
+                            value={editRowData.particularsRaw}
+                            onChange={(e) =>
+                              setEditRowData((prev) => ({ ...prev, particularsRaw: e.target.value }))
+                            }
+                            className="w-full px-2 py-1 text-xs rounded border border-border bg-background font-sans"
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={editRowData.debit}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditRowData((prev) => ({
+                              ...prev,
+                              debit: val,
+                              credit: Number(val) > 0 ? "" : prev.credit,
+                            }));
+                          }}
+                          className="w-24 text-right px-2 py-1 text-xs rounded border border-primary/50 bg-background font-mono"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={editRowData.credit}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditRowData((prev) => ({
+                              ...prev,
+                              credit: val,
+                              debit: Number(val) > 0 ? "" : prev.debit,
+                            }));
+                          }}
+                          className="w-24 text-right px-2 py-1 text-xs rounded border border-primary/50 bg-background font-mono"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right">
+                        <span className="text-[11px] text-muted-foreground italic font-sans">
+                          Auto recomputed
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center font-sans">
+                        <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded font-medium">
+                          Editing
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveRow(idx)}
+                            title="Save Row"
+                            className="p-1 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingIndex(null)}
+                            title="Cancel"
+                            className="p-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 return (
-                  <tr key={idx} className="hover:bg-muted/20">
+                  <tr key={idx} className="hover:bg-muted/20 group">
                     <td className="py-2.5 px-3.5 text-muted-foreground whitespace-nowrap">
                       {formatDate(rowDate)}
                     </td>
@@ -697,9 +1113,35 @@ export function ImportPreview({
                             Not uploaded yet
                           </span>
                         )
+                      ) : row.entryType === "PURCHASE_INVOICE" ? (
+                        <span className="text-[10px] text-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded font-medium">
+                          Purchase Bill
+                        </span>
                       ) : (
-                        <span className="text-[10px] text-muted-foreground">—</span>
+                        <span className="text-[10px] text-muted-foreground font-sans">
+                          {row.entryType}
+                        </span>
                       )}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center">
+                      <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(idx)}
+                          title="Edit this row"
+                          className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(idx)}
+                          title="Delete this row"
+                          className="p-1 rounded text-muted-foreground hover:text-rose-600 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

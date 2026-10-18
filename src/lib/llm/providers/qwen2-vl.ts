@@ -14,7 +14,7 @@ export class Qwen2VlProvider implements LLMProvider {
   name = "Qwen2-VL-2B (Quantized INT4)";
 
   isConfigured(): boolean {
-    return true;
+    return Boolean(env.ENABLE_LOCAL_MODELS);
   }
 
   async extract(req: ExtractionRequest): Promise<ExtractionResponse> {

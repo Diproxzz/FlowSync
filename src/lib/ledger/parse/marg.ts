@@ -177,9 +177,19 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
       continue;
     }
 
-    // Check if line is an entry start: Bill No., Cheque No., RTGS, NEFT
-    const isEntryStart =
-      /^(?:Bill\s*No\.?|Cheque\s*No\.?|RTGS|NEFT)(?:\s|$|:)/i.test(restOfLine) || dateMatch !== null;
+    // Check if line is an entry start:
+    // 1) Explicit date at start (dateMatch !== null)
+    // 2) Recognized transaction keyword (Bill, Cheque, RTGS, NEFT, UPI, IMPS, C/N, D/N, Ag., Agst, Against, Cash, Bank, By, To, Discount, Rebate, Entry No, Receipt, Payment, Journal)
+    // 3) Or line ends with transaction amounts AND previous entry already has amounts (meaning this line cannot be a continuation of particulars)
+    const matchesKeyword =
+      /^(?:Bill\s*No\.?|Bill\b|Inv\s*No\.?|Invoice\s*No\.?|Cheque\s*No\.?|Chq\s*No\.?|RTGS|NEFT|UPI|IMPS|C\/N(?:\s*No\.?)?|D\/N(?:\s*No\.?)?|Credit\s*Note|Debit\s*Note|Ag\.?|Agst\b|Against\b|Cash\b|Bank\b|By\b|To\b|Discount\b|Rebate\b|Entry\s*No\.?|Receipt\b|Payment\b|Journal\b)(?:\s|$|:)/i.test(restOfLine);
+
+    const lineHasAmounts = /[\d,]+\.\d{2}(?:\s*(?:Dr|Cr))?$/i.test(restOfLine);
+    const prevHasAmounts =
+      rawEntries.length > 0 &&
+      /[\d,]+\.\d{2}(?:\s*(?:Dr|Cr))?$/i.test(rawEntries[rawEntries.length - 1].text);
+
+    const isEntryStart = dateMatch !== null || matchesKeyword || (lineHasAmounts && prevHasAmounts);
 
     if (isEntryStart) {
       rawEntries.push({
@@ -212,6 +222,7 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
 
   // 4. Parse Each Raw Entry into a Structured StatementEntry
   const entries: StatementEntry[] = [];
+  let runningBalSigned = openingSide === "Dr" ? openingBalance : -openingBalance;
 
   for (const raw of rawEntries) {
     const text = raw.text;
@@ -238,11 +249,52 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
       const txnMatchIndex = printedBalance !== null ? amountMatches.length - 2 : amountMatches.length - 1;
       if (txnMatchIndex >= 0) {
         const txnAmount = parseFloat(amountMatches[txnMatchIndex][1].replace(/,/g, ""));
-        if (/Bill\s*No\./i.test(text)) {
-          debit = txnAmount;
-        } else {
-          credit = txnAmount;
+
+        // 1. First test if running balance target uniquely matches debit or credit
+        if (printedBalance !== null && printedBalanceSide !== null) {
+          const targetBal = printedBalanceSide === "Dr" ? printedBalance : -printedBalance;
+          const diffIfDebit = Math.abs(runningBalSigned + txnAmount - targetBal);
+          const diffIfCredit = Math.abs(runningBalSigned - txnAmount - targetBal);
+
+          if (diffIfCredit < 0.05 && diffIfDebit >= 0.05) {
+            credit = txnAmount;
+          } else if (diffIfDebit < 0.05 && diffIfCredit >= 0.05) {
+            debit = txnAmount;
+          }
         }
+
+        // 2. Fallback heuristic if running balance comparison wasn't conclusive
+        if (debit === 0 && credit === 0) {
+          const isExplicitPurchase = /(?:Entry\s*No\.?\s*P|Purchase)/i.test(text);
+          const isExplicitSale = /(?:Entry\s*No\.?\s*S|Sale)/i.test(text);
+          const isCreditNote = /(?:C\/N|Credit\s*Note)\b/i.test(text);
+          const isDebitNote = /(?:D\/N|Debit\s*Note)\b/i.test(text);
+          const isBill = /Bill\s*No\./i.test(text);
+
+          if (isExplicitPurchase || isCreditNote) {
+            credit = txnAmount;
+          } else if (isExplicitSale || isDebitNote) {
+            debit = txnAmount;
+          } else if (isBill) {
+            if (printedDebitTotal === 0 && printedCreditTotal > 0) {
+              credit = txnAmount;
+            } else if (printedClosingSide === "Cr" && printedCreditTotal > printedDebitTotal) {
+              credit = txnAmount;
+            } else {
+              debit = txnAmount;
+            }
+          } else {
+            // Receipt / Payment / Cheque / RTGS
+            if (printedCreditTotal === 0 && printedDebitTotal > 0) {
+              debit = txnAmount;
+            } else {
+              credit = txnAmount;
+            }
+          }
+        }
+
+        // Advance running balance
+        runningBalSigned += (debit - credit);
       }
     }
 
@@ -269,21 +321,37 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
     cleanParticulars = cleanParticulars.replace(/,\s*(\*?[A-Za-z0-9])/g, ", $1");
 
     // Determine entry type and details
-    let entryType: StatementEntry["entryType"] = "OTHER";
+    let entryType: StatementEntry["entryType"] = "ADJUSTMENT";
     let docNo: string | null = null;
     let paymentMode: string | null = null;
     let instrumentNo: string | null = null;
     let instrumentDate: string | null = null;
 
     const billMatch = text.match(/Bill\s*No\.?\s*([A-Za-z0-9/_-]+)/i);
+    const cnMatch = text.match(/(?:C\/N|Cr(?:\.|\s*)Note)\s*No\.?\s*([A-Za-z0-9/_-]+)/i);
+    const dnMatch = text.match(/(?:D\/N|Dr(?:\.|\s*)Note)\s*No\.?\s*([A-Za-z0-9/_-]+)/i);
+    const chequeMatch = text.match(/Cheque\s*No\.?\s*:\s*([A-Za-z0-9_-]+)/i);
+
     if (billMatch) {
-      entryType = "SALE_INVOICE";
+      const isPurchase = credit > 0 || /(?:Entry\s*No\.?\s*P|Purchase)/i.test(text);
+      entryType = isPurchase ? "PURCHASE_INVOICE" : "SALE_INVOICE";
       docNo = billMatch[1].trim();
       cleanParticulars = `Bill No. ${docNo}`;
-    }
-
-    const chequeMatch = text.match(/Cheque\s*No\.?\s*:\s*([A-Za-z0-9_-]+)/i);
-    if (chequeMatch) {
+    } else if (cnMatch) {
+      entryType = "CREDIT_NOTE";
+      docNo = cnMatch[1].trim();
+    } else if (dnMatch) {
+      entryType = "DEBIT_NOTE";
+      docNo = dnMatch[1].trim();
+    } else if (/\bC\/N\b|\bCredit\s*Note\b/i.test(text)) {
+      entryType = "CREDIT_NOTE";
+      const cnAny = text.match(/(?:C\/N|Credit\s*Note)[^\d]*([A-Za-z0-9/_-]+)/i);
+      if (cnAny) docNo = cnAny[1].trim();
+    } else if (/\bD\/N\b|\bDebit\s*Note\b/i.test(text)) {
+      entryType = "DEBIT_NOTE";
+      const dnAny = text.match(/(?:D\/N|Debit\s*Note)[^\d]*([A-Za-z0-9/_-]+)/i);
+      if (dnAny) docNo = dnAny[1].trim();
+    } else if (chequeMatch) {
       entryType = "RECEIPT";
       instrumentNo = chequeMatch[1].trim();
       if (/RTGS/i.test(instrumentNo)) paymentMode = "RTGS";
@@ -297,6 +365,11 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
       entryType = "RECEIPT";
       paymentMode = "NEFT";
       instrumentNo = "NEFT";
+    } else if (/^(?:Ag\.?|Agst\b|Against\b)\b/i.test(text)) {
+      entryType = credit > 0 ? "RECEIPT" : "PAYMENT";
+      paymentMode = "BANK";
+    } else if (credit > 0 && debit === 0) {
+      entryType = "RECEIPT";
     }
 
     const dtMatch = text.match(/DT[-.\s]*(\d{2})[-.](\d{2})[-.](\d{4})/i);

@@ -145,4 +145,122 @@ Total 29501.00 29501.00 Dr
     expect(validation.errors.length).toBeGreaterThan(0);
     expect(validation.errors.some((e) => e.includes("mismatch"))).toBe(true);
   });
+
+  it("parses Credit Notes (C/N) and Debit Notes (D/N) accurately", () => {
+    const textWithNotes = `
+INDOBEST
+19/10/2,GOBINDA KHATICK ROAD
+Ledger Account : TEST CLIENT
+01-04-2026 - 16-10-2026
+Date Particulars Debit Credit Balance
+Apr 10 Bill No. IB26-27/0100 10000.00 10000.00 Dr
+Aug 19 C/N No. 03 Dt. 19-08-2026 Adj.in 2000.00 8000.00 Dr
+Sep 05 D/N No. 01 500.00 8500.00 Dr
+Total 10500.00 2000.00 8500.00 Dr
+`;
+    const stmt = parseMargStatementText(textWithNotes);
+    expect(stmt.entries).toHaveLength(3);
+
+    const [inv, cn, dn] = stmt.entries;
+    expect(inv.entryType).toBe("SALE_INVOICE");
+    expect(inv.docNo).toBe("IB26-27/0100");
+    expect(inv.debit).toBe(10000);
+
+    expect(cn.entryType).toBe("CREDIT_NOTE");
+    expect(cn.docNo).toBe("03");
+    expect(cn.credit).toBe(2000);
+    expect(cn.instrumentDate).toBe("2026-08-19");
+
+    expect(dn.entryType).toBe("DEBIT_NOTE");
+    expect(dn.docNo).toBe("01");
+    expect(dn.debit).toBe(500);
+
+    const validation = validateStatement(stmt);
+    expect(validation.isValid).toBe(true);
+    expect(validation.errors).toEqual([]);
+    expect(validation.replayedClosing).toBe(8500);
+  });
+
+  it("parses supplier statement with Purchase Invoice accurately without discrepancy (ANANDA CHEMICALS)", () => {
+    const anandaText = `
+INDOBEST
+19/10/2,GOBINDA KHATICK ROAD
+KOLKATA-700046
+Phone : 8240892993 E-Mail : indobest@gmail.com
+Ledger Account : ANANDA CHEMICALS & RUBBER PVT. LTD
+01-04-2026 - 16-10-2026 Page No..1
+Date Particulars Debit Credit Balance
+Jun 11 Bill No. A/0443/26-27 Dt. 11-06-2026 Entry No.P000014 9440.00 9440.00 Cr
+Total 9440.00 9440.00 Cr
+`;
+    const stmt = parseMargStatementText(anandaText);
+    expect(stmt.accountName).toBe("ANANDA CHEMICALS & RUBBER PVT. LTD");
+    expect(stmt.openingBalance).toBe(0);
+    expect(stmt.printedTotals.debit).toBe(0);
+    expect(stmt.printedTotals.credit).toBe(9440);
+    expect(stmt.printedTotals.balance).toBe(9440);
+    expect(stmt.printedTotals.balanceSide).toBe("Cr");
+
+    expect(stmt.entries).toHaveLength(1);
+    const entry = stmt.entries[0];
+    expect(entry.entryType).toBe("PURCHASE_INVOICE");
+    expect(entry.docNo).toBe("A/0443/26-27");
+    expect(entry.credit).toBe(9440);
+    expect(entry.debit).toBe(0);
+    expect(entry.printedBalance).toBe(9440);
+    expect(entry.printedBalanceSide).toBe("Cr");
+
+    const validation = validateStatement(stmt);
+    expect(validation.isValid).toBe(true);
+    expect(validation.errors).toEqual([]);
+    expect(validation.replayedClosing).toBe(9440);
+    expect(validation.replayedSide).toBe("Cr");
+    expect(validation.replayedDebitTotal).toBe(0);
+    expect(validation.replayedCreditTotal).toBe(9440);
+  });
+
+  it("parses ATEEFAH INTERNATIONAL statement with Ag. payment lines without dates", () => {
+    const ateefahText = `
+INDOBEST
+19/10/2,GOBINDA KHATICK ROAD
+KOLKATA-700046
+Phone : 8240892993 E-Mail : indobest@gmail.com
+Ledger Account : ATEEFAH INTERNATIONAL
+01-04-2026 - 16-10-2026 Page No..1
+Date Particulars Debit Credit Balance
+Apr 23 Bill No. IB26-27/0073 2020.00
+Cheque No. : PHONE.PAY Ag. IB26-27/0073 2020.00 0.00 Dr
+Jul 29 Bill No. IB26-27/0301 16833.00
+Ag. IB26-27/0301 16833.00 0.00 Dr
+Oct 16 Bill No. IB26-27/0495 9426.00 9426.00 Dr
+Total 28279.00 18853.00 9426.00 Dr
+`;
+    const stmt = parseMargStatementText(ateefahText);
+    expect(stmt.accountName).toBe("ATEEFAH INTERNATIONAL");
+    expect(stmt.entries).toHaveLength(5);
+    expect(stmt.printedTotals.debit).toBe(28279);
+    expect(stmt.printedTotals.credit).toBe(18853);
+    expect(stmt.printedTotals.balance).toBe(9426);
+    expect(stmt.printedTotals.balanceSide).toBe("Dr");
+
+    // Check Ag. payment entry
+    const agPayment = stmt.entries[3];
+    expect(agPayment.date).toBe("2026-07-29");
+    expect(agPayment.entryType).toBe("RECEIPT");
+    expect(agPayment.credit).toBe(16833);
+    expect(agPayment.debit).toBe(0);
+    expect(agPayment.referencedDocs).toEqual(["IB26-27/0301"]);
+    expect(agPayment.printedBalance).toBe(0);
+    expect(agPayment.printedBalanceSide).toBe("Dr");
+
+    const validation = validateStatement(stmt);
+    expect(validation.isValid).toBe(true);
+    expect(validation.errors).toEqual([]);
+    expect(validation.replayedClosing).toBe(9426);
+    expect(validation.replayedSide).toBe("Dr");
+    expect(validation.replayedDebitTotal).toBe(28279);
+    expect(validation.replayedCreditTotal).toBe(18853);
+  });
 });
+
+

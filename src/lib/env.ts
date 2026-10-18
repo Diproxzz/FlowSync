@@ -13,7 +13,12 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional().default(""),
   OPENROUTER_MODEL: z.string().optional().default(""),
   GROQ_API_KEY: z.string().optional().default(""),
+  GROQ_API_KEYS: z.string().optional().default(""),
   GROQ_MODEL: z.string().optional().default("qwen/qwen3.8-27b"),
+  ENABLE_LOCAL_MODELS: z
+    .string()
+    .transform((val) => val === "true" || val === "1")
+    .default("true"),
   OLLAMA_BASE_URL: z.string().default("http://localhost:11434"),
   OLLAMA_MODEL: z.string().optional().default(""),
 

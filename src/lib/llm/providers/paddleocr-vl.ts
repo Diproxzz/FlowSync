@@ -13,8 +13,8 @@ export class PaddleOcrVlProvider implements LLMProvider {
   name = "PaddleOCR-VL (0.9B)";
 
   isConfigured(): boolean {
-    // Local pipeline available
-    return true;
+    // Local pipeline available on this system
+    return Boolean(env.ENABLE_LOCAL_MODELS);
   }
 
   async extract(req: ExtractionRequest): Promise<ExtractionResponse> {

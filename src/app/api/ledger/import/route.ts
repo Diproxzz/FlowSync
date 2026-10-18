@@ -257,18 +257,44 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        const VALID_ENTRY_TYPES = new Set([
+          "OPENING",
+          "SALE_INVOICE",
+          "PURCHASE_INVOICE",
+          "RECEIPT",
+          "PAYMENT",
+          "DEBIT_NOTE",
+          "CREDIT_NOTE",
+          "ADJUSTMENT",
+        ]);
+        const safeEntryType = VALID_ENTRY_TYPES.has(item.entryType)
+          ? item.entryType
+          : "ADJUSTMENT";
+
+        const VALID_PAYMENT_MODES = new Set([
+          "CHEQUE",
+          "NEFT",
+          "RTGS",
+          "UPI",
+          "CASH",
+          "OTHER",
+        ]);
+        const safePaymentMode = item.paymentMode && VALID_PAYMENT_MODES.has(item.paymentMode)
+          ? item.paymentMode
+          : null;
+
         await tx.ledgerEntry.create({
           data: {
             account_id: account.id,
             entry_date: entryDate,
             sort_seq: i + 1,
-            entry_type: item.entryType as any,
+            entry_type: safeEntryType as any,
             debit: item.debit,
             credit: item.credit,
             doc_no: item.docNo || null,
             doc_no_norm: normDoc,
             invoice_id: invoiceId,
-            payment_mode: (item.paymentMode as any) || null,
+            payment_mode: (safePaymentMode as any) || null,
             instrument_no: item.instrumentNo || null,
             instrument_date: item.instrumentDate ? new Date(item.instrumentDate) : null,
             referenced_docs: item.referencedDocs || [],

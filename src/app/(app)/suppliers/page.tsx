@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -19,6 +20,7 @@ import {
   ChevronRight,
   ArrowUpRight,
   TrendingUp,
+  BookOpen,
 } from "lucide-react";
 import { formatINR, formatKg, formatDate } from "@/lib/format";
 
@@ -34,6 +36,7 @@ interface Supplier {
   invoices_count: number;
   aliases: Array<{ id: string; alias: string }>;
   alsoCustomer?: { id: string; name: string } | null;
+  ledger_account?: { id: string; display_name: string } | null;
 }
 
 export default function SuppliersPage() {
@@ -43,6 +46,26 @@ export default function SuppliersPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
+
+  const router = useRouter();
+
+  const handleOpenLedger = async (sup: Supplier) => {
+    if (sup.ledger_account?.id) {
+      router.push(`/accounts/${sup.ledger_account.id}`);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/suppliers/${sup.id}`);
+      const data = await res.json();
+      if (data.supplier?.ledgerAccountId) {
+        router.push(`/accounts/${data.supplier.ledgerAccountId}`);
+      } else {
+        router.push("/accounts");
+      }
+    } catch {
+      router.push("/accounts");
+    }
+  };
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [targetSupplierId, setTargetSupplierId] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -301,6 +324,13 @@ export default function SuppliersPage() {
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
                       <button
+                        onClick={() => handleOpenLedger(sup)}
+                        className="p-1.5 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-muted rounded transition"
+                        title="View Ledger Statement"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleOpenDetail(sup)}
                         className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition"
                         title="View Purchase Details"
@@ -509,10 +539,11 @@ export default function SuppliersPage() {
                     Supplier
                   </span>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 items-center">
                   <span>GSTIN: <strong className="font-mono text-foreground">{selectedSupplier.gstin || "Unregistered"}</strong></span>
                   {selectedSupplier.state_code && <span>State: {selectedSupplier.state_code}</span>}
-                  <span>Total Spend: <strong className="font-mono text-foreground">{formatINR(selectedSupplier.total_spend)}</strong></span>
+                  <span>Total Billed: <strong className="font-mono text-foreground">{formatINR(selectedSupplier.total_spend)}</strong></span>
+                  <span>Total Outstanding: <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{formatINR(detailSupplier?.totalOutstanding ?? 0)}</strong></span>
                 </div>
                 {detailSupplier?.alsoCustomer && (
                   <div className="mt-2 text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 p-2 rounded border border-blue-500/20">
@@ -520,9 +551,22 @@ export default function SuppliersPage() {
                   </div>
                 )}
               </div>
-              <button onClick={() => setIsDetailOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {detailSupplier?.ledgerAccountId && (
+                  <Link
+                    href={`/accounts/${detailSupplier.ledgerAccountId}`}
+                    className="px-2.5 py-1.5 rounded-lg border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1.5 font-medium"
+                    title="View Account Ledger Statement"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>View Ledger</span>
+                    <ArrowUpRight className="w-3 h-3 opacity-70" />
+                  </Link>
+                )}
+                <button onClick={() => setIsDetailOpen(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Tabs */}
@@ -575,9 +619,30 @@ export default function SuppliersPage() {
                             {inv.items?.length || 0} items: {inv.items?.map((it: any) => it.product?.name).filter(Boolean).slice(0, 3).join(", ")}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-mono font-bold text-foreground group-hover:text-accent transition">{formatINR(inv.grand_total)}</div>
-                          <div className="text-xs text-muted-foreground">Taxable: {formatINR(inv.taxable_total)}</div>
+                        <div className="text-right space-y-0.5">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-muted-foreground">Bill Total:</span>
+                            <span className="font-mono font-medium text-foreground">{formatINR(inv.grand_total)}</span>
+                          </div>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-muted-foreground">Outstanding:</span>
+                            <span className="font-mono font-bold text-foreground">{formatINR(inv.outstandingAmount ?? 0)}</span>
+                          </div>
+                          <div className="pt-0.5">
+                            {inv.status === "SETTLED" ? (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                Settled
+                              </span>
+                            ) : inv.status === "PARTIAL" ? (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                Part Paid
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">
+                                Open
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </Link>
                     ))

@@ -109,7 +109,7 @@ export default function StatementImportPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Import Statement</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload a "Ledger Account" statement PDF to verify and record entries.
+          Upload a &ldquo;Ledger Account&rdquo; statement PDF to verify and record entries.
         </p>
       </div>
 
@@ -161,7 +161,7 @@ export default function StatementImportPage() {
                   <span className="text-sm text-muted-foreground">or drag and drop statement PDF</span>
                 </div>
                 <p className="text-xs text-muted-foreground max-w-sm">
-                  Supports "Ledger Account" statement format with text layer. Deterministic replay checks ensure 100% precision.
+                  Supports &ldquo;Ledger Account&rdquo; statement format with text layer. Deterministic replay checks ensure 100% precision.
                 </p>
               </div>
             )}
