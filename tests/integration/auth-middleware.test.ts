@@ -98,4 +98,20 @@ describe("Phase 2: Auth and Session Tests", () => {
     const apiLoginRes = await middleware(apiLoginReq);
     expect(apiLoginRes.status).toBe(200);
   });
+
+  it("should allow access when authenticated with Indobest session token", async () => {
+    const validToken = await createSessionToken("Indobest");
+    const req = new NextRequest("http://localhost:3000/dashboard", {
+      headers: { cookie: `indobest_session=${validToken}` },
+    });
+    const res = await middleware(req);
+    expect(res.status).toBe(200);
+  });
+
+  it("should redirect unauthenticated root / visits to /login", async () => {
+    const req = new NextRequest("http://localhost:3000/");
+    const res = await middleware(req);
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/login");
+  });
 });

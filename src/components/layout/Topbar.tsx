@@ -64,10 +64,12 @@ export function Topbar({ title }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-sm bg-surface-2 text-ink-2 text-xs font-mono">
-          <span>INDOBEST</span>
-          <span className="text-border-strong">|</span>
-          <span className="text-[11px] text-ink-3">19AVZPC2361G1ZA</span>
+        {/* Active Profile indicator */}
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-surface-2 text-ink-2 text-xs border border-border/60">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Indobest Profile" />
+          <span className="font-semibold text-ink">Indobest</span>
+          <span className="hidden sm:inline text-border-strong">|</span>
+          <span className="hidden sm:inline text-[11px] text-ink-3 font-mono">19AVZPC2361G1ZA</span>
         </div>
 
         <ThemeToggle />
@@ -75,11 +77,12 @@ export function Topbar({ title }: TopbarProps) {
         <button
           onClick={handleLogout}
           type="button"
-          title="Sign out"
-          aria-label="Sign out"
-          className="w-8 h-8 flex items-center justify-center rounded-sm text-ink-2 hover:text-danger hover:bg-surface-2 transition"
+          title="Sign out of Indobest profile"
+          aria-label="Sign out of Indobest profile"
+          className="h-8 px-2.5 flex items-center gap-1.5 rounded-sm text-xs text-ink-2 hover:text-danger hover:bg-surface-2 transition border border-transparent hover:border-danger/20"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline font-medium">Sign out</span>
         </button>
       </div>
     </header>

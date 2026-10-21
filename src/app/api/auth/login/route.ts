@@ -34,12 +34,19 @@ export async function POST(request: NextRequest) {
 
     const username = typeof body.username === "string" ? body.username.trim() : "";
     let isValid = false;
+    let errorMessage = "Incorrect username or password";
 
     if (username) {
       const credResult = await verifyCredentials(username, body.password);
       isValid = credResult.valid;
+      if (!isValid && credResult.reason) {
+        errorMessage = credResult.reason;
+      }
     } else {
       isValid = await verifyPassword(body.password);
+      if (!isValid) {
+        errorMessage = "Incorrect password. Please verify your password and try again.";
+      }
     }
 
     if (!isValid) {
@@ -48,7 +55,7 @@ export async function POST(request: NextRequest) {
         {
           error: {
             code: "INVALID_CREDENTIALS",
-            message: "Incorrect username or password",
+            message: errorMessage,
           },
         },
         { status: 401 }

@@ -203,9 +203,16 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer Info */}
-      <div className="p-3 border-t border-border bg-surface-2/40">
-        <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-ink-2">
+      {/* Footer Info & Active Profile */}
+      <div className="p-3 border-t border-border bg-surface-2/40 space-y-1.5">
+        <div className="flex items-center justify-between px-2 py-1 text-[11px] text-ink-2 bg-surface rounded-sm border border-border/60">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Profile: <strong className="text-ink font-semibold">Indobest</strong></span>
+          </div>
+          <span className="text-[10px] text-emerald-600 font-mono font-medium">Active</span>
+        </div>
+        <div className="flex items-center gap-2 px-2 py-1 text-[11px] text-ink-2">
           <Calendar className="w-3.5 h-3.5 text-accent" />
           <span className="font-medium">FY 2026-27 Active</span>
         </div>

@@ -34,11 +34,17 @@ export async function verifyCredentials(
   password: string
 ): Promise<{ valid: boolean; reason?: string }> {
   if (!verifyUsername(username)) {
-    return { valid: false, reason: "Incorrect username or password" };
+    return {
+      valid: false,
+      reason: "Invalid username. Please enter your authorized Indobest profile username.",
+    };
   }
   const isPassValid = await verifyPassword(password);
   if (!isPassValid) {
-    return { valid: false, reason: "Incorrect username or password" };
+    return {
+      valid: false,
+      reason: "Incorrect password. Please verify your password and try again.",
+    };
   }
   return { valid: true };
 }

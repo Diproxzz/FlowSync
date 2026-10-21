@@ -63,10 +63,21 @@ function LoginForm() {
           />
         </div>
         <h1 className="text-xl font-bold text-ink tracking-tight">Indobest Insights</h1>
-        <p className="text-xs text-ink-3 mt-1">Single-owner GST Invoice & Stock Intelligence</p>
+        <p className="text-xs text-ink-3 mt-1">Multi-System Profile Sign-in</p>
+        <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-2 border border-border text-[10px] text-ink-2 font-medium">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span>Profile: Indobest</span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-danger font-medium flex items-start gap-2">
+            <span className="font-bold text-sm leading-none mt-0.5">✕</span>
+            <span className="flex-1 leading-snug">{error}</span>
+          </div>
+        )}
+
         <div>
           <label className="block text-xs font-medium text-ink-2 mb-1.5" htmlFor="username">
             Username
@@ -82,7 +93,7 @@ function LoginForm() {
               }}
               disabled={loading}
               autoFocus
-              placeholder="Enter username"
+              placeholder="Indobest"
               autoComplete="username"
               className="w-full px-3 py-2 text-sm bg-surface border border-border-strong rounded-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
             />
@@ -116,11 +127,6 @@ function LoginForm() {
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          {error && (
-            <p className="text-xs text-danger mt-1.5 flex items-center gap-1 font-medium">
-              <span>✕</span> {error}
-            </p>
-          )}
         </div>
 
         <button
@@ -132,7 +138,7 @@ function LoginForm() {
             <div className="w-4 h-4 border-2 border-primary-fg border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <span>Sign in</span>
+              <span>Enter Indobest Profile</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}
@@ -140,7 +146,7 @@ function LoginForm() {
       </form>
 
       <div className="mt-8 pt-4 border-t border-border text-center">
-        <p className="text-[11px] text-ink-3">Protected Single-User Environment · Indobest Kolkata</p>
+        <p className="text-[11px] text-ink-3">Mandatory login to view and operate Indobest Insights</p>
       </div>
     </div>
   );

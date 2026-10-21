@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const COOKIE_NAME = "indobest_session";
+const SESSION_VERSION = "indobest_v2";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,18 +14,29 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/auth/login" ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    pathname === "/logo.jpg" ||
+    pathname === "/wisp.png"
   ) {
     // If user is already authenticated and visits /login, redirect to /dashboard
     if (pathname === "/login") {
       const token = request.cookies.get(COOKIE_NAME)?.value;
       if (token) {
         const secret = new TextEncoder().encode(
-          process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long"
+          (process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long") +
+            "_" +
+            SESSION_VERSION
         );
         try {
-          await jwtVerify(token, secret);
-          return NextResponse.redirect(new URL("/dashboard", request.url));
+          const { payload } = await jwtVerify(token, secret);
+          if (
+            payload &&
+            payload.authenticated === true &&
+            typeof payload.username === "string" &&
+            (payload.username.toLowerCase() === "indobest" || payload.username.toLowerCase() === "admin")
+          ) {
+            return NextResponse.redirect(new URL("/dashboard", request.url));
+          }
         } catch {
           // Token invalid, proceed to login page
         }
@@ -39,11 +51,20 @@ export async function middleware(request: NextRequest) {
 
   if (token) {
     const secret = new TextEncoder().encode(
-      process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long"
+      (process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long") +
+        "_" +
+        SESSION_VERSION
     );
     try {
-      await jwtVerify(token, secret);
-      isAuthenticated = true;
+      const { payload } = await jwtVerify(token, secret);
+      if (
+        payload &&
+        payload.authenticated === true &&
+        typeof payload.username === "string" &&
+        (payload.username.toLowerCase() === "indobest" || payload.username.toLowerCase() === "admin")
+      ) {
+        isAuthenticated = true;
+      }
     } catch {
       isAuthenticated = false;
     }
@@ -55,7 +76,7 @@ export async function middleware(request: NextRequest) {
         {
           error: {
             code: "UNAUTHORIZED",
-            message: "Authentication required",
+            message: "Authentication required. Please sign in with your Indobest credentials.",
           },
         },
         { status: 401 }
