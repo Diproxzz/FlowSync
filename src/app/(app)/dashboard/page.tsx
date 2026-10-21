@@ -38,6 +38,7 @@ import { formatINR, formatKg } from "@/lib/format";
 import { AnalyticsData, TrendPoint, TopItem, AbcProduct } from "@/lib/analytics";
 import { PurchasesTab } from "@/components/dashboard/PurchasesTab";
 import { ReceivablesTab } from "@/components/dashboard/ReceivablesTab";
+import { ProfitabilityTab } from "@/components/dashboard/ProfitabilityTab";
 
 // Accessible Okabe-Ito Palette
 const COLORS = {
@@ -52,7 +53,7 @@ const COLORS = {
 };
 
 export default function DashboardPage() {
-  const [section, setSection] = useState<"sales" | "purchases" | "receivables">("sales");
+  const [section, setSection] = useState<"sales" | "purchases" | "receivables" | "profitability">("sales");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>("fy");
@@ -161,10 +162,23 @@ export default function DashboardPage() {
                   Receivables
                 </button>
               )}
+              <button
+                onClick={() => setSection("profitability")}
+                className={`px-3 py-1 rounded-xs transition flex items-center gap-1.5 ${
+                  section === "profitability"
+                    ? "bg-emerald-700 text-white font-semibold shadow-xs"
+                    : "text-ink-2 hover:text-ink"
+                }`}
+              >
+                <span>Profitability & Margins</span>
+                <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/25 text-emerald-200 font-bold uppercase tracking-wider">New</span>
+              </button>
             </div>
           </div>
           <p className="text-xs text-ink-3 mt-1">
-            {section === "receivables"
+            {section === "profitability"
+              ? "Product-level landed costs, weighted average selling prices (WASP/WAPC), gross margin %, and customer profitability"
+              : section === "receivables"
               ? "Party ledger statements, receivables ageing, top debtors, and cash collections"
               : section === "purchases"
               ? "Procurement analytics, vendor spend, multi-sourcing price comparisons, and input GST credits"
@@ -302,7 +316,15 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {section === "receivables" ? (
+      {section === "profitability" ? (
+        <ProfitabilityTab
+          period={period}
+          fromDate={fromDate}
+          toDate={toDate}
+          selectedCustomer={selectedCustomer}
+          selectedProduct={selectedProduct}
+        />
+      ) : section === "receivables" ? (
         <ReceivablesTab />
       ) : section === "purchases" ? (
         <PurchasesTab
