@@ -63,11 +63,7 @@ function LoginForm() {
           />
         </div>
         <h1 className="text-xl font-bold text-ink tracking-tight">Indobest Insights</h1>
-        <p className="text-xs text-ink-3 mt-1">Multi-System Profile Sign-in</p>
-        <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-2 border border-border text-[10px] text-ink-2 font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span>Profile: Indobest</span>
-        </div>
+        <p className="text-xs text-ink-3 mt-1">Single-owner GST Invoice & Stock Intelligence</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,7 +89,7 @@ function LoginForm() {
               }}
               disabled={loading}
               autoFocus
-              placeholder="Indobest"
+              placeholder="who.is.this?"
               autoComplete="username"
               className="w-full px-3 py-2 text-sm bg-surface border border-border-strong rounded-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
             />
@@ -138,7 +134,7 @@ function LoginForm() {
             <div className="w-4 h-4 border-2 border-primary-fg border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <span>Enter Indobest Profile</span>
+              <span>Sign in</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}
