@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   WISP_PLACEHOLDERS,
+  WISP_WELCOME_MESSAGES,
   WISP_LOADING_MESSAGES,
   getRandomWelcomeMessage,
 } from "@/lib/wisp/constants";
@@ -33,10 +34,22 @@ export default function WispPage() {
     {
       id: "welcome",
       role: "assistant",
-      content: getRandomWelcomeMessage(),
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      content: WISP_WELCOME_MESSAGES[0],
+      timestamp: "",
     },
   ]);
+
+  // Client-side initialization to eliminate SSR hydration mismatches
+  useEffect(() => {
+    setMessages([
+      {
+        id: "welcome",
+        role: "assistant",
+        content: getRandomWelcomeMessage(),
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+  }, []);
 
   // Rotate loading messages while query is in-flight
   useEffect(() => {
@@ -231,14 +244,17 @@ export default function WispPage() {
                     </div>
                   )}
                 </div>
-                <span
-                  className={cn(
-                    "text-[10px] text-muted-foreground px-1",
-                    m.role === "user" ? "text-right" : "text-left"
-                  )}
-                >
-                  {m.timestamp}
-                </span>
+                {m.timestamp ? (
+                  <span
+                    suppressHydrationWarning
+                    className={cn(
+                      "text-[10px] text-muted-foreground px-1",
+                      m.role === "user" ? "text-right" : "text-left"
+                    )}
+                  >
+                    {m.timestamp}
+                  </span>
+                ) : null}
               </div>
             </div>
           ))}
