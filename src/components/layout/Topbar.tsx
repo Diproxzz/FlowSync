@@ -66,8 +66,7 @@ export function Topbar({ title }: TopbarProps) {
       <div className="flex items-center gap-3">
         {/* Active Profile indicator */}
         <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-surface-2 text-ink-2 text-xs border border-border/60">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Client Profile" />
-          <span className="text-[11px] text-ink-3">Client:</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Profile" />
           <span className="font-semibold text-ink">Indobest</span>
           <span className="hidden sm:inline text-border-strong">|</span>
           <span className="hidden sm:inline text-[11px] text-ink-3 font-mono">19AVZPC2361G1ZA</span>

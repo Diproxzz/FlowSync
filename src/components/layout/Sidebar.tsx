@@ -138,7 +138,7 @@ export function Sidebar() {
           />
           <div className="flex flex-col">
             <span className="font-bold text-sm leading-tight text-ink tracking-tight">FlowSync</span>
-            <span className="text-[10px] text-ink-3 tracking-wider font-mono">Client: Indobest</span>
+            <span className="text-[10px] text-ink-3 tracking-wider font-mono">Indobest</span>
           </div>
         </div>
 
