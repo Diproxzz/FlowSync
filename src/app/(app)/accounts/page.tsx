@@ -125,8 +125,8 @@ export default function AccountsPage() {
   // Filter accounts
   const filteredAccounts = accounts.filter((acc) => {
     if (filterType !== "ALL" && acc.accountType !== filterType) return false;
-    if (filterBalance === "DR_ONLY" && acc.closingBalance <= 0.005) return false;
-    if (filterBalance === "CR_ONLY" && acc.closingBalance >= -0.005) return false;
+    if (filterBalance === "DR_ONLY" && (acc.closingSide !== "Dr" || acc.closingBalance <= 0.005)) return false;
+    if (filterBalance === "CR_ONLY" && (acc.closingSide !== "Cr" || acc.closingBalance <= 0.005)) return false;
     if (filterBalance === "OVERDUE" && acc.overdueAmount <= 0.005) return false;
 
     if (search.trim()) {
@@ -202,7 +202,16 @@ export default function AccountsPage() {
         </div>
 
         {/* Total Payable */}
-        <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900 shadow-sm">
+        <div
+          onClick={() => setFilterBalance("CR_ONLY")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setFilterBalance("CR_ONLY");
+          }}
+          className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900 shadow-sm cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md transition-all group select-none"
+          title="Click to filter Cr (Payable) balances"
+        >
           <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 text-xs font-semibold uppercase tracking-wider">
             <span>Total Payable (Cr)</span>
             <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 dark:bg-emerald-900/60 font-bold">
@@ -213,7 +222,7 @@ export default function AccountsPage() {
             {formatINR(summary.totalPayable)}
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">
-            Total amount you owe to parties
+            Total amount you owe to parties &bull; Click to filter
           </div>
         </div>
 
@@ -313,6 +322,16 @@ export default function AccountsPage() {
               )}
             >
               Dr Only
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterBalance("CR_ONLY")}
+              className={cn(
+                "px-2.5 py-1 rounded-md font-medium transition-colors",
+                filterBalance === "CR_ONLY" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              )}
+            >
+              Cr Only
             </button>
             <button
               type="button"
