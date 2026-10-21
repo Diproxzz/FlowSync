@@ -6,6 +6,7 @@ import {
   TrendingUp,
   Package,
   Users,
+  FileText,
   IndianRupee,
   Layers,
   ArrowUpRight,

@@ -288,7 +288,7 @@ export async function getProfitabilityAnalytics(
 
   // Calculate median volume for quadrant classification
   const volumesList: number[] = [];
-  for (const [, pSales] of productSalesMap) {
+  for (const pSales of Array.from(productSalesMap.values())) {
     if (pSales.soldQty.greaterThan(0)) {
       volumesList.push(pSales.soldQty.toNumber());
     }
@@ -367,7 +367,7 @@ export async function getProfitabilityAnalytics(
   const customerRows: CustomerProfitabilityRow[] = [];
   const companyProfit = totalCompanyRevenue.minus(totalCompanyCogs).toNumber();
 
-  for (const [cId, cAgg] of customerSalesMap) {
+  for (const [cId, cAgg] of Array.from(customerSalesMap.entries())) {
     const rev = cAgg.revenue.toNumber();
     const cogs = cAgg.cogs.toNumber();
     const profit = rev - cogs;
