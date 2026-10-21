@@ -24,17 +24,21 @@ import {
 import {
   ResponsiveContainer,
   ComposedChart,
+  BarChart,
   Bar,
+  LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
   CartesianGrid,
-  BarChart,
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from "recharts";
 import { formatINR, formatKg } from "@/lib/format";
 import {
@@ -318,14 +322,19 @@ export function ProfitabilityTab({
         </div>
       )}
 
-      {/* Visual Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Monthly Revenue vs Profit & Margin */}
-        <div className="lg:col-span-2 bg-surface border border-border p-4 rounded-sm shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+      {/* Visual Analytics: Two-Chart View */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Chart 1: Revenue vs Profit (in Rupees) */}
+        <div className="bg-surface border border-border p-4 rounded-sm shadow-xs">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-sm font-bold text-ink">Monthly Profitability Trend</h3>
-              <p className="text-xs text-ink-3">Revenue (bars), Gross Profit (bars), and Realized Margin % (line)</p>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0072B2]" />
+                <h3 className="text-sm font-bold text-ink">1. Monthly Revenue & Profit (₹ in Lakhs)</h3>
+              </div>
+              <p className="text-xs text-ink-3 mt-0.5">
+                Blue = Total Sales Invoiced &nbsp;|&nbsp; Green = Actual Rupee Profit Kept
+              </p>
             </div>
             <div className="text-right">
               <span className="text-xs font-bold text-success num">{formatINR(kpis.grossProfit)}</span>
@@ -334,22 +343,13 @@ export function ProfitabilityTab({
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={monthlyTrend} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <BarChart data={monthlyTrend} margin={{ top: 15, right: 15, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.6} />
                 <XAxis dataKey="period" stroke="var(--ink-3)" fontSize={11} tickLine={false} />
                 <YAxis
-                  yAxisId="left"
                   stroke="var(--ink-3)"
                   fontSize={11}
-                  tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  stroke="var(--ink-3)"
-                  fontSize={11}
-                  tickFormatter={(v) => `${v}%`}
+                  tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`}
                   tickLine={false}
                 />
                 <Tooltip
@@ -360,20 +360,16 @@ export function ProfitabilityTab({
                         <div className="bg-ink text-surface p-2.5 rounded-xs text-xs shadow-md space-y-1">
                           <p className="font-bold border-b border-surface/20 pb-1">{d.period}</p>
                           <div className="flex justify-between gap-4 text-blue-300">
-                            <span>Revenue:</span>
+                            <span>Sales Invoiced:</span>
                             <span className="font-mono font-semibold">{formatINR(d.revenue)}</span>
                           </div>
-                          <div className="flex justify-between gap-4 text-emerald-300">
+                          <div className="flex justify-between gap-4 text-emerald-300 font-semibold">
                             <span>Gross Profit:</span>
-                            <span className="font-mono font-semibold">{formatINR(d.profit)}</span>
-                          </div>
-                          <div className="flex justify-between gap-4 text-amber-300">
-                            <span>Margin %:</span>
-                            <span className="font-mono font-semibold">{d.marginPct.toFixed(1)}%</span>
+                            <span className="font-mono">{formatINR(d.profit)}</span>
                           </div>
                           <div className="flex justify-between gap-4 text-surface-2 text-[10px]">
-                            <span>Volume:</span>
-                            <span>{formatKg(d.volumeKg)}</span>
+                            <span>Product Cost (COGS):</span>
+                            <span className="font-mono">{formatINR(d.cogs)}</span>
                           </div>
                         </div>
                       );
@@ -381,28 +377,113 @@ export function ProfitabilityTab({
                     return null;
                   }}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill={COLORS.blue} radius={[2, 2, 0, 0]} maxBarSize={36} />
-                <Bar yAxisId="left" dataKey="profit" name="Gross Profit" fill={COLORS.green} radius={[2, 2, 0, 0]} maxBarSize={36} />
-                <Line yAxisId="right" type="monotone" dataKey="marginPct" name="Margin %" stroke={COLORS.accent} strokeWidth={2} dot={{ r: 3 }} />
-              </ComposedChart>
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
+                <Bar dataKey="revenue" name="Sales Revenue" fill={COLORS.blue} radius={[3, 3, 0, 0]} maxBarSize={32} />
+                <Bar dataKey="profit" name="Gross Profit" fill={COLORS.green} radius={[3, 3, 0, 0]} maxBarSize={32} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Customer Profit Share Donut */}
+        {/* Chart 2: Margin Percentage Trend (%) */}
+        <div className="bg-surface border border-border p-4 rounded-sm shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#9A5B24]" />
+                <h3 className="text-sm font-bold text-ink">2. Profit Margin Trend (%)</h3>
+              </div>
+              <p className="text-xs text-ink-3 mt-0.5">
+                Exact % of sales kept as profit each month (labeled directly on each point)
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-bold text-primary num">{kpis.blendedMarginPct.toFixed(1)}%</span>
+              <span className="text-[10px] text-ink-3 block">Overall Margin</span>
+            </div>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyTrend} margin={{ top: 25, right: 25, left: -15, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="marginGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COLORS.accent} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={COLORS.accent} stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.6} />
+                <XAxis dataKey="period" stroke="var(--ink-3)" fontSize={11} tickLine={false} />
+                <YAxis
+                  stroke="var(--ink-3)"
+                  fontSize={11}
+                  domain={[0, 40]}
+                  tickFormatter={(v) => `${v}%`}
+                  tickLine={false}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload;
+                      return (
+                        <div className="bg-ink text-surface p-2.5 rounded-xs text-xs shadow-md space-y-1">
+                          <p className="font-bold border-b border-surface/20 pb-1">{d.period}</p>
+                          <div className="flex justify-between gap-4 text-amber-300">
+                            <span>Margin %:</span>
+                            <span className="font-mono font-bold text-sm">{d.marginPct.toFixed(1)}%</span>
+                          </div>
+                          <div className="flex justify-between gap-4 text-emerald-300 text-[10px]">
+                            <span>Gross Profit:</span>
+                            <span>{formatINR(d.profit)}</span>
+                          </div>
+                          <div className="flex justify-between gap-4 text-blue-300 text-[10px]">
+                            <span>Revenue:</span>
+                            <span>{formatINR(d.revenue)}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="marginPct"
+                  name="Margin %"
+                  stroke={COLORS.accent}
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#marginGradient)"
+                  dot={{ r: 4, fill: COLORS.accent, strokeWidth: 2, stroke: "#fff" }}
+                >
+                  <LabelList
+                    dataKey="marginPct"
+                    position="top"
+                    offset={10}
+                    formatter={(v: number) => `${v.toFixed(1)}%`}
+                    style={{ fontSize: "11px", fontWeight: "600", fill: "var(--ink)" }}
+                  />
+                </Area>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Profit Share Donut & Insights Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Customer Profit Share */}
         <div className="bg-surface border border-border p-4 rounded-sm shadow-xs flex flex-col">
-          <h3 className="text-sm font-bold text-ink">Profit by Top Customers</h3>
+          <h3 className="text-sm font-bold text-ink">Profit Share by Top Customers</h3>
           <p className="text-xs text-ink-3 mb-2">Contribution to company gross profit</p>
-          <div className="h-56 relative flex-1">
+          <div className="h-48 relative flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={topCustomerPieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={45}
-                  outerRadius={75}
+                  innerRadius={40}
+                  outerRadius={68}
                   paddingAngle={3}
                   dataKey="value"
                 >
@@ -437,6 +518,55 @@ export function ProfitabilityTab({
                 <span className="font-mono font-medium">{formatINR(c.value)}</span>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Top 5 Products by Profit */}
+        <div className="lg:col-span-2 bg-surface border border-border p-4 rounded-sm shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-ink">Top 5 Products Driving Gross Profit</h3>
+              <span className="text-[10px] text-ink-3 uppercase tracking-wider font-mono">Ranked by ₹ Profit</span>
+            </div>
+            <p className="text-xs text-ink-3 mb-4">
+              These 5 chemicals contribute the largest share of net rupee profits after all product costs.
+            </p>
+
+            <div className="space-y-3">
+              {top10ProfitProducts.slice(0, 5).map((p, idx) => {
+                const profitPctOfTotal = kpis.grossProfit > 0 ? (p.totalProfit / kpis.grossProfit) * 100 : 0;
+                return (
+                  <div key={p.productId} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] font-bold text-ink-3 w-4">#{idx + 1}</span>
+                        <span className="font-mono font-semibold text-primary">{p.code}</span>
+                        <span className="text-ink truncate max-w-[180px]">{p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-ink-3 text-[11px]">{formatKg(p.soldQtyKg)} sold</span>
+                        <span className="font-semibold px-1.5 py-0.2 rounded text-[11px] bg-success-bg text-success font-mono">
+                          {p.marginPct.toFixed(1)}% margin
+                        </span>
+                        <span className="font-bold text-ink num w-24 text-right">{formatINR(p.totalProfit)}</span>
+                      </div>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="h-1.5 w-full bg-surface-2 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-600 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, Math.max(5, profitPctOfTotal))}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-border mt-3 flex items-center justify-between text-xs text-ink-3">
+            <span>💡 High-margin products with low volume are expansion opportunities.</span>
+            <span className="text-[11px] font-medium text-primary">Scroll down for full catalog breakdown ↓</span>
           </div>
         </div>
       </div>
