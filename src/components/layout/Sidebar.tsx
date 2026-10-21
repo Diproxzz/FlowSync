@@ -134,7 +134,7 @@ export function Sidebar() {
           <img
             src="/logo.png"
             alt="FlowSync"
-            className="w-8 h-8 object-contain"
+            className="h-7 w-auto object-contain"
           />
           <div className="flex flex-col">
             <span className="font-bold text-sm leading-tight text-ink tracking-tight">FlowSync</span>

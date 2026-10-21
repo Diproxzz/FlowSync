@@ -46,7 +46,7 @@ export function Topbar({ title }: TopbarProps) {
             <img
               src="/logo.png"
               alt="FlowSync"
-              className="w-8 h-8 object-contain group-hover:scale-105 transition"
+              className="h-7 w-auto object-contain group-hover:scale-105 transition"
             />
             <div className="flex flex-col">
               <span className="font-bold text-xs leading-tight text-ink tracking-tight flex items-center gap-1">

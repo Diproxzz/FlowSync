@@ -59,7 +59,7 @@ function LoginForm() {
           <img
             src="/logo.png"
             alt="FlowSync"
-            className="w-20 h-20 object-contain drop-shadow-sm"
+            className="h-16 w-auto object-contain drop-shadow-sm"
           />
         </div>
         <h1 className="text-xl font-bold text-ink tracking-tight">FlowSync</h1>
