@@ -8,7 +8,6 @@ import {
   Search,
   Filter,
   ArrowUpDown,
-  Download,
   PlusCircle,
   ExternalLink,
   Scale,
@@ -140,46 +139,6 @@ export default function AccountsPage() {
     return true;
   });
 
-  // Export CSV
-  const handleExportCSV = () => {
-    const headers = [
-      "Party Name",
-      "Type",
-      "GSTIN",
-      "Opening Balance",
-      "Period Debit",
-      "Period Credit",
-      "Closing Balance",
-      "Side",
-      "Overdue Amount",
-      "Oldest Open Bill",
-      "Last Receipt Date",
-    ];
-
-    const rows = filteredAccounts.map((a) => [
-      `"${a.partyName.replace(/"/g, '""')}"`,
-      a.accountType,
-      a.gstin || "Not on file",
-      a.openingBalance.toFixed(2),
-      a.periodDebit.toFixed(2),
-      a.periodCredit.toFixed(2),
-      Math.abs(a.closingBalance).toFixed(2),
-      a.closingSide,
-      a.overdueAmount.toFixed(2),
-      a.oldestBillNo || "",
-      a.lastReceiptDate || "",
-    ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Party_Ledgers_Overview_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
       {/* Page Header */}
@@ -200,15 +159,6 @@ export default function AccountsPage() {
           >
             <Users className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Debtor List (Monthwise)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
           </button>
 
           <Link
