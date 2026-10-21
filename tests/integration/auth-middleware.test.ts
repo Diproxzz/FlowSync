@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
-import { verifyPassword } from "@/lib/auth/password";
+import { verifyPassword, verifyUsername, verifyCredentials } from "@/lib/auth/password";
 import { checkLoginRateLimit, recordFailedLogin, resetLoginRateLimit } from "@/lib/auth/rateLimit";
 import { middleware } from "@/middleware";
 import { NextRequest } from "next/server";
@@ -22,13 +22,31 @@ describe("Phase 2: Auth and Session Tests", () => {
     expect(invalidPayload).toBeNull();
   });
 
-  it("should verify correct password against APP_PASSWORD_HASH", async () => {
-    // In our .env APP_PASSWORD_HASH was set for "admin123"
-    const isCorrect = await verifyPassword("admin123");
-    expect(isCorrect).toBe(true);
+  it("should verify correct password against APP_PASSWORD_HASH and defaults", async () => {
+    const isCorrectIndobest = await verifyPassword("Indobest2026");
+    expect(isCorrectIndobest).toBe(true);
+
+    const isCorrectAdmin = await verifyPassword("admin123");
+    expect(isCorrectAdmin).toBe(true);
 
     const isWrong = await verifyPassword("wrongpassword");
     expect(isWrong).toBe(false);
+  });
+
+  it("should verify Indobest credentials (Username: Indobest, Password: Indobest2026)", async () => {
+    expect(verifyUsername("Indobest")).toBe(true);
+    expect(verifyUsername("indobest")).toBe(true);
+    expect(verifyUsername("INDOBEST")).toBe(true);
+    expect(verifyUsername("wronguser")).toBe(false);
+
+    const validCreds = await verifyCredentials("Indobest", "Indobest2026");
+    expect(validCreds.valid).toBe(true);
+
+    const invalidUser = await verifyCredentials("randomUser", "Indobest2026");
+    expect(invalidUser.valid).toBe(false);
+
+    const invalidPass = await verifyCredentials("Indobest", "wrongpass");
+    expect(invalidPass.valid).toBe(false);
   });
 
   it("should rate limit after 5 failed login attempts from same IP", () => {

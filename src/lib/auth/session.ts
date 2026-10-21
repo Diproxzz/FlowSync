@@ -7,11 +7,12 @@ const SECRET_KEY = new TextEncoder().encode(env.SESSION_SECRET);
 
 export interface SessionPayload {
   authenticated: boolean;
+  username?: string;
   createdAt: number;
 }
 
-export async function createSessionToken(): Promise<string> {
-  return await new SignJWT({ authenticated: true, createdAt: Date.now() })
+export async function createSessionToken(username: string = "Indobest"): Promise<string> {
+  return await new SignJWT({ authenticated: true, username, createdAt: Date.now() })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")

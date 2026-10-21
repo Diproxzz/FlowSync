@@ -9,6 +9,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
 
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,10 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username.trim()) {
+      setError("Please enter your username");
+      return;
+    }
     if (!password.trim()) {
       setError("Please enter your password");
       return;
@@ -28,12 +33,12 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error?.message || "Invalid password");
+        setError(data.error?.message || "Invalid credentials");
         setLoading(false);
         return;
       }
@@ -63,6 +68,28 @@ function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
+          <label className="block text-xs font-medium text-ink-2 mb-1.5" htmlFor="username">
+            Username
+          </label>
+          <div className="relative">
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (error) setError(null);
+              }}
+              disabled={loading}
+              autoFocus
+              placeholder="Enter username"
+              autoComplete="username"
+              className="w-full px-3 py-2 text-sm bg-surface border border-border-strong rounded-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+            />
+          </div>
+        </div>
+
+        <div>
           <label className="block text-xs font-medium text-ink-2 mb-1.5" htmlFor="password">
             Password
           </label>
@@ -76,8 +103,8 @@ function LoginForm() {
                 if (error) setError(null);
               }}
               disabled={loading}
-              autoFocus
               placeholder="Enter password"
+              autoComplete="current-password"
               className="w-full px-3 py-2 pr-10 text-sm bg-surface border border-border-strong rounded-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
             />
             <button

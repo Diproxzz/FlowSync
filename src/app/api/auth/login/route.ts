@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPassword } from "@/lib/auth/password";
+import { verifyPassword, verifyCredentials } from "@/lib/auth/password";
 import { createSessionToken, setSessionCookie } from "@/lib/auth/session";
 import { checkLoginRateLimit, recordFailedLogin, resetLoginRateLimit } from "@/lib/auth/rateLimit";
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    if (!body || typeof body.password !== "string") {
+    if (!body || typeof body.password !== "string" || !body.password.trim()) {
       return NextResponse.json(
         {
           error: {
@@ -32,14 +32,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isValid = await verifyPassword(body.password);
+    const username = typeof body.username === "string" ? body.username.trim() : "";
+    let isValid = false;
+
+    if (username) {
+      const credResult = await verifyCredentials(username, body.password);
+      isValid = credResult.valid;
+    } else {
+      isValid = await verifyPassword(body.password);
+    }
+
     if (!isValid) {
       recordFailedLogin(ip);
       return NextResponse.json(
         {
           error: {
             code: "INVALID_CREDENTIALS",
-            message: "Incorrect password",
+            message: "Incorrect username or password",
           },
         },
         { status: 401 }
@@ -47,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     resetLoginRateLimit(ip);
-    const token = await createSessionToken();
+    const token = await createSessionToken(username || "Indobest");
     setSessionCookie(token);
 
     return NextResponse.json({ success: true, message: "Logged in successfully" });

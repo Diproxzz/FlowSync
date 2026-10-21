@@ -3,6 +3,7 @@ import { z } from "zod";
 const envSchema = z.object({
   DATABASE_URL: z.string().url().default("postgresql://postgres:postgres@localhost:5432/indobest"),
   SESSION_SECRET: z.string().min(16).default("development_session_secret_change_me_to_at_least_32_chars_long"),
+  APP_USERNAME: z.string().default("Indobest"),
   APP_PASSWORD_HASH: z.string().optional(),
   COMPANY_NAME: z.string().default("INDOBEST"),
   COMPANY_GSTIN: z.string().default("19AVZPC2361G1ZA"),
