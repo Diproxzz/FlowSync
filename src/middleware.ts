@@ -15,6 +15,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname === "/favicon.ico" ||
+    pathname === "/icon.png" ||
+    pathname.startsWith("/icon") ||
     pathname === "/logo.png" ||
     pathname === "/logo.jpg" ||
     pathname === "/wisp.png"

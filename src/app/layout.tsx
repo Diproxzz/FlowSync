@@ -17,6 +17,15 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "FlowSync",
   description: "FlowSync - GST Invoice & Stock Intelligence Platform",
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png" },
+      { url: "/logo.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
