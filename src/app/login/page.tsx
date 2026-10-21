@@ -57,12 +57,12 @@ function LoginForm() {
         <div className="inline-flex items-center justify-center mb-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo.jpg"
-            alt="Indobest"
-            className="w-16 h-16 object-contain rounded-md border border-border shadow-xs bg-[#fbf9f5]"
+            src="/logo.png"
+            alt="FlowSync"
+            className="w-20 h-20 object-contain drop-shadow-sm"
           />
         </div>
-        <h1 className="text-xl font-bold text-ink tracking-tight">Indobest Insights</h1>
+        <h1 className="text-xl font-bold text-ink tracking-tight">FlowSync</h1>
         <p className="text-xs text-ink-3 mt-1">Single-owner GST Invoice & Stock Intelligence</p>
       </div>
 
@@ -142,7 +142,7 @@ function LoginForm() {
       </form>
 
       <div className="mt-8 pt-4 border-t border-border text-center">
-        <p className="text-[11px] text-ink-3">Mandatory login to view and operate Indobest Insights</p>
+        <p className="text-[11px] text-ink-3">Mandatory login to view and operate FlowSync</p>
       </div>
     </div>
   );

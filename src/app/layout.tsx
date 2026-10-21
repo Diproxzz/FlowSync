@@ -15,8 +15,8 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Indobest Insights",
-  description: "GST Sales Invoice Extraction & Leather Chemicals Stock Analytics",
+  title: "FlowSync",
+  description: "FlowSync - GST Invoice & Stock Intelligence Platform",
 };
 
 export default function RootLayout({

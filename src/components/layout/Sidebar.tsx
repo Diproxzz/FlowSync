@@ -132,13 +132,13 @@ export function Sidebar() {
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo.jpg"
-            alt="Indobest"
-            className="w-8 h-8 object-contain rounded-sm border border-border shadow-xs bg-[#fbf9f5]"
+            src="/logo.png"
+            alt="FlowSync"
+            className="w-8 h-8 object-contain"
           />
           <div className="flex flex-col">
-            <span className="font-bold text-sm leading-tight text-ink tracking-tight">Indobest</span>
-            <span className="text-[10px] text-ink-3 uppercase tracking-wider font-mono">Leather Chemicals</span>
+            <span className="font-bold text-sm leading-tight text-ink tracking-tight">FlowSync</span>
+            <span className="text-[10px] text-ink-3 tracking-wider font-mono">Client: Indobest</span>
           </div>
         </div>
 

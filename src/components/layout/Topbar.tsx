@@ -44,13 +44,13 @@ export function Topbar({ title }: TopbarProps) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo.jpg"
-              alt="Indobest"
-              className="w-8 h-8 object-contain rounded-sm border border-border shadow-xs bg-[#fbf9f5] group-hover:scale-105 transition"
+              src="/logo.png"
+              alt="FlowSync"
+              className="w-8 h-8 object-contain group-hover:scale-105 transition"
             />
             <div className="flex flex-col">
               <span className="font-bold text-xs leading-tight text-ink tracking-tight flex items-center gap-1">
-                Indobest
+                FlowSync
                 <ChevronRight className="w-3 h-3 text-ink-3 group-hover:translate-x-0.5 transition" />
               </span>
               <span className="text-[9px] text-ink-3 uppercase tracking-wider font-mono">Menu</span>
@@ -60,13 +60,14 @@ export function Topbar({ title }: TopbarProps) {
 
         {!isPinned && <div className="h-4 w-px bg-border" />}
 
-        <h1 className="text-sm font-semibold text-ink">{title || "Indobest Insights"}</h1>
+        <h1 className="text-sm font-semibold text-ink">{title || "FlowSync"}</h1>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Active Profile indicator */}
         <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-surface-2 text-ink-2 text-xs border border-border/60">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Indobest Profile" />
+          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Client Profile" />
+          <span className="text-[11px] text-ink-3">Client:</span>
           <span className="font-semibold text-ink">Indobest</span>
           <span className="hidden sm:inline text-border-strong">|</span>
           <span className="hidden sm:inline text-[11px] text-ink-3 font-mono">19AVZPC2361G1ZA</span>
