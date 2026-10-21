@@ -319,7 +319,7 @@ export default function WispPage() {
           <div className="mt-2 text-[11px] text-center text-muted-foreground flex items-center justify-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>
-              Wisp answers strictly from your InVoiceR database. Off-context queries are politely filtered.
+              Wisp answers strictly from your Indobest database.
             </span>
           </div>
         </div>

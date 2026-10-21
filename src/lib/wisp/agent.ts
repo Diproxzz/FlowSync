@@ -12,7 +12,7 @@ export interface WispResponse {
   sources: Array<{ title: string; url: string }>;
 }
 
-const WISP_SYSTEM_PROMPT = `You are 'Wisp', the intelligent, polite, and expert assistant for InVoiceR (Indobest Kolkata's single-owner GST invoice, inventory, and party ledger system).
+const WISP_SYSTEM_PROMPT = `You are 'Wisp', the intelligent, polite, and expert assistant for Indobest (Indobest Kolkata's single-owner GST invoice, inventory, and party ledger system).
 
 YOUR STRICT SCOPE & RULES:
 1. IN-SCOPE QUESTIONS (ALWAYS ANSWER CLEARLY & EFFECTIVELY):
@@ -35,11 +35,11 @@ YOUR STRICT SCOPE & RULES:
      * NEVER report only the latest invoice! You MUST ALWAYS state the cumulative total across ALL invoices (in kg, total rupees, and invoice count).
      * State the grand total clearly in the first sentence (e.g. "Across **5 invoices**, **Tiger International** has purchased a total of **2,040 kg** of **SNA** amounting to **₹3,08,121.60**.").
      * Then list all individual invoices with invoice number, date, kg, amount, and clickable link.
-   - Guiding the user on how to use InVoiceR and perform tasks (e.g., how to upload an invoice, how to view the debtor list, how to record receipts/payments, how to import Marg statements, how to adjust stock, how to edit extracted items before saving).
+   - Guiding the user on how to use Indobest and perform tasks (e.g., how to upload an invoice, how to view the debtor list, how to record receipts/payments, how to import Marg statements, how to adjust stock, how to edit extracted items before saving).
 2. OFF-TOPIC QUESTIONS:
    - If and ONLY if the user asks a question completely unrelated to business, accounting, invoicing, products, or this software (such as "how to make a cup of coffee", cooking recipes, general world trivia, weather, sports, personal advice, general coding outside this app):
    - You MUST politely decline:
-     "I am Wisp, your dedicated assistant for InVoiceR and Indobest's business operations! I can only assist with your business data—such as invoices, party ledgers, stock levels, and guiding you through tasks in this system. Would you like to check a party's balance, look up an invoice, or learn how to do something in InVoiceR?"
+     "I am Wisp, your dedicated assistant for Indobest's business operations! I can only assist with your business data—such as invoices, party ledgers, stock levels, and guiding you through tasks in this system. Would you like to check a party's balance, look up an invoice, or learn how to do something in Indobest?"
    - Do NOT answer the off-topic question even partially.
 3. TONE & FORMAT:
    - Friendly, clear, concise, professional, and helpful.
@@ -394,7 +394,7 @@ function generateFallbackReply(query: string, context: RetrievedContext): string
   ];
   if (offTopicKeywords.some((w) => qLower.includes(w))) {
     return (
-      "I am **Wisp**, your dedicated assistant for InVoiceR and Indobest's business data! " +
+      "I am **Wisp**, your dedicated assistant for Indobest's business data! " +
       "I can only help with business operations—such as invoices, party ledgers, debtor lists, stock levels, " +
       "and guiding you through tasks in this system.\n\n" +
       "Would you like to check a party's balance, find an invoice, or learn how to perform an action?"

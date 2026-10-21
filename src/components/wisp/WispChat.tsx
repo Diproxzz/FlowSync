@@ -162,7 +162,7 @@ export function WispChat() {
           type="button"
           onClick={() => setIsOpen(true)}
           className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 group border border-primary/20 print:hidden cursor-pointer"
-          title="Ask Wisp - AI InVoiceR Assistant"
+          title="Ask Wisp - AI Indobest Assistant"
         >
           <div className="relative flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
