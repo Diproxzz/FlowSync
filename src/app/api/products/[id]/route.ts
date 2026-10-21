@@ -173,16 +173,45 @@ export async function PATCH(
       updateData.pack_size_kg = body.pack_size_kg !== null ? new Prisma.Decimal(body.pack_size_kg) : null;
     }
     if (body.std_purchase_rate !== undefined) {
-      updateData.std_purchase_rate = body.std_purchase_rate !== null ? new Prisma.Decimal(body.std_purchase_rate) : null;
+      updateData.std_purchase_rate = body.std_purchase_rate !== null && body.std_purchase_rate !== "" ? new Prisma.Decimal(body.std_purchase_rate) : null;
+    }
+    if (body.landing_cost !== undefined) {
+      updateData.landing_cost = body.landing_cost !== null && body.landing_cost !== "" ? new Prisma.Decimal(body.landing_cost) : null;
     }
     if (body.std_sale_rate !== undefined) {
-      updateData.std_sale_rate = body.std_sale_rate !== null ? new Prisma.Decimal(body.std_sale_rate) : null;
+      updateData.std_sale_rate = body.std_sale_rate !== null && body.std_sale_rate !== "" ? new Prisma.Decimal(body.std_sale_rate) : null;
     }
     if (body.reorder_level_kg !== undefined) {
-      updateData.reorder_level_kg = body.reorder_level_kg !== null ? new Prisma.Decimal(body.reorder_level_kg) : null;
+      updateData.reorder_level_kg = body.reorder_level_kg !== null && body.reorder_level_kg !== "" ? new Prisma.Decimal(body.reorder_level_kg) : null;
     }
     if (body.is_active !== undefined) updateData.is_active = Boolean(body.is_active);
     if (body.needs_review !== undefined) updateData.needs_review = Boolean(body.needs_review);
+
+    // Update Opening stock movement if provided
+    if (body.opening !== undefined || body.opening_kg !== undefined) {
+      const rawVal = body.opening !== undefined ? body.opening : body.opening_kg;
+      const numVal = rawVal !== null && rawVal !== "" ? Number(rawVal) : 0;
+      const existingOpening = await prisma.stockMovement.findFirst({
+        where: { product_id: id, type: "OPENING" },
+      });
+      if (existingOpening) {
+        await prisma.stockMovement.update({
+          where: { id: existingOpening.id },
+          data: { qty_kg: new Prisma.Decimal(numVal) },
+        });
+      } else if (numVal !== 0) {
+        await prisma.stockMovement.create({
+          data: {
+            product_id: id,
+            type: "OPENING",
+            source: "MANUAL",
+            qty_kg: new Prisma.Decimal(numVal),
+            movement_date: new Date("2026-04-01"),
+            note: "Opening stock balance",
+          },
+        });
+      }
+    }
 
     const product = await prisma.product.update({
       where: { id },

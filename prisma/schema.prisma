@@ -41,6 +41,7 @@ model Product {
   default_hsn       String?
   pack_size_kg      Decimal?        @db.Decimal(8, 2)
   std_purchase_rate Decimal?        @db.Decimal(10, 2)
+  landing_cost      Decimal?        @db.Decimal(10, 2)
   std_sale_rate     Decimal?        @db.Decimal(10, 2)
   reorder_level_kg  Decimal?        @db.Decimal(12, 3)
   is_active         Boolean         @default(true)

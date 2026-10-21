@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Plus, Filter, AlertTriangle, CheckCircle2, ArrowUpDown, Download } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Filter,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowUpDown,
+  Download,
+  Pencil,
+  Check,
+  X,
+  Loader2,
+} from "lucide-react";
 import { formatINR, formatKg } from "@/lib/format";
 
 interface StockRow {
@@ -19,6 +31,7 @@ interface StockRow {
   packSizeKg: number | null;
   drums: number;
   purchaseRate: number | null;
+  landingCost: number | null;
   saleRate: number | null;
   lastPurchaseRate: number | null;
   lastPurchaseDate: string | null;
@@ -37,6 +50,27 @@ export default function StockPage() {
   const [search, setSearch] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [isManualMovementOpen, setIsManualMovementOpen] = useState(false);
+
+  // Inline editing state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    opening: string;
+    packSizeKg: string;
+    purchaseRate: string;
+    landingCost: string;
+    saleRate: string;
+  }>({
+    name: "",
+    opening: "",
+    packSizeKg: "",
+    purchaseRate: "",
+    landingCost: "",
+    saleRate: "",
+  });
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   // Manual movement form
   const [movementForm, setMovementForm] = useState({
@@ -65,6 +99,58 @@ export default function StockPage() {
   useEffect(() => {
     loadStock();
   }, []);
+
+  const handleStartEdit = (r: StockRow) => {
+    setEditingId(r.productId);
+    setEditForm({
+      name: r.name,
+      opening: r.opening !== null && r.opening !== undefined ? String(r.opening) : "",
+      packSizeKg: r.packSizeKg !== null && r.packSizeKg !== undefined ? String(r.packSizeKg) : "",
+      purchaseRate: r.purchaseRate !== null && r.purchaseRate !== undefined ? String(r.purchaseRate) : "",
+      landingCost: r.landingCost !== null && r.landingCost !== undefined ? String(r.landingCost) : "",
+      saleRate: r.saleRate !== null && r.saleRate !== undefined ? String(r.saleRate) : "",
+    });
+    setSaveError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setSaveError(null);
+  };
+
+  const handleSaveEdit = async (productId: string) => {
+    setSavingId(productId);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name,
+          opening: editForm.opening !== "" ? Number(editForm.opening) : 0,
+          pack_size_kg: editForm.packSizeKg !== "" ? Number(editForm.packSizeKg) : null,
+          std_purchase_rate: editForm.purchaseRate !== "" ? Number(editForm.purchaseRate) : null,
+          landing_cost: editForm.landingCost !== "" ? Number(editForm.landingCost) : null,
+          std_sale_rate: editForm.saleRate !== "" ? Number(editForm.saleRate) : null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setSaveError(data.error?.message || "Failed to update item");
+        return;
+      }
+
+      setEditingId(null);
+      setSaveSuccess("Item updated successfully");
+      setTimeout(() => setSaveSuccess(null), 3000);
+      await loadStock();
+    } catch {
+      setSaveError("An error occurred while saving item");
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const handleRecordMovement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,13 +228,13 @@ export default function StockPage() {
       "Pack Size (kg)",
       "Drums",
       "Std Purchase Rate (INR)",
+      "Landing Cost (INR)",
       "Last Purchase Rate (INR/kg)",
       "Last Purchase Date",
       "Last Purchase Supplier",
       "Std Sale Rate (INR)",
       "Stock Valuation (INR)",
       "Sales Value (INR)",
-      "Reorder Level (kg)",
       "Reorder Suggestion (kg)",
       "Status",
     ];
@@ -170,13 +256,13 @@ export default function StockPage() {
           r.packSizeKg ?? "",
           r.drums,
           r.purchaseRate ?? "",
+          r.landingCost ?? "",
           r.lastPurchaseRate ?? "",
           r.lastPurchaseDate ?? "",
           `"${(r.lastPurchaseSupplier || "").replace(/"/g, '""')}"`,
           r.saleRate ?? "",
           r.stockValue,
           r.salesValue,
-          r.reorderLevelKg ?? "",
           r.reorderSuggestionKg,
           r.status,
         ].join(",")
@@ -273,6 +359,30 @@ export default function StockPage() {
         </div>
       </div>
 
+      {/* Notifications */}
+      {saveSuccess && (
+        <div className="p-3 bg-success-bg border border-success/30 rounded-sm text-xs text-success flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{saveSuccess}</span>
+          </div>
+          <button onClick={() => setSaveSuccess(null)} className="text-success hover:opacity-80">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      {saveError && (
+        <div className="p-3 bg-danger-bg border border-danger/30 rounded-sm text-xs text-danger flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            <span>{saveError}</span>
+          </div>
+          <button onClick={() => setSaveError(null)} className="text-danger hover:opacity-80">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-surface border border-border rounded-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -288,111 +398,346 @@ export default function StockPage() {
                 <th className="py-2.5 px-3 text-right">Pack (kg)</th>
                 <th className="py-2.5 px-3 text-right">Drums</th>
                 <th className="py-2.5 px-3 text-right">Std Pur.</th>
+                <th className="py-2.5 px-3 text-right font-semibold text-primary">Landing Cost</th>
                 <th className="py-2.5 px-3 text-right">Last Purchase</th>
                 <th className="py-2.5 px-3 text-right">Sale Rate</th>
                 <th className="py-2.5 px-3 text-right font-medium text-ink">Stock Value</th>
-                <th className="py-2.5 px-3 text-right">Reorder Level</th>
                 <th className="py-2.5 px-3 text-right font-medium text-amber-800">Reorder Suggestion</th>
                 <th className="py-2.5 px-3 text-center">Status</th>
+                <th className="py-2.5 px-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={15} className="py-8 text-center text-ink-3">
+                  <td colSpan={16} className="py-8 text-center text-ink-3">
                     Loading inventory...
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="py-8 text-center text-ink-3">
+                  <td colSpan={16} className="py-8 text-center text-ink-3">
                     No products match the criteria.
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((r) => (
-                  <tr key={r.productId} className="hover:bg-surface-2/60 transition">
-                    <td className="py-2.5 px-3">
-                      <span className="font-mono font-semibold text-primary">{r.code}</span>
-                      <span className="text-ink-3 truncate max-w-[140px] block text-[11px]">{r.name}</span>
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">{r.opening}</td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">
-                      <div className="group relative inline-block cursor-help">
-                        <span className="underline decoration-dotted decoration-ink-3/50">{r.purchases}</span>
-                        <div className="hidden group-hover:block absolute bottom-full right-0 mb-1 z-30 w-44 p-2 bg-ink text-surface text-[10px] rounded-xs shadow-md pointer-events-none text-left">
-                          <div className="font-semibold border-b border-surface/20 pb-0.5 mb-1 text-surface-2">Purchases Breakdown</div>
-                          <div>• {formatKg(r.purchasesFromInvoices)} from invoices</div>
-                          <div>• {formatKg(r.purchasesFromLegacy)} from legacy</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">{r.sales}</td>
-                    <td className="py-2.5 px-3 text-right num text-ink-3">{r.adjustments}</td>
-                    <td className="py-2.5 px-3 text-right num font-semibold text-ink bg-surface-2/30">
-                      {r.closing}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-3">{r.packSizeKg || "—"}</td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">{r.drums || "—"}</td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">
-                      {r.purchaseRate ? formatINR(r.purchaseRate) : "—"}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">
-                      {r.lastPurchaseRate ? (
-                        <div>
-                          <span className="font-medium">₹{r.lastPurchaseRate.toFixed(2)}</span>
-                          {r.lastPurchaseDate && (
-                            <span className="text-[10px] text-ink-3 block" title={r.lastPurchaseSupplier || ""}>
-                              {new Date(r.lastPurchaseDate).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "2-digit",
-                              })}
+                filteredRows.map((r) => {
+                  const isEditing = editingId === r.productId;
+
+                  if (isEditing) {
+                    const parsedOpening = editForm.opening !== "" ? Number(editForm.opening) : 0;
+                    const previewClosing =
+                      Math.round((parsedOpening + r.purchases - r.sales + r.adjustments) * 100) / 100;
+                    const parsedPack = editForm.packSizeKg !== "" ? Number(editForm.packSizeKg) : null;
+                    const previewDrums =
+                      parsedPack && parsedPack > 0
+                        ? Math.round((previewClosing / parsedPack) * 100) / 100
+                        : null;
+                    const parsedLanding =
+                      editForm.landingCost !== "" ? Number(editForm.landingCost) : null;
+                    const parsedPurchase =
+                      editForm.purchaseRate !== "" ? Number(editForm.purchaseRate) : null;
+                    const effRate = parsedLanding || parsedPurchase || 0;
+                    const previewStockValue =
+                      previewClosing > 0 && effRate > 0 ? previewClosing * effRate : 0;
+
+                    const handleKeyDown = (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSaveEdit(r.productId);
+                      } else if (e.key === "Escape") {
+                        handleCancelEdit();
+                      }
+                    };
+
+                    return (
+                      <tr key={r.productId} className="bg-primary/5 border-2 border-primary/40">
+                        {/* Product Code & Name */}
+                        <td className="py-2 px-3">
+                          <span className="font-mono font-semibold text-primary block">{r.code}</span>
+                          <input
+                            type="text"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            className="mt-1 w-full text-xs bg-bg border border-border rounded px-1.5 py-0.5 text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="Name"
+                          />
+                        </td>
+
+                        {/* Opening */}
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            step="any"
+                            value={editForm.opening}
+                            onChange={(e) => setEditForm({ ...editForm, opening: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            className="w-20 text-right text-xs bg-bg border border-border rounded px-1.5 py-0.5 text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="Opening"
+                          />
+                        </td>
+
+                        {/* Purchases (read-only transactions) */}
+                        <td className="py-2 px-3 text-right num text-ink-3">{r.purchases}</td>
+
+                        {/* Sales (read-only transactions) */}
+                        <td className="py-2 px-3 text-right num text-ink-3">{r.sales}</td>
+
+                        {/* Adjustments (read-only) */}
+                        <td className="py-2 px-3 text-right num text-ink-3">{r.adjustments}</td>
+
+                        {/* Closing (computed preview) */}
+                        <td className="py-2 px-3 text-right num font-semibold text-primary bg-primary/10">
+                          {previewClosing}
+                        </td>
+
+                        {/* Pack Size */}
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            step="any"
+                            value={editForm.packSizeKg}
+                            onChange={(e) => setEditForm({ ...editForm, packSizeKg: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            className="w-16 text-right text-xs bg-bg border border-border rounded px-1.5 py-0.5 text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="Pack"
+                          />
+                        </td>
+
+                        {/* Drums (computed preview) */}
+                        <td className="py-2 px-3 text-right num text-ink-2">
+                          {previewDrums !== null ? previewDrums : "—"}
+                        </td>
+
+                        {/* Std Purchase Rate */}
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            step="any"
+                            value={editForm.purchaseRate}
+                            onChange={(e) => setEditForm({ ...editForm, purchaseRate: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            className="w-20 text-right text-xs bg-bg border border-border rounded px-1.5 py-0.5 text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="Std Pur"
+                          />
+                        </td>
+
+                        {/* Landing Cost (highlighted editable) */}
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            step="any"
+                            value={editForm.landingCost}
+                            onChange={(e) => setEditForm({ ...editForm, landingCost: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            autoFocus
+                            className="w-20 text-right text-xs bg-bg border border-primary rounded px-1.5 py-0.5 text-primary font-medium num focus:outline-none ring-1 ring-primary/40"
+                            placeholder="Landing"
+                          />
+                        </td>
+
+                        {/* Last Purchase (read-only) */}
+                        <td className="py-2 px-3 text-right num text-ink-3">
+                          {r.lastPurchaseRate ? `₹${r.lastPurchaseRate.toFixed(2)}` : "—"}
+                        </td>
+
+                        {/* Std Sale Rate */}
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            step="any"
+                            value={editForm.saleRate}
+                            onChange={(e) => setEditForm({ ...editForm, saleRate: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            className="w-20 text-right text-xs bg-bg border border-border rounded px-1.5 py-0.5 text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="Sale Rate"
+                          />
+                        </td>
+
+                        {/* Stock Value (computed preview) */}
+                        <td className="py-2 px-3 text-right num font-medium text-ink">
+                          {formatINR(previewStockValue)}
+                        </td>
+
+                        {/* Reorder Suggestion */}
+                        <td className="py-2 px-3 text-right num text-ink-3">
+                          {r.reorderSuggestionKg > 0 ? `${formatKg(r.reorderSuggestionKg)}` : "—"}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-2 px-3 text-center">
+                          {r.status === "LOW STOCK" ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold bg-danger-bg text-danger border border-danger/30">
+                              LOW
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-medium bg-success-bg text-success border border-success/30">
+                              OK
                             </span>
                           )}
+                        </td>
+
+                        {/* Actions: Save & Cancel */}
+                        <td className="py-2 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEdit(r.productId)}
+                              disabled={savingId === r.productId}
+                              className="p-1.5 rounded bg-success text-primary-fg hover:opacity-90 transition disabled:opacity-50"
+                              title="Save changes (Enter)"
+                            >
+                              {savingId === r.productId ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelEdit}
+                              disabled={savingId === r.productId}
+                              className="p-1.5 rounded bg-surface-2 text-ink-3 hover:text-ink hover:bg-border transition disabled:opacity-50"
+                              title="Cancel (Esc)"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return (
+                    <tr
+                      key={r.productId}
+                      className="hover:bg-surface-2/60 transition group cursor-pointer"
+                      onDoubleClick={() => handleStartEdit(r)}
+                    >
+                      <td className="py-2.5 px-3">
+                        <span className="font-mono font-semibold text-primary">{r.code}</span>
+                        <span className="text-ink-3 truncate max-w-[140px] block text-[11px]">{r.name}</span>
+                      </td>
+                      <td
+                        onClick={() => handleStartEdit(r)}
+                        className="py-2.5 px-3 text-right num text-ink-2 hover:text-primary hover:underline decoration-dotted"
+                        title="Click to edit opening stock"
+                      >
+                        {r.opening}
+                      </td>
+                      <td className="py-2.5 px-3 text-right num text-ink-2">
+                        <div className="group/tip relative inline-block cursor-help">
+                          <span className="underline decoration-dotted decoration-ink-3/50">{r.purchases}</span>
+                          <div className="hidden group-hover/tip:block absolute bottom-full right-0 mb-1 z-30 w-44 p-2 bg-ink text-surface text-[10px] rounded-xs shadow-md pointer-events-none text-left">
+                            <div className="font-semibold border-b border-surface/20 pb-0.5 mb-1 text-surface-2">Purchases Breakdown</div>
+                            <div>• {formatKg(r.purchasesFromInvoices)} from invoices</div>
+                            <div>• {formatKg(r.purchasesFromLegacy)} from legacy</div>
+                          </div>
                         </div>
-                      ) : (
-                        <span className="text-ink-4">—</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-2">
-                      {r.saleRate ? formatINR(r.saleRate) : "—"}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num font-medium text-ink">
-                      {formatINR(r.stockValue)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-3">{r.reorderLevelKg || "—"}</td>
-                    <td className="py-2.5 px-3 text-right num">
-                      {r.reorderSuggestionKg > 0 ? (
-                        <div>
-                          <span className="font-semibold text-amber-700">
-                            {formatKg(r.reorderSuggestionKg)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right num text-ink-2">{r.sales}</td>
+                      <td className="py-2.5 px-3 text-right num text-ink-3">{r.adjustments}</td>
+                      <td className="py-2.5 px-3 text-right num font-semibold text-ink bg-surface-2/30">
+                        {r.closing}
+                      </td>
+                      <td
+                        onClick={() => handleStartEdit(r)}
+                        className="py-2.5 px-3 text-right num text-ink-3 hover:text-primary hover:underline decoration-dotted"
+                        title="Click to edit pack size"
+                      >
+                        {r.packSizeKg || "—"}
+                      </td>
+                      <td className="py-2.5 px-3 text-right num text-ink-2">{r.drums || "—"}</td>
+                      <td
+                        onClick={() => handleStartEdit(r)}
+                        className="py-2.5 px-3 text-right num text-ink-2 hover:text-primary hover:underline decoration-dotted"
+                        title="Click to edit standard purchase rate"
+                      >
+                        {r.purchaseRate ? formatINR(r.purchaseRate) : "—"}
+                      </td>
+                      {/* Landing Cost right next to Std Pur. */}
+                      <td
+                        onClick={() => handleStartEdit(r)}
+                        className="py-2.5 px-3 text-right num font-medium hover:underline decoration-dotted cursor-pointer"
+                        title="Click to edit landing cost"
+                      >
+                        {r.landingCost !== null && r.landingCost !== undefined ? (
+                          <span className="text-primary font-semibold">{formatINR(r.landingCost)}</span>
+                        ) : (
+                          <span className="text-ink-4 hover:text-primary text-[11px]">+ Add</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right num text-ink-2">
+                        {r.lastPurchaseRate ? (
+                          <div>
+                            <span className="font-medium">₹{r.lastPurchaseRate.toFixed(2)}</span>
+                            {r.lastPurchaseDate && (
+                              <span className="text-[10px] text-ink-3 block" title={r.lastPurchaseSupplier || ""}>
+                                {new Date(r.lastPurchaseDate).toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "2-digit",
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-ink-4">—</span>
+                        )}
+                      </td>
+                      <td
+                        onClick={() => handleStartEdit(r)}
+                        className="py-2.5 px-3 text-right num text-ink-2 hover:text-primary hover:underline decoration-dotted"
+                        title="Click to edit standard sale rate"
+                      >
+                        {r.saleRate ? formatINR(r.saleRate) : "—"}
+                      </td>
+                      <td className="py-2.5 px-3 text-right num font-medium text-ink">
+                        {formatINR(r.stockValue)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right num">
+                        {r.reorderSuggestionKg > 0 ? (
+                          <div>
+                            <span className="font-semibold text-amber-700">
+                              {formatKg(r.reorderSuggestionKg)}
+                            </span>
+                            {r.reorderSuggestionDrums > 0 && (
+                              <span className="text-[10px] text-ink-3 block">
+                                ({r.reorderSuggestionDrums} dr)
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-ink-4">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {r.status === "LOW STOCK" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-semibold bg-danger-bg text-danger border border-danger/30">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>LOW STOCK</span>
                           </span>
-                          {r.reorderSuggestionDrums > 0 && (
-                            <span className="text-[10px] text-ink-3 block">
-                              ({r.reorderSuggestionDrums} dr)
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-ink-4">—</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      {r.status === "LOW STOCK" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-semibold bg-danger-bg text-danger border border-danger/30">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>LOW STOCK</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium bg-success-bg text-success border border-success/30">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>OK</span>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium bg-success-bg text-success border border-success/30">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>OK</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(r)}
+                          className="p-1.5 rounded text-ink-3 hover:text-primary hover:bg-surface-2 transition"
+                          title="Edit product data, opening stock, rates"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
             <tfoot>
@@ -403,7 +748,7 @@ export default function StockPage() {
                 <td className="py-2.5 px-3 text-right num">{Math.round(totalSales * 10) / 10}</td>
                 <td className="py-2.5 px-3 text-right num">{Math.round(totalAdjustments * 10) / 10}</td>
                 <td className="py-2.5 px-3 text-right num text-primary">{Math.round(totalClosing * 10) / 10}</td>
-                <td colSpan={5} />
+                <td colSpan={6} />
                 <td className="py-2.5 px-3 text-right num">{formatINR(totalStockValue)}</td>
                 <td colSpan={3} />
               </tr>

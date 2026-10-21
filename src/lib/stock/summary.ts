@@ -16,6 +16,7 @@ export interface StockSummaryRow {
   packSizeKg: number | null;
   drums: number;
   purchaseRate: number | null;
+  landingCost: number | null;
   saleRate: number | null;
   lastPurchaseRate: number | null;
   lastPurchaseDate: string | null;
@@ -78,9 +79,11 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
     const drums = packSize && !packSize.isZero() ? closing.dividedBy(packSize).toNumber() : 0;
 
     const purchaseRate = p.std_purchase_rate ? new Decimal(p.std_purchase_rate.toString()) : null;
+    const landingCost = p.landing_cost ? new Decimal(p.landing_cost.toString()) : null;
     const saleRate = p.std_sale_rate ? new Decimal(p.std_sale_rate.toString()) : null;
 
-    const stockValue = purchaseRate ? closing.times(purchaseRate).toNumber() : 0;
+    const effectiveRate = landingCost || purchaseRate;
+    const stockValue = effectiveRate ? closing.times(effectiveRate).toNumber() : 0;
     const salesValue = saleRate ? sales.times(saleRate).toNumber() : 0;
 
     const reorderLevel = p.reorder_level_kg ? new Decimal(p.reorder_level_kg.toString()) : null;
@@ -124,6 +127,7 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
       packSizeKg: packSize ? packSize.toNumber() : null,
       drums: Math.round(drums * 100) / 100,
       purchaseRate: purchaseRate ? purchaseRate.toNumber() : null,
+      landingCost: landingCost ? landingCost.toNumber() : null,
       saleRate: saleRate ? saleRate.toNumber() : null,
       lastPurchaseRate,
       lastPurchaseDate,
