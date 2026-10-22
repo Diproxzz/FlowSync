@@ -37,14 +37,34 @@ interface NavSection {
 const isPurchasesEnabled = process.env.NEXT_PUBLIC_FEATURE_PURCHASES !== "false";
 const isLedgerEnabled = process.env.NEXT_PUBLIC_FEATURE_LEDGER !== "false";
 
-function WispNavIcon({ className }: { className?: string }) {
+function WispNavIcon({ className, ...props }: React.ComponentProps<"svg">) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/wisp.png"
-      alt="Wisp"
-      className={cn("object-contain", className)}
-    />
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      {/* Beret stalk */}
+      <path d="M12 1.75v2" />
+      {/* Beret dome */}
+      <path d="M4.5 8.75C4.5 5.5 7.8 3.75 12 3.75s7.5 1.75 7.5 5" />
+      {/* Beret brim */}
+      <path d="M4 8.75c2.5 1.5 13.5 1.5 16 0" />
+      {/* Head with chubby cheeks */}
+      <path d="M4.5 9.25C2.5 12.25 2.5 16.25 5.5 19.25 8 21.75 16 21.75 18.5 19.25c3-3 3-7 1-10" />
+      {/* Round glasses / eyes */}
+      <circle cx="8" cy="14" r="2" />
+      <circle cx="16" cy="14" r="2" />
+      <path d="M10 14h4" />
+      {/* Smile */}
+      <path d="M10.5 17.5c.8.7 2.2.7 3 0" />
+    </svg>
   );
 }
 
