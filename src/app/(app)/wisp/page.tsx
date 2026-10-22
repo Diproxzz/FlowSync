@@ -19,6 +19,7 @@ import {
   WISP_LOADING_MESSAGES,
   getRandomWelcomeMessage,
 } from "@/lib/wisp/constants";
+import { formatLatexFormulas } from "@/lib/wisp/latex";
 
 interface ChatMessage {
   id: string;
@@ -485,13 +486,42 @@ function FormattedMessage({ content, isUser }: { content: string; isUser: boolea
     return <span className="whitespace-pre-wrap">{content}</span>;
   }
 
-  const lines = content.split("\n");
+  // Pre-clean any LaTeX math or formatting artifacts
+  const cleanContent = formatLatexFormulas(content);
+  const lines = cleanContent.split("\n");
 
   return (
     <div className="space-y-2">
       {lines.map((line, idx) => {
-        if (!line.trim()) {
+        const trimmed = line.trim();
+        if (!trimmed) {
           return <div key={idx} className="h-1" />;
+        }
+
+        // Distinctly format standalone mathematical formulas into clean readable formula cards
+        const isFormulaLine =
+          !trimmed.startsWith("- ") &&
+          !trimmed.startsWith("* ") &&
+          !trimmed.match(/^\d+\./) &&
+          !trimmed.startsWith("### ") &&
+          (trimmed.startsWith("Formula:") ||
+            (trimmed.includes(" = ") && (trimmed.includes("×") || trimmed.includes("/") || trimmed.includes("+") || trimmed.includes("-"))) ||
+            (trimmed.includes(" = ") && (trimmed.includes("₹") || trimmed.includes("kg") || trimmed.includes("Rate") || trimmed.includes("Stock") || trimmed.includes("Amount"))));
+
+        if (isFormulaLine) {
+          return (
+            <div
+              key={idx}
+              className="my-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 text-foreground text-xs flex items-center gap-2.5 overflow-x-auto shadow-xs"
+            >
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground shrink-0 font-sans">
+                Formula
+              </span>
+              <span className="font-mono font-semibold text-foreground">
+                {parseInline(trimmed.replace(/^Formula:\s*/i, ""))}
+              </span>
+            </div>
+          );
         }
 
         if (line.startsWith("- ") || line.startsWith("* ")) {
