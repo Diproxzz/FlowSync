@@ -78,7 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "AI Assistant",
     items: [
-      { label: "Wisp Chat", href: "/wisp", icon: WispNavIcon },
+      { label: "Wisp", href: "/wisp", icon: WispNavIcon },
     ],
   },
   {

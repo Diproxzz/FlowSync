@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   X,
   Send,
@@ -28,6 +29,7 @@ interface ChatMessage {
 }
 
 export function WispChat() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState("");
@@ -153,6 +155,10 @@ export function WispChat() {
       },
     ]);
   };
+
+  if (pathname === "/wisp") {
+    return null;
+  }
 
   return (
     <>

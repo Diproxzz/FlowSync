@@ -147,24 +147,24 @@ export default function WispPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="max-w-4xl mx-auto flex flex-col h-[calc(100vh-6.5rem)] min-h-[460px] gap-3">
       {/* Header Banner */}
-      <div className="bg-card border border-border rounded-xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 flex items-center justify-center shrink-0">
+      <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/wisp.png"
               alt="Wisp"
-              className="w-12 h-12 object-contain"
+              className="w-10 h-10 object-contain"
             />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-foreground font-mono">
+              <h1 className="text-lg font-bold tracking-tight text-foreground font-mono">
                 Wisp
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Online
               </span>
@@ -188,9 +188,9 @@ export default function WispPage() {
       </div>
 
       {/* Main Chat Box */}
-      <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col h-[650px]">
+      <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
         {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-sm">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 text-sm">
           {messages.map((m) => (
             <div
               key={m.id}
@@ -290,7 +290,7 @@ export default function WispPage() {
         </div>
 
         {/* Input Form */}
-        <div className="p-4 bg-card border-t border-border">
+        <div className="p-3.5 sm:p-4 bg-card border-t border-border shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
