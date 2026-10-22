@@ -130,7 +130,7 @@ export function build12MonthSchedule(
       });
     }
 
-    periodTitle = `FY ${startYear}-${String(endYear).slice(-2)} (Apr ${startYear} – Mar ${endYear})`;
+    periodTitle = `Current FY ${startYear}-${String(endYear).slice(-2)} (Apr ${startYear} – Mar ${endYear})`;
   } else {
     // Rolling 12-month mode ending in effectiveAsOfMonth
     const [yStr, mStr] = effectiveAsOfMonth.split("-");
@@ -167,7 +167,7 @@ export function build12MonthSchedule(
       year: "numeric",
     });
 
-    periodTitle = `12 Months: ${startName} – ${endName}`;
+    periodTitle = `Last 12 Months: ${startName} – ${endName}`;
   }
 
   return {

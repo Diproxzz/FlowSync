@@ -498,95 +498,42 @@ export function DebtorListView({
           </div>
         </div>
 
-        {/* Period Selector Bar: 12-Month Rolling vs Financial Year */}
-        <div className="px-4 py-2.5 bg-muted/20 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs print:hidden">
+        {/* Period Selector Bar: Option 1 (Last 12 Months) vs Option 2 (Current Financial Year) */}
+        <div className="px-4 py-2.5 bg-muted/20 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs print:hidden">
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Schedule Format:
+              Format:
             </span>
             <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40 shadow-2xs">
               <button
                 type="button"
-                onClick={() => handlePeriodChange("rolling", activePeriod.asOfMonth, activePeriod.financialYear)}
+                onClick={() => handlePeriodChange("rolling", "", "")}
+                disabled={loadingPeriod}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer",
                   activePeriod.mode === "rolling"
                     ? "bg-background text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Clock className="w-3.5 h-3.5 text-primary" />
-                <span>12-Month Rolling</span>
+                <span>Last 12 Months</span>
               </button>
               <button
                 type="button"
-                onClick={() => handlePeriodChange("fy", activePeriod.asOfMonth, activePeriod.financialYear)}
+                onClick={() => handlePeriodChange("fy", "", "")}
+                disabled={loadingPeriod}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer",
                   activePeriod.mode === "fy"
                     ? "bg-background text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span>Financial Year</span>
+                <span>Current Financial Year</span>
               </button>
             </div>
-
-            {/* Sub-selector for Mode */}
-            {activePeriod.mode === "rolling" ? (
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">As of Month:</span>
-                <select
-                  value={activePeriod.asOfMonth}
-                  onChange={(e) => handlePeriodChange("rolling", e.target.value, activePeriod.financialYear)}
-                  disabled={loadingPeriod}
-                  className="px-2.5 py-1 text-xs bg-background border border-border rounded-lg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  {(activePeriod.availableRollingMonths && activePeriod.availableRollingMonths.length > 0
-                    ? activePeriod.availableRollingMonths
-                    : [
-                        { value: "2026-11", label: "Nov 2026 (Dec 2025 – Nov 2026)" },
-                        { value: "2026-10", label: "Oct 2026 (Nov 2025 – Oct 2026) [Current]" },
-                        { value: "2026-09", label: "Sep 2026 (Oct 2025 – Sep 2026)" },
-                        { value: "2026-08", label: "Aug 2026 (Sep 2025 – Aug 2026)" },
-                        { value: "2026-07", label: "Jul 2026 (Aug 2025 – Jul 2026)" },
-                        { value: "2026-06", label: "Jun 2026 (Jul 2025 – Jun 2026)" },
-                        { value: "2026-05", label: "May 2026 (Jun 2025 – May 2026)" },
-                        { value: "2026-04", label: "Apr 2026 (May 2025 – Apr 2026)" },
-                      ]
-                  ).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Financial Year:</span>
-                <select
-                  value={activePeriod.financialYear}
-                  onChange={(e) => handlePeriodChange("fy", activePeriod.asOfMonth, e.target.value)}
-                  disabled={loadingPeriod}
-                  className="px-2.5 py-1 text-xs bg-background border border-border rounded-lg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  {(activePeriod.availableFinancialYears && activePeriod.availableFinancialYears.length > 0
-                    ? activePeriod.availableFinancialYears
-                    : [
-                        { value: "2024-25", label: "FY 2024-25 (Apr 2024 – Mar 2025)" },
-                        { value: "2025-26", label: "FY 2025-26 (Apr 2025 – Mar 2026)" },
-                        { value: "2026-27", label: "FY 2026-27 (Apr 2026 – Mar 2027) [Active]" },
-                        { value: "2027-28", label: "FY 2027-28 (Apr 2027 – Mar 2028)" },
-                      ]
-                  ).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             {loadingPeriod && (
               <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground animate-pulse">
@@ -597,7 +544,7 @@ export function DebtorListView({
           </div>
 
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
-            <span className="font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border">
+            <span className="font-semibold text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border shadow-2xs">
               {activePeriod.periodTitle}
             </span>
             <span className="hidden sm:inline">&bull;</span>
