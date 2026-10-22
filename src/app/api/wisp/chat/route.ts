@@ -2,18 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { askWisp } from "@/lib/wisp/agent";
 
-const chatSchema = z.object({
-  message: z.string().min(1, "Message cannot be empty"),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string(),
-      })
-    )
-    .optional()
-    .default([]),
-});
+const chatSchema = z
+  .object({
+    message: z.string().optional().default(""),
+    history: z
+      .array(
+        z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string(),
+        })
+      )
+      .optional()
+      .default([]),
+    image: z.string().optional(),
+  })
+  .refine((data) => (data.message && data.message.trim().length > 0) || !!data.image, {
+    message: "Either a message or an image must be provided",
+  });
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,8 +38,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { message, history } = parseRes.data;
-    const response = await askWisp(message, history);
+    const { message, history, image } = parseRes.data;
+    const response = await askWisp(message || "", history, image);
 
     return NextResponse.json({
       success: true,

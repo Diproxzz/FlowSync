@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +11,8 @@ import {
   Maximize2,
   ExternalLink,
   User,
+  Paperclip,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -24,6 +26,7 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  image?: string;
   sources?: Array<{ title: string; url: string }>;
   timestamp: string;
 }
@@ -33,9 +36,12 @@ export function WispChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState("");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -90,15 +96,61 @@ export function WispChat() {
     }
   }, [isOpen, isMinimized, messages]);
 
+  const processImageFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setSelectedImage(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            processImageFile(file);
+            break;
+          }
+        }
+      }
+    },
+    [processImageFile]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        processImageFile(files[0]);
+      }
+    },
+    [processImageFile]
+  );
+
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
-    if (!query || loading) return;
+    const imageToSend = selectedImage;
+    if ((!query && !imageToSend) || loading) return;
 
     setInput("");
+    setSelectedImage(null);
+
     const userMsg: ChatMessage = {
       id: "u-" + Date.now(),
       role: "user",
-      content: query,
+      content: query || (imageToSend ? "Please analyze this screenshot." : ""),
+      image: imageToSend || undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
@@ -115,7 +167,11 @@ export function WispChat() {
       const res = await fetch("/api/wisp/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query, history }),
+        body: JSON.stringify({
+          message: query || (imageToSend ? "Please analyze this application screenshot." : ""),
+          history,
+          image: imageToSend || undefined,
+        }),
       });
 
       const json = await res.json();
@@ -187,13 +243,32 @@ export function WispChat() {
       {/* Chat Window */}
       {isOpen && (
         <div
+          onPaste={handlePaste}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
           className={cn(
             "fixed z-50 bg-card border border-border shadow-2xl transition-all duration-200 flex flex-col print:hidden",
+            isDragging && "ring-2 ring-primary border-primary",
             isMinimized
               ? "bottom-5 right-5 w-72 h-14 rounded-2xl"
               : "bottom-5 right-5 w-[92vw] sm:w-[420px] h-[580px] max-h-[85vh] rounded-2xl overflow-hidden"
           )}
         >
+          {isDragging && !isMinimized && (
+            <div className="absolute inset-0 z-50 bg-background/85 backdrop-blur-xs flex flex-col items-center justify-center gap-2 pointer-events-none">
+              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <ImageIcon className="w-5 h-5 animate-bounce" />
+              </div>
+              <p className="text-xs font-semibold text-foreground">
+                Drop screenshot here to attach
+              </p>
+            </div>
+          )}
+
           {/* Header */}
           <div className="bg-muted/70 backdrop-blur-xs border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
@@ -284,7 +359,7 @@ export function WispChat() {
                     )}
 
                     {/* Bubble */}
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 max-w-full">
                       <div
                         className={cn(
                           "p-3 rounded-2xl shadow-xs leading-relaxed break-words",
@@ -293,6 +368,19 @@ export function WispChat() {
                             : "bg-muted/60 border border-border text-foreground rounded-tl-none"
                         )}
                       >
+                        {m.image && (
+                          <div className="mb-2">
+                            <a href={m.image} target="_blank" rel="noopener noreferrer">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={m.image}
+                                alt="Uploaded screenshot"
+                                className="max-h-48 max-w-full rounded-md object-contain border border-border/50 bg-background/40 hover:opacity-95 transition-opacity cursor-zoom-in"
+                              />
+                            </a>
+                          </div>
+                        )}
+
                         <FormattedMessage content={m.content} isUser={m.role === "user"} />
 
                         {/* Clickable Source Pills */}
@@ -362,25 +450,82 @@ export function WispChat() {
 
               {/* Input Area */}
               <div className="p-3 bg-card border-t border-border">
+                {selectedImage && (
+                  <div className="mb-2 flex items-center justify-between p-1.5 rounded-lg bg-muted/60 border border-border animate-fade-in">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={selectedImage}
+                        alt="Preview"
+                        className="w-9 h-9 object-cover rounded border border-border shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-foreground truncate">
+                          Screenshot Attached
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          Ask a question or click Send.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(null)}
+                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 ml-1 cursor-pointer"
+                      title="Remove screenshot"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleSend();
                   }}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1.5"
                 >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        processImageFile(file);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading}
+                    className="p-2 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                    title="Attach screenshot or image (or paste with Ctrl+V)"
+                  >
+                    <Paperclip className="w-3.5 h-3.5" />
+                  </button>
+
                   <input
                     ref={inputRef}
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={WISP_PLACEHOLDERS[placeholderIdx]}
+                    placeholder={
+                      selectedImage
+                        ? "Ask about this screenshot..."
+                        : WISP_PLACEHOLDERS[placeholderIdx]
+                    }
                     disabled={loading}
                     className="flex-1 px-3 py-2 rounded-lg bg-muted/50 border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:bg-background text-foreground transition-all disabled:opacity-50"
                   />
                   <button
                     type="submit"
-                    disabled={!input.trim() || loading}
+                    disabled={(!input.trim() && !selectedImage) || loading}
                     className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0 shadow-xs cursor-pointer"
                     title="Send message"
                   >
@@ -388,7 +533,7 @@ export function WispChat() {
                   </button>
                 </form>
                 <div className="mt-1 text-[9px] text-center text-muted-foreground">
-                  Wisp answers strictly about Indobest database records and system guidance.
+                  Wisp answers strictly about FlowSync records and features.
                 </div>
               </div>
             </>

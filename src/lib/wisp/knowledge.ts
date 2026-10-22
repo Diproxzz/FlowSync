@@ -1,6 +1,7 @@
 /**
- * InVoiceR Application Knowledge Base for Wisp RAG Assistant
- * Contains step-by-step guidance, features, workflows, and route mappings.
+ * FlowSync Application Knowledge Base for Wisp Assistant
+ * Contains step-by-step guidance, formulas, mathematical definitions,
+ * features, workflows, and route mappings.
  */
 
 export interface TaskGuide {
@@ -11,9 +12,135 @@ export interface TaskGuide {
   summary: string;
   steps: string[];
   tips?: string[];
+  formula?: string;
 }
 
 export const APP_GUIDES: TaskGuide[] = [
+  {
+    id: "stock_value_calculation",
+    title: "How Stock Value and Inventory Valuation is Calculated",
+    keywords: [
+      "stock value",
+      "inventory value",
+      "valuation",
+      "calculate stock value",
+      "how do you calculate stock value",
+      "stock formula",
+      "inventory valuation",
+      "closing stock value",
+    ],
+    route: "/stock",
+    summary:
+      "Stock Value is computed at the product level as Closing Stock (in kg) multiplied by the Effective Purchase Rate (Landing Cost if available, otherwise Standard Purchase Rate).",
+    formula: "Stock Value (₹) = Closing Stock (kg) × Effective Purchase Rate (₹/kg)\nWhere:\n• Closing Stock = Opening Stock + Total Purchases (Inward) - Total Sales (Outward) - Adjustments\n• Effective Purchase Rate = Landing Cost (if defined) OR Standard Purchase Rate",
+    steps: [
+      "Navigate to [Stock Summary](/stock).",
+      "Each chemical row tracks: Opening Stock, Purchases (+), Sales (-), Adjustments (+/-), and Closing Stock (kg).",
+      "For each product, the system checks if a 'Landing Cost' is defined. If so, it uses the Landing Cost; otherwise, it uses the 'Standard Purchase Rate' from the product master.",
+      "The product's Stock Value is calculated as: `Closing Stock (kg) × Effective Purchase Rate`.",
+      "Total Company Inventory Valuation is the sum of stock values across all active products, displayed in the top KPI card on [Stock Summary](/stock)."
+    ],
+    tips: [
+      "If a product has negative or zero closing stock, its stock value is treated as ₹0.00.",
+      "You can view product landing costs and update rates anytime under [Products](/products)."
+    ]
+  },
+  {
+    id: "profitability_weighted_average",
+    title: "How Weighted Average (WASP, WAPC) and Margins are Calculated",
+    keywords: [
+      "weighted average",
+      "wasp",
+      "wapc",
+      "margin",
+      "profit margin",
+      "profitability",
+      "gross margin",
+      "how do you calculate margin",
+      "margin percentage",
+      "product margins",
+    ],
+    route: "/dashboard",
+    summary:
+      "FlowSync calculates commercial profitability strictly on Taxable Value (excluding GST) using volume-weighted averages: WASP (Weighted Average Sale Price) and WAPC (Weighted Average Purchase Cost).",
+    formula: "• WASP (₹/kg) = Total Taxable Sales Revenue (₹) / Total Sales Quantity (kg)\n• WAPC (₹/kg) = Total Taxable Purchase Cost (₹) / Total Purchase Quantity (kg)\n• Gross Profit Margin (%) = ((WASP - WAPC) / WASP) × 100\n• Gross Profit (₹) = Taxable Sales Revenue - (Sales Qty × WAPC)",
+    steps: [
+      "Go to [Executive Dashboard](/dashboard) and select the 'Profitability & Margins' tab.",
+      "Review the Top Metrics: Total Taxable Turnover, Total Landed Cost of Goods Sold (COGS), Gross Profit (₹), and Overall Gross Margin (%).",
+      "Inspect the Two-Chart View:",
+      "  1. Monthly Revenue & Profit (₹ in Lakhs) — clean blue and green comparative bars.",
+      "  2. Monthly Profit Margin Trend (%) — gradient area chart with percentage labels directly above each data point.",
+      "Scroll down to the 'Product-Level Profitability & Margins' table to examine per-chemical WASP, WAPC, Gross Margin %, and Margin Health status (Healthy ≥20%, Normal 10-20%, Thin <10%)."
+    ],
+    tips: [
+      "All weighted averages and margin calculations strictly exclude GST because GST is a pass-through tax, not revenue or expense.",
+      "Informal invoices (non-GST) are also factored into volume and sales revenue."
+    ]
+  },
+  {
+    id: "purchases_vs_sales_chart",
+    title: "Understanding the 'Purchases vs Sales by Month' Chart",
+    keywords: [
+      "purchases vs sales",
+      "sales vs purchases",
+      "purchases vs sales by month",
+      "chart",
+      "graph",
+      "monthly comparative turnover",
+      "blue bar orange bar",
+      "what is purchase vs sales",
+    ],
+    route: "/dashboard",
+    summary:
+      "The 'Purchases vs Sales by Month' chart on the Executive Dashboard compares monthly Taxable Sales turnover against Taxable Purchases turnover across the financial year.",
+    steps: [
+      "Navigate to [Executive Dashboard](/dashboard).",
+      "Locate the 'Purchases vs Sales by Month' bar chart.",
+      "Blue Bars represent Taxable Sales (in ₹ Lakhs) billed in that calendar month.",
+      "Orange/Amber Bars represent Taxable Purchases (in ₹ Lakhs) procured from chemical suppliers in that calendar month.",
+      "Months displayed span April 2026 to October 2026.",
+      "Analysis Guide:",
+      "  * If Sales > Purchases (Blue bar taller than Orange): The company is generating net positive trading turnover and liquidating stock.",
+      "  * If Purchases > Sales (Orange bar taller than Blue): The company is building up inventory, stocking raw materials, or taking advance bulk shipments."
+    ],
+    tips: [
+      "Uses high-contrast Okabe-Ito accessible color palette (Blue `#0072B2` for Sales, Orange `#E69F00` for Purchases).",
+      "Hover over any bar to inspect exact values in ₹ Lakhs."
+    ]
+  },
+  {
+    id: "informal_invoices",
+    title: "How Informal Invoices and Dual Ledgers Work",
+    keywords: [
+      "informal invoice",
+      "informal",
+      "non-gst",
+      "informal invoices",
+      "cash sales",
+      "dual ledger",
+      "separate ledger",
+      "customer informal",
+    ],
+    route: "/informal-invoices",
+    summary:
+      "Informal Invoices provide fast entry for non-GST sales, automatically creating a separate '<Customer Name> (Informal)' ledger while deducting inventory stock and reflecting collectively on the Debtor List.",
+    steps: [
+      "Go to [Informal Invoices](/informal-invoices) under Sales in the sidebar.",
+      "Click '+ New Informal Invoice'.",
+      "Enter the Date, Invoice Number (auto-incremented e.g. `INF-0001`), and Customer Name.",
+      "Type product names with real-time auto-suggestions. Fill in Quantity (kg) and Rate (₹/kg). Total is auto-calculated (`Qty × Rate`).",
+      "Save the invoice. This:",
+      "  1. Creates or links the customer by name.",
+      "  2. Creates a dedicated Informal Ledger Account `<Customer Name> (Informal)`.",
+      "  3. Posts a debit entry for the full invoice value (0% GST).",
+      "  4. Records a `StockMovement` (SALE) deducting from [Stock Summary](/stock).",
+      "  5. Merges seamlessly into the [Monthwise Debtor List](/accounts) under a collective customer row with a 'Combined' badge."
+    ],
+    tips: [
+      "Customers with both regular tax invoices and informal invoices have two independent ledger statements for clean bookkeeping.",
+      "On the Debtor List, their outstanding balance is shown collectively."
+    ]
+  },
   {
     id: "upload_invoice",
     title: "How to Upload and Process Sales Invoices",
@@ -129,33 +256,6 @@ export const APP_GUIDES: TaskGuide[] = [
       "Review the supplier name, invoice number, items, and tax breakdown.",
       "When saved, inward quantities are automatically added to your stock ledger.",
       "To manage supplier information, addresses, and GSTINs, visit [Suppliers](/suppliers)."
-    ]
-  },
-  {
-    id: "settings_configuration",
-    title: "How to Configure LLM Models and Providers",
-    keywords: ["settings", "api key", "llm", "gemini", "groq", "model", "providers", "configuration"],
-    route: "/settings",
-    summary: "Configure API keys and model preference order for invoice OCR and transcription.",
-    steps: [
-      "Go to [Settings](/settings).",
-      "Under 'LLM Extraction Providers', reorder providers using drag-and-drop or rank selectors (Groq, Gemini, GLM-OCR, PaddleOCR-VL, OpenRouter, Ollama).",
-      "Enter your API keys for Groq or Google Gemini if you need to update them.",
-      "Click 'Save Settings' at the bottom of the page."
-    ]
-  },
-  {
-    id: "run_manually",
-    title: "How to Run the Application Manually",
-    keywords: ["run manually", "how to run", "start server", "command line", "npm run", "manual start", "restart"],
-    route: "/dashboard",
-    summary: "Terminal commands to run InVoiceR locally on Windows.",
-    steps: [
-      "Open PowerShell or Command Prompt in the project folder: `c:\\Users\\dipro\\OneDrive\\Desktop\\Code Editor\\InVoiceR`.",
-      "Run: `npm run dev` to start the Next.js development server on `http://localhost:3000`.",
-      "Alternatively, double-click the `run-app.bat` script in the root folder to start both database check and server automatically.",
-      "To build and run in production mode, run: `npm run build` followed by `npm run start`.",
-      "To run the automated test suite, execute: `npm test`."
     ]
   }
 ];

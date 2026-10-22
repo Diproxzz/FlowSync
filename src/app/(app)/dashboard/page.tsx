@@ -171,7 +171,6 @@ export default function DashboardPage() {
                 }`}
               >
                 <span>Profitability & Margins</span>
-                <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/25 text-emerald-200 font-bold uppercase tracking-wider">New</span>
               </button>
             </div>
           </div>

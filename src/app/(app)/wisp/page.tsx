@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Send,
@@ -8,6 +8,9 @@ import {
   User,
   ExternalLink,
   ShieldCheck,
+  Paperclip,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,15 +24,19 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  image?: string;
   sources?: Array<{ title: string; url: string }>;
   timestamp: string;
 }
 
 export default function WispPage() {
   const [input, setInput] = useState("");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -81,15 +88,61 @@ export default function WispPage() {
     scrollToBottom();
   }, [messages, loading]);
 
+  const processImageFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setSelectedImage(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            processImageFile(file);
+            break;
+          }
+        }
+      }
+    },
+    [processImageFile]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        processImageFile(files[0]);
+      }
+    },
+    [processImageFile]
+  );
+
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
-    if (!query || loading) return;
+    const imageToSend = selectedImage;
+    if ((!query && !imageToSend) || loading) return;
 
     setInput("");
+    setSelectedImage(null);
+
     const userMsg: ChatMessage = {
       id: "u-" + Date.now(),
       role: "user",
-      content: query,
+      content: query || (imageToSend ? "Please analyze this screenshot." : ""),
+      image: imageToSend || undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
@@ -105,7 +158,11 @@ export default function WispPage() {
       const res = await fetch("/api/wisp/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query, history }),
+        body: JSON.stringify({
+          message: query || (imageToSend ? "Please analyze this application screenshot." : ""),
+          history,
+          image: imageToSend || undefined,
+        }),
       });
 
       const json = await res.json();
@@ -188,7 +245,30 @@ export default function WispPage() {
       </div>
 
       {/* Main Chat Box */}
-      <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
+      <div
+        onPaste={handlePaste}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={cn(
+          "bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col flex-1 min-h-0 relative transition-all",
+          isDragging && "ring-2 ring-primary border-primary bg-primary/5"
+        )}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 pointer-events-none">
+            <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+              <ImageIcon className="w-6 h-6 animate-bounce" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">
+              Drop screenshot or image here to attach
+            </p>
+          </div>
+        )}
+
         {/* Messages Container */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 text-sm">
           {messages.map((m) => (
@@ -223,6 +303,20 @@ export default function WispPage() {
                       : "bg-muted/50 border border-border text-foreground rounded-tl-none text-sm"
                   )}
                 >
+                  {/* Attached user screenshot image preview */}
+                  {m.image && (
+                    <div className="mb-2.5">
+                      <a href={m.image} target="_blank" rel="noopener noreferrer" title="Click to view full image">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={m.image}
+                          alt="Uploaded screenshot"
+                          className="max-h-60 max-w-full rounded-lg object-contain border border-border/50 bg-background/40 hover:opacity-95 transition-opacity cursor-zoom-in"
+                        />
+                      </a>
+                    </div>
+                  )}
+
                   <FormattedMessage content={m.content} isUser={m.role === "user"} />
 
                   {/* Sources / Deep links */}
@@ -291,6 +385,36 @@ export default function WispPage() {
 
         {/* Input Form */}
         <div className="p-3.5 sm:p-4 bg-card border-t border-border shrink-0">
+          {/* Selected Image Preview Pill */}
+          {selectedImage && (
+            <div className="mb-2.5 flex items-center justify-between p-2 rounded-xl bg-muted/60 border border-border animate-fade-in">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedImage}
+                  alt="Selected preview"
+                  className="w-11 h-11 object-cover rounded-lg border border-border shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground truncate">
+                    Screenshot / Image Attached
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    Ask questions like &quot;What is Purchase vs Sales by month?&quot; or press Send.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedImage(null)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 ml-2 cursor-pointer"
+                title="Remove screenshot"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -299,17 +423,45 @@ export default function WispPage() {
             className="flex items-center gap-2"
           >
             <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  processImageFile(file);
+                }
+                e.target.value = "";
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              className="p-2.5 rounded-xl border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+              title="Attach application screenshot or image (or paste with Ctrl+V)"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+
+            <input
               ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={WISP_PLACEHOLDERS[placeholderIdx]}
+              placeholder={
+                selectedImage
+                  ? "Ask about this screenshot (e.g. 'What is Purchase vs Sales by month in this page?')..."
+                  : WISP_PLACEHOLDERS[placeholderIdx]
+              }
               disabled={loading}
               className="flex-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:bg-background text-foreground transition-all disabled:opacity-50"
             />
             <button
               type="submit"
-              disabled={!input.trim() || loading}
+              disabled={(!input.trim() && !selectedImage) || loading}
               className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0 shadow-xs cursor-pointer flex items-center gap-1.5 font-medium text-xs"
             >
               <span>Send</span>
@@ -319,7 +471,7 @@ export default function WispPage() {
           <div className="mt-2 text-[11px] text-center text-muted-foreground flex items-center justify-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>
-              Wisp answers strictly from your Indobest database.
+              Wisp answers strictly from your FlowSync database and features.
             </span>
           </div>
         </div>
