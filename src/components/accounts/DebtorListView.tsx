@@ -19,6 +19,10 @@ import {
   Clock,
   Calendar,
   RefreshCw,
+  Edit3,
+  Save,
+  RotateCcw,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +48,7 @@ export interface DebtorItem {
   informalAccountId?: string | null;
   regularOutstanding?: number;
   informalOutstanding?: number;
+  hasManualOverride?: boolean;
 }
 
 export interface MonthColumn {
@@ -144,6 +149,137 @@ export function DebtorListView({
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OVERDUE" | "CURRENT">("ALL");
   const [sortBy, setSortBy] = useState<"OUTSTANDING_DESC" | "NAME_ASC" | "AGE_DESC">("OUTSTANDING_DESC");
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [pendingEdits, setPendingEdits] = useState<Record<string, Record<string, number>>>({});
+  const [savingEdits, setSavingEdits] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
+
+  const getDebtorMonthly = (d: DebtorItem): Record<string, number> => {
+    if (!pendingEdits[d.id]) return d.monthlyAmounts;
+    return {
+      ...d.monthlyAmounts,
+      ...pendingEdits[d.id],
+    };
+  };
+
+  const getDebtorTotal = (d: DebtorItem): number => {
+    if (!pendingEdits[d.id]) return d.totalOutstanding;
+    const amounts = getDebtorMonthly(d);
+    return Math.round(activeMonths.reduce((sum, m) => sum + (amounts[m.key] || 0), 0) * 100) / 100;
+  };
+
+  const handleCellChange = (debtorId: string, partyName: string, monthKey: string, val: number) => {
+    setPendingEdits((prev) => {
+      const debtorEdits = prev[debtorId] ? { ...prev[debtorId] } : {};
+      debtorEdits[monthKey] = val;
+      return {
+        ...prev,
+        [debtorId]: debtorEdits,
+      };
+    });
+  };
+
+  const handleCancelEdits = () => {
+    setPendingEdits({});
+    setIsEditing(false);
+  };
+
+  const handleSaveEdits = async () => {
+    if (Object.keys(pendingEdits).length === 0) {
+      setIsEditing(false);
+      return;
+    }
+
+    setSavingEdits(true);
+    setSaveErrorMessage(null);
+    setSaveSuccessMessage(null);
+
+    try {
+      const updates = Object.entries(pendingEdits).map(([debtorId, monthEdits]) => {
+        const debtor = activeDebtors.find((d) => d.id === debtorId);
+        return {
+          debtorId,
+          partyName: debtor ? debtor.partyName : debtorId,
+          monthlyAmounts: {
+            ...(debtor ? debtor.monthlyAmounts : {}),
+            ...monthEdits,
+          },
+        };
+      });
+
+      const res = await fetch("/api/ledger/debtors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: activePeriod.mode,
+          updates,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || "Failed to save debtor schedule");
+      }
+
+      setActiveDebtors((prev) =>
+        prev.map((d) => {
+          if (!pendingEdits[d.id]) return d;
+          const updatedMonthly = {
+            ...d.monthlyAmounts,
+            ...pendingEdits[d.id],
+          };
+          const updatedTotal = Math.round(
+            activeMonths.reduce((sum, m) => sum + (updatedMonthly[m.key] || 0), 0) * 100
+          ) / 100;
+
+          return {
+            ...d,
+            monthlyAmounts: updatedMonthly,
+            totalOutstanding: updatedTotal,
+            hasManualOverride: true,
+          };
+        })
+      );
+
+      setPendingEdits({});
+      setIsEditing(false);
+      setSaveSuccessMessage("Debtor breakdown schedule saved successfully.");
+      setTimeout(() => setSaveSuccessMessage(null), 4000);
+    } catch (err: any) {
+      console.error("Save error:", err);
+      setSaveErrorMessage(err.message || "Failed to save changes. Please try again.");
+    } finally {
+      setSavingEdits(false);
+    }
+  };
+
+  const handleResetDebtor = async (partyName: string, debtorId: string) => {
+    try {
+      setLoadingPeriod(true);
+      await fetch("/api/ledger/debtors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: activePeriod.mode,
+          resetPartyName: partyName,
+        }),
+      });
+      setPendingEdits((prev) => {
+        const copy = { ...prev };
+        delete copy[debtorId];
+        return copy;
+      });
+      await handlePeriodChange(activePeriod.mode, activePeriod.asOfMonth, activePeriod.financialYear);
+      setSaveSuccessMessage(`Reset ${partyName} to automated calculation.`);
+      setTimeout(() => setSaveSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error("Reset error:", err);
+    } finally {
+      setLoadingPeriod(false);
+    }
+  };
+
 
   // Filtered and sorted debtors
   const filteredDebtors = useMemo(() => {
@@ -186,10 +322,12 @@ export function DebtorListView({
     }
 
     for (const d of filteredDebtors) {
-      grandOutstanding += d.totalOutstanding;
+      const rowAmounts = getDebtorMonthly(d);
+      const rowTotal = getDebtorTotal(d);
+      grandOutstanding += rowTotal;
       grandOverdue += d.overdueAmount;
       for (const m of activeMonths) {
-        monthTotals[m.key] = (monthTotals[m.key] || 0) + (d.monthlyAmounts[m.key] || 0);
+        monthTotals[m.key] = (monthTotals[m.key] || 0) + (rowAmounts[m.key] || 0);
       }
     }
 
@@ -217,8 +355,8 @@ export function DebtorListView({
     const rows = filteredDebtors.map((d, idx) => [
       idx + 1,
       `"${d.partyName.replace(/"/g, '""')}"`,
-      d.totalOutstanding.toFixed(2),
-      ...activeMonths.map((m) => ((d.monthlyAmounts[m.key] || 0)).toFixed(2)),
+      getDebtorTotal(d).toFixed(2),
+      ...activeMonths.map((m) => ((getDebtorMonthly(d)[m.key] || 0)).toFixed(2)),
       d.oldestBillNo || "",
       d.oldestBillDate ? formatDate(d.oldestBillDate) : "",
       d.oldestAgeDays !== null ? d.oldestAgeDays : "",
@@ -319,8 +457,8 @@ export function DebtorListView({
         const rowValues = [
           idx + 1,
           d.partyName,
-          d.totalOutstanding,
-          ...activeMonths.map((m) => d.monthlyAmounts[m.key] || 0),
+          getDebtorTotal(d),
+          ...activeMonths.map((m) => getDebtorMonthly(d)[m.key] || 0),
           d.oldestBillNo ? `${d.oldestBillNo} (${d.oldestBillDate ? formatDate(d.oldestBillDate) : ""})` : "—",
           d.oldestAgeDays !== null ? `${d.oldestAgeDays} d` : "—",
           d.overdueAmount,
@@ -467,6 +605,54 @@ export function DebtorListView({
               <span>{isExportingExcel ? "Generating..." : "Download Excel"}</span>
             </button>
 
+            {/* Edit Breakdown Toggle Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditing) {
+                  handleCancelEdits();
+                } else {
+                  setIsEditing(true);
+                }
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors shadow-xs cursor-pointer",
+                isEditing
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/25"
+                  : "border-border bg-card text-foreground hover:bg-muted"
+              )}
+              title={isEditing ? "Exit Edit Mode" : "Make 12-month breakdown columns editable"}
+            >
+              {isEditing ? (
+                <>
+                  <X className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Cancel Editing</span>
+                </>
+              ) : (
+                <>
+                  <Edit3 className="w-3.5 h-3.5 text-primary" />
+                  <span>Edit Schedule</span>
+                </>
+              )}
+            </button>
+
+            {isEditing && (
+              <button
+                type="button"
+                onClick={handleSaveEdits}
+                disabled={savingEdits || Object.keys(pendingEdits).length === 0}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-xs disabled:opacity-50 cursor-pointer"
+                title="Save changes to monthly breakdown"
+              >
+                {savingEdits ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                <span>Save ({Object.keys(pendingEdits).length})</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleExportCSV}
@@ -553,6 +739,50 @@ export function DebtorListView({
             </span>
           </div>
         </div>
+
+        {/* Edit Mode Notice Banner */}
+        {isEditing && (
+          <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>
+                <strong>Editable Schedule Active:</strong> Type new amounts into any of the 12 month columns. Row totals and column totals recalculate automatically.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveEdits}
+                disabled={savingEdits || Object.keys(pendingEdits).length === 0}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-semibold text-xs shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {savingEdits ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                <span>Save All Changes ({Object.keys(pendingEdits).length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEdits}
+                className="px-2.5 py-1 bg-background border border-border text-foreground hover:bg-muted rounded-md text-xs cursor-pointer"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Banners */}
+        {saveSuccessMessage && (
+          <div className="px-4 py-2 bg-emerald-500/10 border-b border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-2 print:hidden">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{saveSuccessMessage}</span>
+          </div>
+        )}
+        {saveErrorMessage && (
+          <div className="px-4 py-2 bg-rose-500/10 border-b border-rose-500/30 text-rose-900 dark:text-rose-200 text-xs flex items-center gap-2 print:hidden">
+            <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span>{saveErrorMessage}</span>
+          </div>
+        )}
 
         {/* Printable Letterhead (Only visible when printing) */}
         <div className="hidden print:block p-4 border-b border-black text-black">
@@ -732,6 +962,11 @@ export function DebtorListView({
                           prior+
                         </span>
                       )}
+                      {isEditing && (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold normal-case">
+                          edit
+                        </span>
+                      )}
                     </div>
                   </th>
                 ))}
@@ -804,21 +1039,50 @@ export function DebtorListView({
 
                       {/* Total Outstanding */}
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-foreground">
-                        {formatINR(d.totalOutstanding)}
+                        {formatINR(getDebtorTotal(d))}
                       </td>
 
                       {/* Monthwise Amounts */}
                       {activeMonths.map((m) => {
-                        const amt = d.monthlyAmounts[m.key] || 0;
+                        const cellModified = pendingEdits[d.id]?.[m.key] !== undefined;
+                        const amt = cellModified ? pendingEdits[d.id][m.key] : (d.monthlyAmounts[m.key] || 0);
+
+                        if (isEditing) {
+                          return (
+                            <td key={m.key} className="py-1 px-1.5 text-right font-mono min-w-[105px]">
+                              <input
+                                type="number"
+                                step="any"
+                                value={amt === 0 ? "" : amt}
+                                placeholder="0"
+                                onChange={(e) => {
+                                  const rawVal = e.target.value.trim();
+                                  const val = rawVal === "" ? 0 : parseFloat(rawVal) || 0;
+                                  handleCellChange(d.id, d.partyName, m.key, val);
+                                }}
+                                className={cn(
+                                  "w-full text-right px-2 py-1 text-xs font-mono rounded border transition-colors focus:outline-none focus:ring-1 focus:ring-primary",
+                                  cellModified
+                                    ? "bg-amber-500/15 border-amber-500 text-foreground font-bold shadow-2xs"
+                                    : "bg-background border-border text-foreground hover:border-muted-foreground/50"
+                                )}
+                              />
+                            </td>
+                          );
+                        }
+
                         return (
                           <td
                             key={m.key}
+                            onDoubleClick={() => setIsEditing(true)}
                             className={cn(
                               "py-2.5 px-3 text-right font-mono whitespace-nowrap",
                               amt > 0
                                 ? "font-semibold text-foreground"
-                                : "text-muted-foreground/60"
+                                : "text-muted-foreground/60",
+                              d.hasManualOverride && amt > 0 && "text-primary font-bold"
                             )}
+                            title={d.hasManualOverride ? "Custom saved schedule amount (double-click to edit)" : "Double-click to edit"}
                           >
                             {amt > 0 ? formatINR(amt) : "—"}
                           </td>
@@ -875,6 +1139,16 @@ export function DebtorListView({
 
                       {/* Action */}
                       <td className="py-2.5 px-2 text-center print:hidden">
+                        {d.hasManualOverride && (
+                          <button
+                            type="button"
+                            onClick={() => handleResetDebtor(d.partyName, d.id)}
+                            title={`Reset ${d.partyName} back to automated calculation`}
+                            className="p-1 mr-1 text-muted-foreground hover:text-amber-600 rounded transition inline-block cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         {d.hasBothAccounts ? (
                           <div className="flex items-center justify-center gap-1">
                             {d.regularAccountId && (

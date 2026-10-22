@@ -213,6 +213,13 @@ export async function GET(request: NextRequest) {
       if (!group.stateCode && row.stateCode) group.stateCode = row.stateCode;
     }
 
+    // Fetch saved breakdown overrides from Setting
+    const overrideSetting = await prisma.setting.findUnique({
+      where: { key: "debtor_breakdown_overrides" },
+    });
+    const allOverrides = (overrideSetting?.value as any) || {};
+    const modeOverrides = allOverrides[mode] || {};
+
     const debtorRows: Array<{
       id: string;
       customerId: string | null;
@@ -235,6 +242,7 @@ export async function GET(request: NextRequest) {
       informalAccountId: string | null;
       regularOutstanding: number;
       informalOutstanding: number;
+      hasManualOverride?: boolean;
     }> = [];
 
     for (const group of Array.from(customerGroupMap.values())) {
@@ -245,9 +253,11 @@ export async function GET(request: NextRequest) {
       const hasInformal = Boolean(inf);
 
       const totalInvoiced = Math.round(((reg?.totalInvoiced || 0) + (inf?.totalInvoiced || 0)) * 100) / 100;
-      const totalOutstanding = Math.round(((reg?.totalOutstanding || 0) + (inf?.totalOutstanding || 0)) * 100) / 100;
+      let totalOutstanding = Math.round(((reg?.totalOutstanding || 0) + (inf?.totalOutstanding || 0)) * 100) / 100;
       const overdueAmount = Math.round(((reg?.overdueAmount || 0) + (inf?.overdueAmount || 0)) * 100) / 100;
       const unpaidBillsCount = (reg?.unpaidBillsCount || 0) + (inf?.unpaidBillsCount || 0);
+
+      const primaryAccountId = reg?.accountId || inf?.accountId || null;
 
       // Merge monthlyAmounts across the 12 month columns
       const mergedMonthly: Record<string, number> = {};
@@ -255,6 +265,27 @@ export async function GET(request: NextRequest) {
         mergedMonthly[col.key] = Math.round(
           ((reg?.monthlyAmounts[col.key] || 0) + (inf?.monthlyAmounts[col.key] || 0)) * 100
         ) / 100;
+      }
+
+      // Check if this debtor has manual breakdown overrides saved
+      const debtorOverride =
+        modeOverrides[group.partyName] ||
+        (group.customerId ? modeOverrides[group.customerId] : undefined) ||
+        (primaryAccountId ? modeOverrides[primaryAccountId] : undefined);
+
+      let hasManualOverride = false;
+      if (debtorOverride && typeof debtorOverride === "object") {
+        for (const col of periodInfo.monthColumns) {
+          if (typeof debtorOverride[col.key] === "number") {
+            mergedMonthly[col.key] = Math.round(debtorOverride[col.key] * 100) / 100;
+            hasManualOverride = true;
+          }
+        }
+        if (hasManualOverride) {
+          totalOutstanding = Math.round(
+            periodInfo.monthColumns.reduce((sum, col) => sum + (mergedMonthly[col.key] || 0), 0) * 100
+          ) / 100;
+        }
       }
 
       // Oldest bill information across both accounts
@@ -265,8 +296,6 @@ export async function GET(request: NextRequest) {
         oldestBillNo = inf.oldestBillNo;
         oldestBillDate = inf.oldestBillDate;
       }
-
-      const primaryAccountId = reg?.accountId || inf?.accountId || null;
 
       debtorRows.push({
         id: group.customerId || primaryAccountId || Math.random().toString(),
@@ -290,6 +319,7 @@ export async function GET(request: NextRequest) {
         informalAccountId: inf?.accountId || null,
         regularOutstanding: reg?.totalOutstanding || 0,
         informalOutstanding: inf?.totalOutstanding || 0,
+        hasManualOverride,
       });
     }
 
@@ -333,6 +363,60 @@ export async function GET(request: NextRequest) {
     console.error("Error generating debtor list:", error);
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to generate debtor list" } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { mode = "rolling", updates, resetPartyName } = body;
+
+    const settingRecord = await prisma.setting.findUnique({
+      where: { key: "debtor_breakdown_overrides" },
+    });
+    const currentOverrides = (settingRecord?.value as any) || {};
+    if (!currentOverrides[mode]) {
+      currentOverrides[mode] = {};
+    }
+
+    // Allow resetting a debtor back to calculated
+    if (resetPartyName) {
+      delete currentOverrides[mode][resetPartyName];
+      for (const k of Object.keys(currentOverrides[mode])) {
+        if (k.toLowerCase() === resetPartyName.toLowerCase()) {
+          delete currentOverrides[mode][k];
+        }
+      }
+    }
+    if (body.resetDebtorId) {
+      delete currentOverrides[mode][body.resetDebtorId];
+    }
+
+    if (Array.isArray(updates)) {
+      for (const u of updates) {
+        const partyKey = u.partyName || u.debtorId;
+        if (partyKey && u.monthlyAmounts && typeof u.monthlyAmounts === "object") {
+          currentOverrides[mode][partyKey] = u.monthlyAmounts;
+        }
+      }
+    }
+
+    await prisma.setting.upsert({
+      where: { key: "debtor_breakdown_overrides" },
+      update: { value: currentOverrides },
+      create: { key: "debtor_breakdown_overrides", value: currentOverrides },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Debtor breakdown schedule saved successfully.",
+    });
+  } catch (error: any) {
+    console.error("Error saving debtor breakdown overrides:", error);
+    return NextResponse.json(
+      { error: { code: "SAVE_ERROR", message: error?.message || "Failed to save debtor schedule" } },
       { status: 500 }
     );
   }
