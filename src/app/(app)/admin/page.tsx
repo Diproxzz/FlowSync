@@ -176,9 +176,6 @@ export default function AdminPortalPage() {
               <h1 className="text-xl font-bold text-foreground tracking-tight">
                 Administrator Portal
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                Super Admin
-              </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Multi-tenant client workspace management & privacy isolation control center.
@@ -265,7 +262,7 @@ export default function AdminPortalPage() {
             Indobest
           </div>
           <span className="text-[11px] text-muted-foreground">
-            Kolkata GST Master Workspace
+            Primary GST Workspace
           </span>
         </div>
       </div>

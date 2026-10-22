@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FileUp,
@@ -21,6 +21,7 @@ import {
   FileSpreadsheet,
   FileSignature,
   ShieldAlert,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -66,6 +67,7 @@ function WispNavIcon({ className, ...props }: React.ComponentProps<"svg">) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [session, setSession] = useState<{
     role: "ADMIN" | "CLIENT";
     isAdmin: boolean;
@@ -83,6 +85,18 @@ export function Sidebar() {
       .catch(() => {});
   }, []);
 
+  const handleReturnToAdmin = async () => {
+    try {
+      await fetch("/api/admin/switch-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnToAdmin: true }),
+      });
+    } catch {}
+    router.push("/admin");
+    router.refresh();
+  };
+
   const {
     isOpen,
     isPinned,
@@ -92,12 +106,17 @@ export function Sidebar() {
     closeSidebar,
   } = useSidebar();
 
+  // In the Administrator Portal (/admin), there should be no navigation tabs
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
+
   const navSections: NavSection[] = [
     ...(session?.isAdmin
       ? [
           {
             title: "Administration",
-            items: [{ label: "Admin Portal", href: "/admin", icon: ShieldAlert }],
+            items: [{ label: "Return to Admin Page", href: "/admin", icon: ShieldAlert }],
           },
         ]
       : []),
@@ -213,6 +232,20 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* Back to Admin Page Option for Administrator inspecting portal */}
+      {session?.isAdmin && (
+        <div className="p-3 pb-0">
+          <button
+            type="button"
+            onClick={handleReturnToAdmin}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-sm bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition shadow-xs cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Admin Page</span>
+          </button>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
         {navSections.map((section, sIdx) => (
@@ -285,7 +318,7 @@ export function Sidebar() {
                 : "text-emerald-600"
             )}
           >
-            {session?.isAdmin ? (session.isReadOnly ? "Read-Only" : "Super Admin") : "Active"}
+            {session?.isAdmin ? (session.isReadOnly ? "Read-Only" : "Admin") : "Active"}
           </span>
         </div>
         <div className="flex items-center gap-2 px-2 py-1 text-[11px] text-ink-2">

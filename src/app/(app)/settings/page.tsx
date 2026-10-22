@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft } from "lucide-react";
 
 interface ProviderInfo {
   id: string;
@@ -132,9 +133,20 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div>
-        <h2 className="text-xl font-semibold text-ink">System Settings</h2>
-        <p className="text-xs text-ink-3">Issuer company details, inventory defaults, and LLM configuration</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-ink">System Settings</h2>
+          <p className="text-xs text-ink-3">Issuer company details, inventory defaults, and LLM configuration</p>
+        </div>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-xs transition w-fit cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Admin Page</span>
+          </Link>
+        )}
       </div>
 
       <form onSubmit={handleSaveSettings} className="space-y-6">
