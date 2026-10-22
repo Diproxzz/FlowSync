@@ -34,13 +34,25 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Re-point invoice items
+      // 1. Re-point sales invoice items
       const invoiceItemsUpdate = await tx.invoiceItem.updateMany({
         where: { product_id: sourceProductId },
         data: { product_id: targetProductId },
       });
 
-      // 2. Re-point stock movements and ensure SALE quantities are positive
+      // 2. Re-point purchase invoice items
+      const purchaseItemsUpdate = await tx.purchaseInvoiceItem.updateMany({
+        where: { product_id: sourceProductId },
+        data: { product_id: targetProductId },
+      });
+
+      // 3. Re-point informal invoice items
+      const informalItemsUpdate = await tx.informalInvoiceItem.updateMany({
+        where: { product_id: sourceProductId },
+        data: { product_id: targetProductId },
+      });
+
+      // 4. Re-point stock movements and ensure SALE quantities are positive
       const stockMovements = await tx.stockMovement.findMany({
         where: { product_id: sourceProductId },
       });
