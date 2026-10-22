@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { formatINR, formatDate } from "@/lib/format";
 import {
@@ -17,6 +17,8 @@ import {
   Filter,
   CheckCircle2,
   Clock,
+  Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +49,18 @@ export interface DebtorItem {
 export interface MonthColumn {
   key: string;
   label: string;
+  isRollupStart?: boolean;
+}
+
+export interface DebtorPeriodMeta {
+  mode: "rolling" | "fy";
+  asOfMonth: string;
+  financialYear: string;
+  periodTitle: string;
+  startKey: string;
+  endKey: string;
+  availableRollingMonths?: Array<{ value: string; label: string }>;
+  availableFinancialYears?: Array<{ value: string; label: string }>;
 }
 
 export interface DebtorSummary {
@@ -56,10 +70,11 @@ export interface DebtorSummary {
   monthTotals: Record<string, number>;
 }
 
-interface DebtorListViewProps {
+export interface DebtorListViewProps {
   debtors: DebtorItem[];
   months: MonthColumn[];
   summary: DebtorSummary;
+  period?: DebtorPeriodMeta;
   onClose: () => void;
 }
 
@@ -67,8 +82,64 @@ export function DebtorListView({
   debtors,
   months,
   summary,
+  period,
   onClose,
 }: DebtorListViewProps) {
+  const [activeDebtors, setActiveDebtors] = useState<DebtorItem[]>(debtors);
+  const [activeMonths, setActiveMonths] = useState<MonthColumn[]>(months);
+  const [activeSummary, setActiveSummary] = useState<DebtorSummary>(summary);
+  const [activePeriod, setActivePeriod] = useState<DebtorPeriodMeta>(() => {
+    return (
+      period || {
+        mode: "rolling",
+        asOfMonth: "2026-10",
+        financialYear: "2026-27",
+        periodTitle: "12 Months: Nov 2025 – Oct 2026",
+        startKey: "2025-11",
+        endKey: "2026-10",
+        availableRollingMonths: [],
+        availableFinancialYears: [],
+      }
+    );
+  });
+  const [loadingPeriod, setLoadingPeriod] = useState(false);
+
+  useEffect(() => {
+    setActiveDebtors(debtors);
+    setActiveMonths(months);
+    setActiveSummary(summary);
+    if (period) setActivePeriod(period);
+  }, [debtors, months, summary, period]);
+
+  const handlePeriodChange = async (
+    newMode: "rolling" | "fy",
+    newAsOfMonth: string,
+    newFY: string
+  ) => {
+    setLoadingPeriod(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("mode", newMode);
+      if (newMode === "rolling") {
+        params.set("asOfMonth", newAsOfMonth);
+      } else {
+        params.set("financialYear", newFY);
+      }
+      const res = await fetch(`/api/ledger/debtors?${params.toString()}`);
+      const json = await res.json();
+      const payload = json.data || json;
+      if (payload.debtors && payload.months) {
+        setActiveDebtors(payload.debtors);
+        setActiveMonths(payload.months);
+        if (payload.summary) setActiveSummary(payload.summary);
+        if (payload.period) setActivePeriod(payload.period);
+      }
+    } catch (err) {
+      console.error("Failed to reload debtor list:", err);
+    } finally {
+      setLoadingPeriod(false);
+    }
+  };
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OVERDUE" | "CURRENT">("ALL");
   const [sortBy, setSortBy] = useState<"OUTSTANDING_DESC" | "NAME_ASC" | "AGE_DESC">("OUTSTANDING_DESC");
@@ -76,7 +147,7 @@ export function DebtorListView({
 
   // Filtered and sorted debtors
   const filteredDebtors = useMemo(() => {
-    return debtors
+    return activeDebtors
       .filter((d) => {
         if (statusFilter === "OVERDUE" && d.status !== "OVERDUE") return false;
         if (statusFilter === "CURRENT" && d.status === "OVERDUE") return false;
@@ -102,7 +173,7 @@ export function DebtorListView({
         }
         return 0;
       });
-  }, [debtors, search, statusFilter, sortBy]);
+  }, [activeDebtors, search, statusFilter, sortBy]);
 
   // Compute live footer totals for filtered items
   const filteredTotals = useMemo(() => {
@@ -110,14 +181,14 @@ export function DebtorListView({
     let grandOverdue = 0;
     const monthTotals: Record<string, number> = {};
 
-    for (const m of months) {
+    for (const m of activeMonths) {
       monthTotals[m.key] = 0;
     }
 
     for (const d of filteredDebtors) {
       grandOutstanding += d.totalOutstanding;
       grandOverdue += d.overdueAmount;
-      for (const m of months) {
+      for (const m of activeMonths) {
         monthTotals[m.key] = (monthTotals[m.key] || 0) + (d.monthlyAmounts[m.key] || 0);
       }
     }
@@ -127,7 +198,7 @@ export function DebtorListView({
       grandOverdue: Math.round(grandOverdue * 100) / 100,
       monthTotals,
     };
-  }, [filteredDebtors, months]);
+  }, [filteredDebtors, activeMonths]);
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -135,7 +206,7 @@ export function DebtorListView({
       "S.No",
       "Debtor Name",
       "Total Outstanding (Rs)",
-      ...months.map((m) => `"${m.label} (Rs)"`),
+      ...activeMonths.map((m) => `"${m.label} (Rs)"`),
       "Oldest Bill No",
       "Oldest Bill Date",
       "Age (Days)",
@@ -147,7 +218,7 @@ export function DebtorListView({
       idx + 1,
       `"${d.partyName.replace(/"/g, '""')}"`,
       d.totalOutstanding.toFixed(2),
-      ...months.map((m) => ((d.monthlyAmounts[m.key] || 0)).toFixed(2)),
+      ...activeMonths.map((m) => ((d.monthlyAmounts[m.key] || 0)).toFixed(2)),
       d.oldestBillNo || "",
       d.oldestBillDate ? formatDate(d.oldestBillDate) : "",
       d.oldestAgeDays !== null ? d.oldestAgeDays : "",
@@ -160,7 +231,7 @@ export function DebtorListView({
       "",
       `"TOTAL (${filteredDebtors.length} DEBTORS)"`,
       filteredTotals.grandOutstanding.toFixed(2),
-      ...months.map((m) => (filteredTotals.monthTotals[m.key] || 0).toFixed(2)),
+      ...activeMonths.map((m) => (filteredTotals.monthTotals[m.key] || 0).toFixed(2)),
       "",
       "",
       "",
@@ -177,7 +248,7 @@ export function DebtorListView({
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `Debtors_List_Monthwise_${new Date().toISOString().split("T")[0]}.csv`
+      `Debtors_Schedule_${activePeriod.mode === "fy" ? activePeriod.financialYear : activePeriod.asOfMonth}_${new Date().toISOString().split("T")[0]}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -200,12 +271,12 @@ export function DebtorListView({
       // Title & Header info
       worksheet.mergeCells("A1:E1");
       const titleCell = worksheet.getCell("A1");
-      titleCell.value = "INDOBEST — SCHEDULE OF SUNDRY DEBTORS (MONTHWISE CLASSIFICATION)";
+      titleCell.value = `INDOBEST — SCHEDULE OF SUNDRY DEBTORS (${activePeriod.periodTitle.toUpperCase()})`;
       titleCell.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF0F172A" } };
 
       worksheet.mergeCells("A2:E2");
       const subCell = worksheet.getCell("A2");
-      subCell.value = `As of: ${new Date().toLocaleDateString("en-IN", { dateStyle: "long" })} | Total Outstanding: Rs. ${filteredTotals.grandOutstanding.toLocaleString("en-IN")}`;
+      subCell.value = `As of: ${new Date().toLocaleDateString("en-IN", { dateStyle: "long" })} | Total Outstanding: Rs. ${filteredTotals.grandOutstanding.toLocaleString("en-IN")} | *First column (${activeMonths[0]?.label}) includes prior dues`;
       subCell.font = { name: "Arial", size: 10, italic: true, color: { argb: "FF475569" } };
 
       // Table Header Row at Row 4
@@ -213,7 +284,7 @@ export function DebtorListView({
         "S.No",
         "Debtor Name",
         "Total Outstanding",
-        ...months.map((m) => m.label),
+        ...activeMonths.map((m) => m.label),
         "Oldest Bill",
         "Age (Days)",
         "Overdue",
@@ -249,7 +320,7 @@ export function DebtorListView({
           idx + 1,
           d.partyName,
           d.totalOutstanding,
-          ...months.map((m) => d.monthlyAmounts[m.key] || 0),
+          ...activeMonths.map((m) => d.monthlyAmounts[m.key] || 0),
           d.oldestBillNo ? `${d.oldestBillNo} (${d.oldestBillDate ? formatDate(d.oldestBillDate) : ""})` : "—",
           d.oldestAgeDays !== null ? `${d.oldestAgeDays} d` : "—",
           d.overdueAmount,
@@ -269,7 +340,7 @@ export function DebtorListView({
         row.getCell(3).numFmt = "₹#,##0.00";
         row.getCell(3).font = { name: "Arial", size: 9, bold: true };
 
-        months.forEach((_, mIdx) => {
+        activeMonths.forEach((_, mIdx) => {
           const colIndex = 4 + mIdx;
           const cell = row.getCell(colIndex);
           cell.numFmt = "₹#,##0.00";
@@ -299,7 +370,7 @@ export function DebtorListView({
         "",
         `TOTAL (${filteredDebtors.length} DEBTORS)`,
         filteredTotals.grandOutstanding,
-        ...months.map((m) => filteredTotals.monthTotals[m.key] || 0),
+        ...activeMonths.map((m) => filteredTotals.monthTotals[m.key] || 0),
         "",
         "",
         filteredTotals.grandOverdue,
@@ -320,7 +391,7 @@ export function DebtorListView({
           top: { style: "medium", color: { argb: "FF0F172A" } },
           bottom: { style: "double", color: { argb: "FF0F172A" } },
         };
-        if (colNumber === 3 || (colNumber >= 4 && colNumber < 4 + months.length) || colNumber === totalsRowValues.length - 1) {
+        if (colNumber === 3 || (colNumber >= 4 && colNumber < 4 + activeMonths.length) || colNumber === totalsRowValues.length - 1) {
           cell.numFmt = "₹#,##0.00";
         }
       });
@@ -345,7 +416,7 @@ export function DebtorListView({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Debtors_Schedule_Monthwise_${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.download = `Debtors_Schedule_${activePeriod.mode === "fy" ? activePeriod.financialYear : activePeriod.asOfMonth}_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -379,7 +450,7 @@ export function DebtorListView({
               </h2>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Party-wise outstanding amounts classified by invoice month &bull; FY 2026–27
+              {activePeriod.periodTitle} &bull; 12-Month Schedule Format
             </p>
           </div>
 
@@ -424,6 +495,115 @@ export function DebtorListView({
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* Period Selector Bar: 12-Month Rolling vs Financial Year */}
+        <div className="px-4 py-2.5 bg-muted/20 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs print:hidden">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Schedule Format:
+            </span>
+            <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handlePeriodChange("rolling", activePeriod.asOfMonth, activePeriod.financialYear)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                  activePeriod.mode === "rolling"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Clock className="w-3.5 h-3.5 text-primary" />
+                <span>12-Month Rolling</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePeriodChange("fy", activePeriod.asOfMonth, activePeriod.financialYear)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                  activePeriod.mode === "fy"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Financial Year</span>
+              </button>
+            </div>
+
+            {/* Sub-selector for Mode */}
+            {activePeriod.mode === "rolling" ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground font-medium text-[11px]">As of Month:</span>
+                <select
+                  value={activePeriod.asOfMonth}
+                  onChange={(e) => handlePeriodChange("rolling", e.target.value, activePeriod.financialYear)}
+                  disabled={loadingPeriod}
+                  className="px-2.5 py-1 text-xs bg-background border border-border rounded-lg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  {(activePeriod.availableRollingMonths && activePeriod.availableRollingMonths.length > 0
+                    ? activePeriod.availableRollingMonths
+                    : [
+                        { value: "2026-11", label: "Nov 2026 (Dec 2025 – Nov 2026)" },
+                        { value: "2026-10", label: "Oct 2026 (Nov 2025 – Oct 2026) [Current]" },
+                        { value: "2026-09", label: "Sep 2026 (Oct 2025 – Sep 2026)" },
+                        { value: "2026-08", label: "Aug 2026 (Sep 2025 – Aug 2026)" },
+                        { value: "2026-07", label: "Jul 2026 (Aug 2025 – Jul 2026)" },
+                        { value: "2026-06", label: "Jun 2026 (Jul 2025 – Jun 2026)" },
+                        { value: "2026-05", label: "May 2026 (Jun 2025 – May 2026)" },
+                        { value: "2026-04", label: "Apr 2026 (May 2025 – Apr 2026)" },
+                      ]
+                  ).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground font-medium text-[11px]">Financial Year:</span>
+                <select
+                  value={activePeriod.financialYear}
+                  onChange={(e) => handlePeriodChange("fy", activePeriod.asOfMonth, e.target.value)}
+                  disabled={loadingPeriod}
+                  className="px-2.5 py-1 text-xs bg-background border border-border rounded-lg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  {(activePeriod.availableFinancialYears && activePeriod.availableFinancialYears.length > 0
+                    ? activePeriod.availableFinancialYears
+                    : [
+                        { value: "2024-25", label: "FY 2024-25 (Apr 2024 – Mar 2025)" },
+                        { value: "2025-26", label: "FY 2025-26 (Apr 2025 – Mar 2026)" },
+                        { value: "2026-27", label: "FY 2026-27 (Apr 2026 – Mar 2027) [Active]" },
+                        { value: "2027-28", label: "FY 2027-28 (Apr 2027 – Mar 2028)" },
+                      ]
+                  ).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {loadingPeriod && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin text-primary" />
+                Updating schedule...
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+            <span className="font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border">
+              {activePeriod.periodTitle}
+            </span>
+            <span className="hidden sm:inline">&bull;</span>
+            <span className="italic text-muted-foreground">
+              *First column ({activeMonths[0]?.label?.replace("*", "")}) includes all prior dues
+            </span>
           </div>
         </div>
 
@@ -478,7 +658,7 @@ export function DebtorListView({
             <span className="text-lg font-bold text-foreground">
               {filteredDebtors.length}{" "}
               <span className="text-xs font-normal text-muted-foreground">
-                / {debtors.length}
+                / {activeDebtors.length}
               </span>
             </span>
             <span className="text-[10px] text-muted-foreground block mt-0.5">
@@ -491,10 +671,10 @@ export function DebtorListView({
               Month Columns
             </span>
             <span className="text-lg font-bold text-foreground font-mono">
-              {months.length}
+              {activeMonths.length}
             </span>
             <span className="text-[10px] text-muted-foreground block mt-0.5">
-              Billing periods classified
+              12-Month format breakdown
             </span>
           </div>
         </div>
@@ -536,7 +716,7 @@ export function DebtorListView({
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                All ({debtors.length})
+                All ({activeDebtors.length})
               </button>
               <button
                 type="button"
@@ -591,13 +771,21 @@ export function DebtorListView({
                   Total Outstanding
                 </th>
 
-                {/* Dynamic Month Columns */}
-                {months.map((m) => (
+                {/* 12-Month Schedule Columns */}
+                {activeMonths.map((m) => (
                   <th
                     key={m.key}
                     className="py-2.5 px-3 text-right font-mono min-w-[110px] whitespace-nowrap"
+                    title={m.isRollupStart ? "Includes all dues from this month and prior periods" : undefined}
                   >
-                    {m.label}
+                    <div className="flex items-center justify-end gap-1">
+                      <span>{m.label}</span>
+                      {m.isRollupStart && (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-primary/10 text-primary font-normal normal-case">
+                          prior+
+                        </span>
+                      )}
+                    </div>
                   </th>
                 ))}
 
@@ -612,7 +800,7 @@ export function DebtorListView({
               {filteredDebtors.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7 + months.length}
+                    colSpan={7 + activeMonths.length}
                     className="py-12 text-center text-muted-foreground text-xs"
                   >
                     No debtors match your search/filter criteria.
@@ -673,7 +861,7 @@ export function DebtorListView({
                       </td>
 
                       {/* Monthwise Amounts */}
-                      {months.map((m) => {
+                      {activeMonths.map((m) => {
                         const amt = d.monthlyAmounts[m.key] || 0;
                         return (
                           <td
@@ -791,7 +979,7 @@ export function DebtorListView({
                 </td>
 
                 {/* Month Totals */}
-                {months.map((m) => (
+                {activeMonths.map((m) => (
                   <td
                     key={m.key}
                     className="py-3 px-3 text-right font-mono text-xs whitespace-nowrap text-foreground print:text-black print:py-2"

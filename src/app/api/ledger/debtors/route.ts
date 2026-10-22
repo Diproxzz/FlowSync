@@ -1,9 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { calculateMargTotals } from "@/lib/ledger/balances";
+import { build12MonthSchedule, rollInto12Months } from "@/lib/ledger/debtor-periods";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = request.nextUrl;
+    const mode = (searchParams.get("mode")?.toLowerCase() === "fy" ? "fy" : "rolling") as "rolling" | "fy";
+    const asOfMonth = searchParams.get("asOfMonth")?.trim() || "";
+    const financialYear = searchParams.get("financialYear")?.trim() || searchParams.get("fy")?.trim() || "2026-27";
+
+    const periodInfo = build12MonthSchedule(mode, asOfMonth, financialYear);
+
+    // Multi-tenant client privacy isolation
+    const ctx = await getActiveClientContext();
+    if (!ctx.isFoundingClient) {
+      return NextResponse.json({
+        success: true,
+        debtors: [],
+        months: periodInfo.monthColumns,
+        period: periodInfo,
+        summary: {
+          totalDebtors: 0,
+          grandTotalOutstanding: 0,
+          grandTotalOverdue: 0,
+          monthTotals: Object.fromEntries(periodInfo.monthColumns.map((c) => [c.key, 0])),
+        },
+      });
+    }
+
     // 1. Fetch customer ledger accounts (both regular and informal) with non-void entries
     const ledgerAccounts = await prisma.ledgerAccount.findMany({
       where: {
@@ -43,7 +69,6 @@ export async function GET(request: NextRequest) {
     }
 
     const accountRows: AccountDebtorRow[] = [];
-    const monthKeysSet = new Set<string>();
     const now = new Date().getTime();
 
     // Process each account that has ledger entries
@@ -84,7 +109,7 @@ export async function GET(request: NextRequest) {
       bills.sort((a, b) => b.dateTime - a.dateTime);
 
       let remaining = totalOutstanding;
-      const monthlyAmounts: Record<string, number> = {};
+      const rawMonthlyAmounts: Record<string, number> = {};
       let oldestBillNo: string | null = null;
       let oldestBillDate: string | null = null;
       let oldestAgeDays: number | null = null;
@@ -107,8 +132,7 @@ export async function GET(request: NextRequest) {
           unpaidBillsCount++;
           const d = new Date(b.date);
           const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-          monthlyAmounts[monthKey] = Math.round(((monthlyAmounts[monthKey] || 0) + billPending) * 100) / 100;
-          monthKeysSet.add(monthKey);
+          rawMonthlyAmounts[monthKey] = Math.round(((rawMonthlyAmounts[monthKey] || 0) + billPending) * 100) / 100;
 
           oldestBillNo = b.docNo;
           oldestBillDate = b.date;
@@ -122,14 +146,16 @@ export async function GET(request: NextRequest) {
       }
 
       if (remaining > 0.005) {
-        monthlyAmounts["prior"] = Math.round(((monthlyAmounts["prior"] || 0) + remaining) * 100) / 100;
-        monthKeysSet.add("prior");
+        rawMonthlyAmounts["prior"] = Math.round(((rawMonthlyAmounts["prior"] || 0) + remaining) * 100) / 100;
         if (!oldestBillNo) {
           oldestBillNo = "Opening Balance";
           oldestBillDate = openingEntry ? openingEntry.entry_date.toISOString().slice(0, 10) : "2026-04-01";
         }
         overdueAmount = Math.round((overdueAmount + remaining) * 100) / 100;
       }
+
+      // Roll into the 12-month schedule
+      const monthlyAmounts = rollInto12Months(rawMonthlyAmounts, periodInfo.monthColumns);
 
       const partyName =
         acc.customer?.name ||
@@ -223,17 +249,11 @@ export async function GET(request: NextRequest) {
       const overdueAmount = Math.round(((reg?.overdueAmount || 0) + (inf?.overdueAmount || 0)) * 100) / 100;
       const unpaidBillsCount = (reg?.unpaidBillsCount || 0) + (inf?.unpaidBillsCount || 0);
 
-      // Merge monthlyAmounts
+      // Merge monthlyAmounts across the 12 month columns
       const mergedMonthly: Record<string, number> = {};
-      const allKeys = Array.from(
-        new Set([
-          ...Object.keys(reg?.monthlyAmounts || {}),
-          ...Object.keys(inf?.monthlyAmounts || {}),
-        ])
-      );
-      for (const k of allKeys) {
-        mergedMonthly[k] = Math.round(
-          ((reg?.monthlyAmounts[k] || 0) + (inf?.monthlyAmounts[k] || 0)) * 100
+      for (const col of periodInfo.monthColumns) {
+        mergedMonthly[col.key] = Math.round(
+          ((reg?.monthlyAmounts[col.key] || 0) + (inf?.monthlyAmounts[col.key] || 0)) * 100
         ) / 100;
       }
 
@@ -276,27 +296,10 @@ export async function GET(request: NextRequest) {
     // Sort debtors by highest total outstanding first
     debtorRows.sort((a, b) => b.totalOutstanding - a.totalOutstanding);
 
-    // Build chronological month columns: Prior first, then Apr 2026, May 2026, etc.
-    const sortedMonthKeys = Array.from(monthKeysSet).sort((a, b) => {
-      if (a === "prior") return -1;
-      if (b === "prior") return 1;
-      return a.localeCompare(b);
-    });
-
-    const monthColumns = sortedMonthKeys.map((key) => {
-      if (key === "prior") {
-        return { key, label: "Prior Dues" };
-      }
-      const [yearStr, monthStr] = key.split("-");
-      const d = new Date(parseInt(yearStr), parseInt(monthStr) - 1, 1);
-      const label = d.toLocaleString("en-IN", { month: "short", year: "numeric" });
-      return { key, label };
-    });
-
-    // Compute month totals
+    // Compute month totals across the 12 month columns
     const monthTotals: Record<string, number> = {};
-    for (const m of sortedMonthKeys) {
-      monthTotals[m] = 0;
+    for (const col of periodInfo.monthColumns) {
+      monthTotals[col.key] = 0;
     }
     let grandTotalOutstanding = 0;
     let grandTotalOverdue = 0;
@@ -304,14 +307,15 @@ export async function GET(request: NextRequest) {
     for (const row of debtorRows) {
       grandTotalOutstanding += row.totalOutstanding;
       grandTotalOverdue += row.overdueAmount;
-      for (const m of sortedMonthKeys) {
-        monthTotals[m] = Math.round(((monthTotals[m] || 0) + (row.monthlyAmounts[m] || 0)) * 100) / 100;
+      for (const col of periodInfo.monthColumns) {
+        monthTotals[col.key] = Math.round(((monthTotals[col.key] || 0) + (row.monthlyAmounts[col.key] || 0)) * 100) / 100;
       }
     }
 
     const payload = {
       debtors: debtorRows,
-      months: monthColumns,
+      months: periodInfo.monthColumns,
+      period: periodInfo,
       summary: {
         totalDebtors: debtorRows.length,
         grandTotalOutstanding: Math.round(grandTotalOutstanding * 100) / 100,

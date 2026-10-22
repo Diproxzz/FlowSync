@@ -70,6 +70,7 @@ export default function AccountsPage() {
     debtors: DebtorItem[];
     months: MonthColumn[];
     summary: DebtorSummary;
+    period?: any;
   } | null>(null);
   const [loadingDebtors, setLoadingDebtors] = useState(false);
 
@@ -490,6 +491,7 @@ export default function AccountsPage() {
             debtors={debtorData.debtors}
             months={debtorData.months}
             summary={debtorData.summary}
+            period={debtorData.period}
             onClose={() => setIsDebtorListOpen(false)}
           />
         ) : (
