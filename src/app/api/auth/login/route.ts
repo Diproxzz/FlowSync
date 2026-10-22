@@ -33,29 +33,15 @@ export async function POST(request: NextRequest) {
     }
 
     const username = typeof body.username === "string" ? body.username.trim() : "";
-    let isValid = false;
-    let errorMessage = "Incorrect username or password";
+    const credResult = await verifyCredentials(username || "Indobest", body.password);
 
-    if (username) {
-      const credResult = await verifyCredentials(username, body.password);
-      isValid = credResult.valid;
-      if (!isValid && credResult.reason) {
-        errorMessage = credResult.reason;
-      }
-    } else {
-      isValid = await verifyPassword(body.password);
-      if (!isValid) {
-        errorMessage = "Incorrect password. Please verify your password and try again.";
-      }
-    }
-
-    if (!isValid) {
+    if (!credResult.valid) {
       recordFailedLogin(ip);
       return NextResponse.json(
         {
           error: {
             code: "INVALID_CREDENTIALS",
-            message: errorMessage,
+            message: credResult.reason || "Incorrect username or password",
           },
         },
         { status: 401 }
@@ -63,10 +49,24 @@ export async function POST(request: NextRequest) {
     }
 
     resetLoginRateLimit(ip);
-    const token = await createSessionToken(username || "Indobest");
+    const token = await createSessionToken({
+      authenticated: true,
+      username: credResult.username || username,
+      role: credResult.role || "CLIENT",
+      clientId: credResult.clientId || "indobest",
+      clientName: credResult.clientName || "Indobest Kolkata",
+      isReadOnly: false,
+    });
     setSessionCookie(token);
 
-    return NextResponse.json({ success: true, message: "Logged in successfully" });
+    const redirectUrl = credResult.role === "ADMIN" ? "/admin" : "/dashboard";
+
+    return NextResponse.json({
+      success: true,
+      message: "Logged in successfully",
+      role: credResult.role,
+      redirectUrl,
+    });
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

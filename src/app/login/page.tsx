@@ -43,7 +43,8 @@ function LoginForm() {
         return;
       }
 
-      router.push(next);
+      const targetUrl = searchParams.get("next") || data.redirectUrl || "/dashboard";
+      router.push(targetUrl);
       router.refresh();
     } catch {
       setError("Failed to connect to server. Please try again.");

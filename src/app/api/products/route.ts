@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({ products: [] });
+  }
+
   const { searchParams } = request.nextUrl;
   const search = searchParams.get("search")?.trim() || "";
   const category = searchParams.get("category")?.trim();

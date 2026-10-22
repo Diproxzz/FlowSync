@@ -32,6 +32,7 @@ export default function SettingsPage() {
     providerOrder: ["groq", "gemini", "glm-ocr", "paddleocr-vl", "qwen2-vl", "openrouter", "ollama"],
   });
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -41,10 +42,19 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/settings");
+      const [res, sessionRes] = await Promise.all([
+        fetch("/api/settings"),
+        fetch("/api/auth/me"),
+      ]);
+
       const data = await res.json();
       if (data.settings) setSettings(data.settings);
       if (data.providers) setProviders(data.providers);
+
+      if (sessionRes.ok) {
+        const sData = await sessionRes.json();
+        setIsAdmin(!!sData.data?.isAdmin);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -245,110 +255,112 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* LLM Providers */}
-        <div className="bg-surface border border-border rounded-sm p-5 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold text-ink">LLM Extraction Providers</h3>
+        {/* LLM Providers (Only visible in administrator profile) */}
+        {isAdmin && (
+          <div className="bg-surface border border-border rounded-sm p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-ink">LLM Extraction Providers</h3>
+              </div>
+              <span className="text-[11px] text-ink-3">Configured via .env on server</span>
             </div>
-            <span className="text-[11px] text-ink-3">Configured via .env on server</span>
-          </div>
 
-          <p className="text-xs text-ink-3">
-            Invoices are extracted using providers in the order below. If a provider reaches rate limits or errors,
-            the system automatically falls back to the next provider.
-          </p>
+            <p className="text-xs text-ink-3">
+              Invoices are extracted using providers in the order below. If a provider reaches rate limits or errors,
+              the system automatically falls back to the next provider.
+            </p>
 
-          <div className="space-y-2">
-            {settings.providerOrder.map((providerId, index) => {
-              const prov = providers.find((p) => p.id === providerId) || {
-                id: providerId,
-                name: providerId.toUpperCase(),
-                isConfigured: false,
-                model: "Not configured",
-              };
-              const result = testResult[providerId];
+            <div className="space-y-2">
+              {settings.providerOrder.map((providerId, index) => {
+                const prov = providers.find((p) => p.id === providerId) || {
+                  id: providerId,
+                  name: providerId.toUpperCase(),
+                  isConfigured: false,
+                  model: "Not configured",
+                };
+                const result = testResult[providerId];
 
-              return (
-                <div
-                  key={providerId}
-                  className="flex items-center justify-between p-3 bg-bg border border-border rounded-sm text-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col">
-                      <button
-                        type="button"
-                        onClick={() => moveProvider(index, "up")}
-                        disabled={index === 0}
-                        className="text-ink-3 hover:text-ink disabled:opacity-20"
-                        title="Move up"
-                      >
-                        <ArrowUp className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveProvider(index, "down")}
-                        disabled={index === settings.providerOrder.length - 1}
-                        className="text-ink-3 hover:text-ink disabled:opacity-20"
-                        title="Move down"
-                      >
-                        <ArrowDown className="w-3 h-3" />
-                      </button>
+                return (
+                  <div
+                    key={providerId}
+                    className="flex items-center justify-between p-3 bg-bg border border-border rounded-sm text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={() => moveProvider(index, "up")}
+                          disabled={index === 0}
+                          className="text-ink-3 hover:text-ink disabled:opacity-20"
+                          title="Move up"
+                        >
+                          <ArrowUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveProvider(index, "down")}
+                          disabled={index === settings.providerOrder.length - 1}
+                          className="text-ink-3 hover:text-ink disabled:opacity-20"
+                          title="Move down"
+                        >
+                          <ArrowDown className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 font-semibold text-ink">
+                          <span>
+                            {index + 1}. {prov.name}
+                          </span>
+                          {prov.isConfigured ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-sm text-[10px] bg-success-bg text-success font-normal">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <span>Configured</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-sm text-[10px] bg-surface-2 text-ink-3 font-normal">
+                              <XCircle className="w-2.5 h-2.5" />
+                              <span>Not configured (key blank)</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] font-mono text-ink-3 mt-0.5">
+                          Model: {prov.model}
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center gap-2 font-semibold text-ink">
-                        <span>
-                          {index + 1}. {prov.name}
+                    <div className="flex items-center gap-3">
+                      {result && (
+                        <span
+                          className={`text-[11px] ${
+                            result.ok ? "text-success font-medium" : "text-danger"
+                          }`}
+                        >
+                          {result.message}
                         </span>
-                        {prov.isConfigured ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-sm text-[10px] bg-success-bg text-success font-normal">
-                            <CheckCircle2 className="w-2.5 h-2.5" />
-                            <span>Configured</span>
-                          </span>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={!prov.isConfigured || testingProvider === providerId}
+                        onClick={() => handleTestProvider(providerId)}
+                        className="px-2.5 py-1 bg-surface border border-border text-ink rounded-sm text-[11px] font-medium hover:bg-surface-2 transition disabled:opacity-40"
+                      >
+                        {testingProvider === providerId ? (
+                          <RefreshCw className="w-3 h-3 animate-spin inline" />
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-sm text-[10px] bg-surface-2 text-ink-3 font-normal">
-                            <XCircle className="w-2.5 h-2.5" />
-                            <span>Not configured (key blank)</span>
-                          </span>
+                          "Test connection"
                         )}
-                      </div>
-                      <div className="text-[11px] font-mono text-ink-3 mt-0.5">
-                        Model: {prov.model}
-                      </div>
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    {result && (
-                      <span
-                        className={`text-[11px] ${
-                          result.ok ? "text-success font-medium" : "text-danger"
-                        }`}
-                      >
-                        {result.message}
-                      </span>
-                    )}
-
-                    <button
-                      type="button"
-                      disabled={!prov.isConfigured || testingProvider === providerId}
-                      onClick={() => handleTestProvider(providerId)}
-                      className="px-2.5 py-1 bg-surface border border-border text-ink rounded-sm text-[11px] font-medium hover:bg-surface-2 transition disabled:opacity-40"
-                    >
-                      {testingProvider === providerId ? (
-                        <RefreshCw className="w-3 h-3 animate-spin inline" />
-                      ) : (
-                        "Test connection"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {saveSuccess && (
           <div className="p-3 bg-success-bg text-success border border-success/30 rounded-sm text-xs flex items-center gap-2 font-medium">

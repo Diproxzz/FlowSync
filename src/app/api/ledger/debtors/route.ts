@@ -211,7 +211,7 @@ export async function GET(request: NextRequest) {
       informalOutstanding: number;
     }> = [];
 
-    for (const group of customerGroupMap.values()) {
+    for (const group of Array.from(customerGroupMap.values())) {
       const reg = group.regularRow;
       const inf = group.informalRow;
 
@@ -225,10 +225,12 @@ export async function GET(request: NextRequest) {
 
       // Merge monthlyAmounts
       const mergedMonthly: Record<string, number> = {};
-      const allKeys = new Set([
-        ...Object.keys(reg?.monthlyAmounts || {}),
-        ...Object.keys(inf?.monthlyAmounts || {}),
-      ]);
+      const allKeys = Array.from(
+        new Set([
+          ...Object.keys(reg?.monthlyAmounts || {}),
+          ...Object.keys(inf?.monthlyAmounts || {}),
+        ])
+      );
       for (const k of allKeys) {
         mergedMonthly[k] = Math.round(
           ((reg?.monthlyAmounts[k] || 0) + (inf?.monthlyAmounts[k] || 0)) * 100

@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeCustomerName } from "@/lib/matching/normalize";
 import { Prisma } from "@prisma/client";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({ customers: [] });
+  }
+
   const { searchParams } = request.nextUrl;
   const search = searchParams.get("search")?.trim() || "";
 

@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { confirmPurchaseInvoice } from "@/lib/purchases/confirm";
 import { Prisma } from "@prisma/client";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
+  const limitParam = parseInt(searchParams.get("limit") || "50", 10);
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+
+  const ctx = await getActiveClientContext();
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({
+      invoices: [],
+      pagination: { total: 0, page: 1, limit: limitParam, totalPages: 0 },
+      summary: { totalCount: 0, totalAmount: "0.00", totalTaxable: "0.00" },
+    });
+  }
   const search = searchParams.get("search")?.trim() || "";
   const supplierId = searchParams.get("supplierId")?.trim();
   const productId = searchParams.get("productId")?.trim();

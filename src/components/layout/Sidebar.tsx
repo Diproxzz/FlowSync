@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -19,7 +20,7 @@ import {
   BookOpen,
   FileSpreadsheet,
   FileSignature,
-  Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -51,79 +52,37 @@ function WispNavIcon({ className, ...props }: React.ComponentProps<"svg">) {
       className={className}
       {...props}
     >
-      {/* Beret stalk */}
       <path d="M12 1.75v2" />
-      {/* Beret dome */}
       <path d="M4.5 8.75C4.5 5.5 7.8 3.75 12 3.75s7.5 1.75 7.5 5" />
-      {/* Beret brim */}
       <path d="M4 8.75c2.5 1.5 13.5 1.5 16 0" />
-      {/* Head with chubby cheeks */}
       <path d="M4.5 9.25C2.5 12.25 2.5 16.25 5.5 19.25 8 21.75 16 21.75 18.5 19.25c3-3 3-7 1-10" />
-      {/* Round glasses / eyes */}
       <circle cx="8" cy="14" r="2" />
       <circle cx="16" cy="14" r="2" />
       <path d="M10 14h4" />
-      {/* Smile */}
       <path d="M10.5 17.5c.8.7 2.2.7 3 0" />
     </svg>
   );
 }
 
-const NAV_SECTIONS: NavSection[] = [
-  {
-    items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Upload Invoice", href: "/upload", icon: FileUp },
-    ],
-  },
-  {
-    title: "AI Assistant",
-    items: [
-      { label: "Wisp", href: "/wisp", icon: WispNavIcon },
-    ],
-  },
-  {
-    title: "Sales",
-    items: [
-      { label: "Sales Invoices", href: "/invoices", icon: Receipt },
-      { label: "Informal Invoices", href: "/informal-invoices", icon: FileSignature },
-      { label: "Customers", href: "/customers", icon: Users },
-    ],
-  },
-  ...(isPurchasesEnabled
-    ? [
-        {
-          title: "Purchases",
-          items: [
-            { label: "Purchase Invoices", href: "/purchases", icon: ShoppingCart },
-            { label: "Suppliers", href: "/suppliers", icon: Truck },
-          ],
-        },
-      ]
-    : []),
-  ...(isLedgerEnabled
-    ? [
-        {
-          title: "Accounts & Ledger",
-          items: [
-            { label: "Party Ledgers", href: "/accounts", icon: BookOpen },
-            { label: "Import Statement", href: "/accounts/import", icon: FileSpreadsheet },
-          ],
-        },
-      ]
-    : []),
-  {
-    title: "Inventory & Setup",
-    items: [
-      { label: "Products", href: "/products", icon: Package },
-      { label: "Stock Summary", href: "/stock", icon: Boxes },
-      { label: "Settings", href: "/settings", icon: Settings },
-    ],
-  },
-];
-
 export function Sidebar() {
   const pathname = usePathname();
+  const [session, setSession] = useState<{
+    role: "ADMIN" | "CLIENT";
+    isAdmin: boolean;
+    isReadOnly: boolean;
+    clientName: string;
+    activeClientName: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.data) setSession(data.data);
+      })
+      .catch(() => {});
+  }, []);
+
   const {
     isOpen,
     isPinned,
@@ -132,6 +91,65 @@ export function Sidebar() {
     handleMouseLeave,
     closeSidebar,
   } = useSidebar();
+
+  const navSections: NavSection[] = [
+    ...(session?.isAdmin
+      ? [
+          {
+            title: "Administration",
+            items: [{ label: "Admin Portal", href: "/admin", icon: ShieldAlert }],
+          },
+        ]
+      : []),
+    {
+      items: [
+        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Upload Invoice", href: "/upload", icon: FileUp },
+      ],
+    },
+    {
+      title: "AI Assistant",
+      items: [{ label: "Wisp", href: "/wisp", icon: WispNavIcon }],
+    },
+    {
+      title: "Sales",
+      items: [
+        { label: "Sales Invoices", href: "/invoices", icon: Receipt },
+        { label: "Informal Invoices", href: "/informal-invoices", icon: FileSignature },
+        { label: "Customers", href: "/customers", icon: Users },
+      ],
+    },
+    ...(isPurchasesEnabled
+      ? [
+          {
+            title: "Purchases",
+            items: [
+              { label: "Purchase Invoices", href: "/purchases", icon: ShoppingCart },
+              { label: "Suppliers", href: "/suppliers", icon: Truck },
+            ],
+          },
+        ]
+      : []),
+    ...(isLedgerEnabled
+      ? [
+          {
+            title: "Accounts & Ledger",
+            items: [
+              { label: "Party Ledgers", href: "/accounts", icon: BookOpen },
+              { label: "Import Statement", href: "/accounts/import", icon: FileSpreadsheet },
+            ],
+          },
+        ]
+      : []),
+    {
+      title: "Inventory & Setup",
+      items: [
+        { label: "Products", href: "/products", icon: Package },
+        { label: "Stock Summary", href: "/stock", icon: Boxes },
+        { label: "Settings", href: "/settings", icon: Settings },
+      ],
+    },
+  ];
 
   return (
     <aside
@@ -160,7 +178,13 @@ export function Sidebar() {
           />
           <div className="flex flex-col">
             <span className="font-bold text-sm leading-tight text-ink tracking-tight">FlowSync</span>
-            <span className="text-[10px] text-ink-3 tracking-wider font-mono">Indobest</span>
+            <span className="text-[10px] text-ink-3 tracking-wider font-mono">
+              {session?.isAdmin
+                ? session.isReadOnly
+                  ? session.activeClientName || "Client View"
+                  : "Admin"
+                : session?.clientName || "Indobest"}
+            </span>
           </div>
         </div>
 
@@ -191,7 +215,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
-        {NAV_SECTIONS.map((section, sIdx) => (
+        {navSections.map((section, sIdx) => (
           <div key={sIdx} className="space-y-1">
             {section.title && (
               <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-3">
@@ -228,11 +252,41 @@ export function Sidebar() {
       {/* Footer Info & Active Profile */}
       <div className="p-3 border-t border-border bg-surface-2/40 space-y-1.5">
         <div className="flex items-center justify-between px-2 py-1 text-[11px] text-ink-2 bg-surface rounded-sm border border-border/60">
-          <div className="flex items-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Profile: <strong className="text-ink font-semibold">Indobest</strong></span>
+          <div className="flex items-center gap-1.5 font-medium min-w-0">
+            <span
+              className={cn(
+                "w-2 h-2 rounded-full shrink-0",
+                session?.isAdmin ? "bg-purple-500" : "bg-emerald-500 animate-pulse"
+              )}
+            />
+            <span className="truncate">
+              {session?.isAdmin ? (
+                session.isReadOnly ? (
+                  <>
+                    View: <strong className="text-ink font-semibold">{session.activeClientName}</strong>
+                  </>
+                ) : (
+                  <strong className="text-purple-600 dark:text-purple-400 font-semibold">Administrator</strong>
+                )
+              ) : (
+                <>
+                  Profile: <strong className="text-ink font-semibold">{session?.clientName || "Indobest"}</strong>
+                </>
+              )}
+            </span>
           </div>
-          <span className="text-[10px] text-emerald-600 font-mono font-medium">Active</span>
+          <span
+            className={cn(
+              "text-[10px] font-mono font-medium shrink-0",
+              session?.isAdmin
+                ? session.isReadOnly
+                  ? "text-amber-600 dark:text-amber-400 font-semibold"
+                  : "text-purple-600 dark:text-purple-400"
+                : "text-emerald-600"
+            )}
+          >
+            {session?.isAdmin ? (session.isReadOnly ? "Read-Only" : "Super Admin") : "Active"}
+          </span>
         </div>
         <div className="flex items-center gap-2 px-2 py-1 text-[11px] text-ink-2">
           <Calendar className="w-3.5 h-3.5 text-accent" />

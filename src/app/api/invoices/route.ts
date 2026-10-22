@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { confirmInvoice } from "@/lib/invoices/confirm";
 import { Prisma } from "@prisma/client";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -13,10 +14,19 @@ export async function GET(request: NextRequest) {
   const financialYear = searchParams.get("financialYear")?.trim();
   const minAmount = searchParams.get("minAmount")?.trim();
   const maxAmount = searchParams.get("maxAmount")?.trim();
-  const sortBy = searchParams.get("sortBy")?.trim() || "number";
-  const sortOrder = (searchParams.get("sortOrder")?.trim() || "asc").toLowerCase() === "desc" ? "desc" : "asc";
+  const sortBy = searchParams.get("sortBy")?.trim() || "date";
+  const sortOrder = (searchParams.get("sortOrder")?.trim() || "desc").toLowerCase() === "asc" ? "asc" : "desc";
   const limit = parseInt(searchParams.get("limit") || "50", 10);
   const page = parseInt(searchParams.get("page") || "1", 10);
+
+  const ctx = await getActiveClientContext();
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({
+      invoices: [],
+      pagination: { total: 0, page: 1, limit, totalPages: 0 },
+      summary: { totalCount: 0, totalAmount: "0.00", totalTaxable: "0.00" },
+    });
+  }
 
   const where: Prisma.InvoiceWhereInput = {
     AND: [

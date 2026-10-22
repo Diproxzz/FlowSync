@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const COOKIE_NAME = "indobest_session";
-const SESSION_VERSION = "indobest_v2";
+const SESSION_VERSION = "indobest_v3";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/logo.jpg" ||
     pathname === "/wisp.png"
   ) {
-    // If user is already authenticated and visits /login, redirect to /dashboard
+    // If user is already authenticated and visits /login, redirect
     if (pathname === "/login") {
       const token = request.cookies.get(COOKIE_NAME)?.value;
       if (token) {
@@ -32,13 +32,9 @@ export async function middleware(request: NextRequest) {
         );
         try {
           const { payload } = await jwtVerify(token, secret);
-          if (
-            payload &&
-            payload.authenticated === true &&
-            typeof payload.username === "string" &&
-            (payload.username.toLowerCase() === "indobest" || payload.username.toLowerCase() === "admin")
-          ) {
-            return NextResponse.redirect(new URL("/dashboard", request.url));
+          if (payload && payload.authenticated === true && typeof payload.username === "string") {
+            const redirectPath = payload.role === "ADMIN" ? "/admin" : "/dashboard";
+            return NextResponse.redirect(new URL(redirectPath, request.url));
           }
         } catch {
           // Token invalid, proceed to login page
@@ -51,6 +47,7 @@ export async function middleware(request: NextRequest) {
   // Check session token
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let isAuthenticated = false;
+  let sessionPayload: any = null;
 
   if (token) {
     const secret = new TextEncoder().encode(
@@ -60,13 +57,9 @@ export async function middleware(request: NextRequest) {
     );
     try {
       const { payload } = await jwtVerify(token, secret);
-      if (
-        payload &&
-        payload.authenticated === true &&
-        typeof payload.username === "string" &&
-        (payload.username.toLowerCase() === "indobest" || payload.username.toLowerCase() === "admin")
-      ) {
+      if (payload && payload.authenticated === true && typeof payload.username === "string") {
         isAuthenticated = true;
+        sessionPayload = payload;
       }
     } catch {
       isAuthenticated = false;
@@ -79,7 +72,7 @@ export async function middleware(request: NextRequest) {
         {
           error: {
             code: "UNAUTHORIZED",
-            message: "Authentication required. Please sign in with your Indobest credentials.",
+            message: "Authentication required. Please sign in with your FlowSync credentials.",
           },
         },
         { status: 401 }
@@ -91,6 +84,34 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set("next", pathname);
     }
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Admin route protection: only users with role === 'ADMIN' can access /admin
+  if (pathname.startsWith("/admin") && sessionPayload?.role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Enforce Administrator Read-Only Mode in client workspaces
+  if (
+    sessionPayload?.isReadOnly === true &&
+    request.method !== "GET" &&
+    request.method !== "HEAD" &&
+    request.method !== "OPTIONS" &&
+    !pathname.startsWith("/api/admin/") &&
+    pathname !== "/api/auth/logout"
+  ) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN_READ_ONLY",
+            message:
+              "Administrator is viewing this client workspace in Read-Only Mode. Write operations are reserved exclusively for the client.",
+          },
+        },
+        { status: 403 }
+      );
+    }
   }
 
   return NextResponse.next();

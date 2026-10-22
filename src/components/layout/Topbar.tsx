@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { LogOut, ChevronRight, ShieldCheck, Eye } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { useSidebar } from "./SidebarContext";
 
@@ -9,8 +11,20 @@ interface TopbarProps {
   title?: string;
 }
 
+interface SessionData {
+  username: string;
+  role: "ADMIN" | "CLIENT";
+  clientId: string;
+  clientName: string;
+  activeClientId: string;
+  activeClientName: string;
+  isReadOnly: boolean;
+  isAdmin: boolean;
+}
+
 export function Topbar({ title }: TopbarProps) {
   const router = useRouter();
+  const [session, setSession] = useState<SessionData | null>(null);
   const {
     isOpen,
     isPinned,
@@ -18,6 +32,15 @@ export function Topbar({ title }: TopbarProps) {
     handleMouseEnter,
     handleMouseLeave,
   } = useSidebar();
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.data) setSession(data.data);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -63,22 +86,50 @@ export function Topbar({ title }: TopbarProps) {
         <h1 className="text-sm font-semibold text-ink">{title || "FlowSync"}</h1>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
+        {/* Admin Portal Shortcut if Admin */}
+        {session?.isAdmin && (
+          <Link
+            href="/admin"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-semibold hover:bg-purple-500/20 transition-colors"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Admin Portal</span>
+          </Link>
+        )}
+
         {/* Active Profile indicator */}
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-surface-2 text-ink-2 text-xs border border-border/60">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Profile" />
-          <span className="font-semibold text-ink">Indobest</span>
-          <span className="hidden sm:inline text-border-strong">|</span>
-          <span className="hidden sm:inline text-[11px] text-ink-3 font-mono">19AVZPC2361G1ZA</span>
-        </div>
+        {session?.isAdmin ? (
+          session.isReadOnly ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs border border-amber-500/20 font-medium">
+              <Eye className="w-3.5 h-3.5 text-amber-600" />
+              <span>{session.activeClientName || "Indobest"}</span>
+              <span className="text-[10px] px-1 py-0.2 rounded bg-amber-500/20 font-mono font-semibold">
+                Read-Only
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-purple-500/10 text-purple-700 dark:text-purple-300 text-xs border border-purple-500/20 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              <span>Administrator</span>
+            </div>
+          )
+        ) : (
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-surface-2 text-ink-2 text-xs border border-border/60">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Profile" />
+            <span className="font-semibold text-ink">{session?.clientName || "Indobest"}</span>
+            <span className="hidden sm:inline text-border-strong">|</span>
+            <span className="hidden sm:inline text-[11px] text-ink-3 font-mono">19AVZPC2361G1ZA</span>
+          </div>
+        )}
 
         <ThemeToggle />
 
         <button
           onClick={handleLogout}
           type="button"
-          title="Sign out of Indobest profile"
-          aria-label="Sign out of Indobest profile"
+          title="Sign out of profile"
+          aria-label="Sign out of profile"
           className="h-8 px-2.5 flex items-center gap-1.5 rounded-sm text-xs text-ink-2 hover:text-danger hover:bg-surface-2 transition border border-transparent hover:border-danger/20"
         >
           <LogOut className="w-3.5 h-3.5" />
