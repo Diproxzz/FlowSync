@@ -18,6 +18,7 @@ import {
   Truck,
   BookOpen,
   FileSpreadsheet,
+  FileSignature,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Sales",
     items: [
       { label: "Sales Invoices", href: "/invoices", icon: Receipt },
+      { label: "Informal Invoices", href: "/informal-invoices", icon: FileSignature },
       { label: "Customers", href: "/customers", icon: Users },
     ],
   },

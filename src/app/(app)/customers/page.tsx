@@ -636,10 +636,21 @@ export default function CustomersPage() {
                   <Link
                     href={`/accounts/${detailCustomer.customer.ledgerAccountId}`}
                     className="px-2.5 py-1.5 rounded-sm bg-surface border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1.5 font-medium"
-                    title="View Account Ledger Statement"
+                    title="View Regular Ledger Statement"
                   >
                     <BookOpen className="w-3.5 h-3.5" />
-                    <span>View Ledger</span>
+                    <span>Regular Ledger</span>
+                    <ArrowUpRight className="w-3 h-3 opacity-70" />
+                  </Link>
+                )}
+                {detailCustomer?.customer?.informalLedgerAccountId && (
+                  <Link
+                    href={`/accounts/${detailCustomer.customer.informalLedgerAccountId}`}
+                    className="px-2.5 py-1.5 rounded-sm bg-surface border border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-1.5 font-medium"
+                    title="View Informal Ledger Statement"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Informal Ledger</span>
                     <ArrowUpRight className="w-3 h-3 opacity-70" />
                   </Link>
                 )}
@@ -802,15 +813,30 @@ export default function CustomersPage() {
                             <tbody className="divide-y divide-border">
                               {month.invoices.map((inv: any) => (
                                 <tr key={inv.id} className="hover:bg-surface-2/40 transition">
-                                  <td className="py-2 px-3 font-mono font-semibold text-primary">
-                                    <Link
-                                      href={`/invoices/${inv.id}`}
-                                      className="hover:underline flex items-center gap-1 group"
-                                      title={`Open invoice #${inv.invoiceNumber}`}
-                                    >
-                                      <span>{inv.invoiceNumber}</span>
-                                      <ExternalLink className="w-3 h-3 text-ink-3 group-hover:text-primary transition" />
-                                    </Link>
+                                  <td className="py-2 px-3">
+                                    {inv.isInformal ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] px-1 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold font-mono">
+                                          INF
+                                        </span>
+                                        <Link
+                                          href={`/informal-invoices?search=${encodeURIComponent(inv.invoiceNumber)}`}
+                                          className="hover:underline flex items-center gap-1 group font-mono font-semibold text-amber-600 dark:text-amber-400"
+                                        >
+                                          <span>{inv.invoiceNumber}</span>
+                                          <ExternalLink className="w-3 h-3 opacity-70 group-hover:opacity-100 transition" />
+                                        </Link>
+                                      </div>
+                                    ) : (
+                                      <Link
+                                        href={`/invoices/${inv.id}`}
+                                        className="hover:underline flex items-center gap-1 group font-mono font-semibold text-primary"
+                                        title={`Open invoice #${inv.invoiceNumber}`}
+                                      >
+                                        <span>{inv.invoiceNumber}</span>
+                                        <ExternalLink className="w-3 h-3 text-ink-3 group-hover:text-primary transition" />
+                                      </Link>
+                                    )}
                                   </td>
                                   <td className="py-2 px-3 text-ink-2 font-mono">{formatDate(inv.invoiceDate)}</td>
                                   <td className="py-2 px-3 text-ink-3 text-[11px] max-w-sm truncate" title={inv.itemsSummary}>

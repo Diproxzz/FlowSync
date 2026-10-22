@@ -17,6 +17,26 @@ export async function GET(
       ledger_account: {
         select: { id: true, display_name: true },
       },
+      informal_ledger_account: {
+        select: { id: true, display_name: true },
+      },
+      informal_invoices: {
+        orderBy: { invoice_date: "desc" },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  pack_size_kg: true,
+                },
+              },
+            },
+          },
+        },
+      },
       invoices: {
         orderBy: { invoice_date: "desc" },
         include: {
@@ -204,18 +224,110 @@ export async function GET(
     };
   }).sort((a, b) => b.totalQtyKg - a.totalQtyKg);
 
+  // Accumulate informal invoices into monthly breakdown and products bought
+  for (const inf of customer.informal_invoices || []) {
+    const d = new Date(inf.invoice_date);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const monthLabel = d.toLocaleString("en-IN", { month: "long", year: "numeric" });
+    const grand = Number(inf.total_amount);
+
+    totalInvoiced += grand;
+
+    if (!monthlyMap.has(monthKey)) {
+      monthlyMap.set(monthKey, {
+        monthKey,
+        monthLabel,
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        taxableTotal: 0,
+        gstTotal: 0,
+        grandTotal: 0,
+        outstandingTotal: 0,
+        invoicesCount: 0,
+        invoices: [],
+      });
+    }
+
+    const m = monthlyMap.get(monthKey)!;
+    m.taxableTotal += grand;
+    m.grandTotal += grand;
+    m.invoicesCount += 1;
+
+    const itemsSummary = inf.items
+      .map((it) => `${it.product?.name || it.product_name_raw} (${Number(it.qty_kg)} kg)`)
+      .join(", ");
+
+    m.invoices.push({
+      id: inf.id,
+      invoiceNumber: inf.invoice_number,
+      invoiceDate: inf.invoice_date.toISOString().split("T")[0],
+      taxableTotal: grand,
+      grandTotal: grand,
+      outstandingAmount: grand,
+      settledAmount: 0,
+      status: "INFORMAL",
+      isInformal: true,
+      itemsSummary,
+      itemsCount: inf.items.length,
+    });
+
+    for (const it of inf.items) {
+      const pId = it.product_id || it.product_name_raw;
+      const q = Number(it.qty_kg);
+      const rate = Number(it.rate);
+      const lineTot = Number(it.amount);
+
+      totalVolumeKg += q;
+
+      if (!productsMap.has(pId)) {
+        productsMap.set(pId, {
+          productId: it.product_id || pId,
+          code: it.product?.code || "INF",
+          name: it.product?.name || it.product_name_raw,
+          packSizeKg: it.product?.pack_size_kg ? Number(it.product.pack_size_kg) : null,
+          totalQtyKg: 0,
+          totalTaxable: 0,
+          totalAmount: 0,
+          lastRate: rate,
+          rates: [],
+          lastDate: inf.invoice_date.toISOString().split("T")[0],
+          invoicesCount: 0,
+        });
+      }
+
+      const p = productsMap.get(pId)!;
+      p.totalQtyKg += q;
+      p.totalTaxable += lineTot;
+      p.totalAmount += lineTot;
+      p.rates.push(rate);
+      p.invoicesCount += 1;
+    }
+  }
+
   return NextResponse.json({
     customer: {
       ...customer,
       totalOutstanding: Math.round(totalDue * 100) / 100,
       totalInvoiced: Math.round(totalInvoiced * 100) / 100,
       totalVolumeKg: Math.round(totalVolumeKg * 1000) / 1000,
-      invoicesCount: customer.invoices.length,
+      invoicesCount: customer.invoices.length + (customer.informal_invoices?.length || 0),
+      standardInvoicesCount: customer.invoices.length,
+      informalInvoicesCount: customer.informal_invoices?.length || 0,
       ledgerAccountId: ledgerAccount?.id || null,
       ledger_account: ledgerAccount ? { id: ledgerAccount.id, display_name: ledgerAccount.display_name } : null,
+      informalLedgerAccountId: customer.informal_ledger_account?.id || null,
+      informal_ledger_account: customer.informal_ledger_account,
     },
-    monthlyBreakdown,
-    productsBought,
+    monthlyBreakdown: Array.from(monthlyMap.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey)),
+    productsBought: Array.from(productsMap.values()).map((p) => {
+      const avgRate = p.rates.length > 0 && p.totalQtyKg > 0 ? p.totalTaxable / p.totalQtyKg : 0;
+      return {
+        ...p,
+        avgRate: Math.round(avgRate * 100) / 100,
+        totalQtyKg: Math.round(p.totalQtyKg * 1000) / 1000,
+        totalAmount: Math.round(p.totalAmount * 100) / 100,
+      };
+    }).sort((a, b) => b.totalQtyKg - a.totalQtyKg),
   });
 }
 

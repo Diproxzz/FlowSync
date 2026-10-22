@@ -36,6 +36,23 @@ export async function GET(
           },
         },
       },
+      informal_items: {
+        include: {
+          informal_invoice: {
+            select: {
+              id: true,
+              invoice_number: true,
+              invoice_date: true,
+              customer_name_snapshot: true,
+            },
+          },
+        },
+        orderBy: {
+          informal_invoice: {
+            invoice_date: "desc",
+          },
+        },
+      },
       invoice_items: {
         include: {
           invoice: {
@@ -124,6 +141,24 @@ export async function GET(
         invoiceNumber: si.invoice.invoice_number,
         invoiceId: si.invoice.id,
         customerName: si.invoice.customer?.name || si.invoice.customer_name_snapshot,
+        rate: rate,
+        qty: qty,
+      };
+    }
+  }
+
+  for (const ii of (product as any).informal_items || []) {
+    const qty = Number(ii.qty_kg) || 0;
+    const rate = Number(ii.rate) || 0;
+    const amount = Number(ii.amount) || qty * rate;
+    totalSalesQty += qty;
+    totalSalesValue += amount;
+    if (!latestSale && ii.informal_invoice) {
+      latestSale = {
+        invoiceDate: ii.informal_invoice.invoice_date,
+        invoiceNumber: ii.informal_invoice.invoice_number,
+        invoiceId: ii.informal_invoice.id,
+        customerName: ii.informal_invoice.customer_name_snapshot,
         rate: rate,
         qty: qty,
       };

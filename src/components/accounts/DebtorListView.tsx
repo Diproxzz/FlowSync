@@ -36,6 +36,12 @@ export interface DebtorItem {
   overdueAmount: number;
   unpaidBillsCount: number;
   status: "CURRENT" | "DUE" | "OVERDUE";
+  hasBothAccounts?: boolean;
+  hasInformal?: boolean;
+  regularAccountId?: string | null;
+  informalAccountId?: string | null;
+  regularOutstanding?: number;
+  informalOutstanding?: number;
 }
 
 export interface MonthColumn {
@@ -626,18 +632,37 @@ export function DebtorListView({
 
                       {/* Debtor Name */}
                       <td className="py-2.5 px-3">
-                        <div className="font-semibold text-foreground group-hover:text-primary transition flex items-center gap-1.5">
-                          {d.accountId ? (
-                            <Link
-                              href={`/accounts/${d.accountId}`}
-                              className="hover:underline flex items-center gap-1"
-                              title={`View ledger statement for ${d.partyName}`}
-                            >
+                        <div className="font-semibold text-foreground group-hover:text-primary transition flex flex-col">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {d.accountId ? (
+                              <Link
+                                href={`/accounts/${d.accountId}`}
+                                className="hover:underline flex items-center gap-1"
+                                title={`View ledger statement for ${d.partyName}`}
+                              >
+                                <span>{d.partyName}</span>
+                                <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary opacity-0 group-hover:opacity-100 transition print:hidden" />
+                              </Link>
+                            ) : (
                               <span>{d.partyName}</span>
-                              <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary opacity-0 group-hover:opacity-100 transition print:hidden" />
-                            </Link>
-                          ) : (
-                            <span>{d.partyName}</span>
+                            )}
+                            {d.hasBothAccounts && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-semibold border border-primary/20">
+                                Combined
+                              </span>
+                            )}
+                            {!d.hasBothAccounts && d.hasInformal && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">
+                                Informal
+                              </span>
+                            )}
+                          </div>
+                          {d.hasBothAccounts && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5 font-normal flex items-center gap-2">
+                              <span>Reg: {formatINR(d.regularOutstanding || 0)}</span>
+                              <span>•</span>
+                              <span>Inf: {formatINR(d.informalOutstanding || 0)}</span>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -715,14 +740,37 @@ export function DebtorListView({
 
                       {/* Action */}
                       <td className="py-2.5 px-2 text-center print:hidden">
-                        {d.accountId && (
-                          <Link
-                            href={`/accounts/${d.accountId}`}
-                            className="p-1 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 rounded transition inline-block"
-                            title="Open Ledger Statement"
-                          >
-                            <BookOpen className="w-3.5 h-3.5" />
-                          </Link>
+                        {d.hasBothAccounts ? (
+                          <div className="flex items-center justify-center gap-1">
+                            {d.regularAccountId && (
+                              <Link
+                                href={`/accounts/${d.regularAccountId}`}
+                                className="px-1.5 py-0.5 text-[10px] rounded border border-border text-muted-foreground hover:text-primary hover:border-primary transition font-mono"
+                                title="Regular Ledger Statement"
+                              >
+                                Reg
+                              </Link>
+                            )}
+                            {d.informalAccountId && (
+                              <Link
+                                href={`/accounts/${d.informalAccountId}`}
+                                className="px-1.5 py-0.5 text-[10px] rounded border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:text-amber-500 hover:border-amber-500 transition font-mono"
+                                title="Informal Ledger Statement"
+                              >
+                                Inf
+                              </Link>
+                            )}
+                          </div>
+                        ) : (
+                          d.accountId && (
+                            <Link
+                              href={`/accounts/${d.accountId}`}
+                              className="p-1 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 rounded transition inline-block"
+                              title="Open Ledger Statement"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                            </Link>
+                          )
                         )}
                       </td>
                     </tr>

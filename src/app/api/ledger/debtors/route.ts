@@ -4,7 +4,7 @@ import { calculateMargTotals } from "@/lib/ledger/balances";
 
 export async function GET(request: NextRequest) {
   try {
-    // 1. Fetch customer ledger accounts with non-void entries
+    // 1. Fetch customer ledger accounts (both regular and informal) with non-void entries
     const ledgerAccounts = await prisma.ledgerAccount.findMany({
       where: {
         account_type: "CUSTOMER",
@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
       },
       include: {
         customer: {
+          select: { id: true, name: true, gstin: true, state_code: true },
+        },
+        informal_customer: {
           select: { id: true, name: true, gstin: true, state_code: true },
         },
         entries: {
@@ -22,13 +25,13 @@ export async function GET(request: NextRequest) {
       orderBy: { display_name: "asc" },
     });
 
-    const debtorRows: Array<{
-      id: string;
+    interface AccountDebtorRow {
+      accountId: string;
       customerId: string | null;
-      accountId: string | null;
       partyName: string;
       gstin: string | null;
       stateCode: string | null;
+      isInformal: boolean;
       totalInvoiced: number;
       totalOutstanding: number;
       monthlyAmounts: Record<string, number>;
@@ -37,15 +40,14 @@ export async function GET(request: NextRequest) {
       oldestAgeDays: number | null;
       overdueAmount: number;
       unpaidBillsCount: number;
-      status: "CURRENT" | "DUE" | "OVERDUE";
-    }> = [];
+    }
 
+    const accountRows: AccountDebtorRow[] = [];
     const monthKeysSet = new Set<string>();
     const now = new Date().getTime();
 
-    // Process accounts that have ledger entries
+    // Process each account that has ledger entries
     for (const acc of ledgerAccounts) {
-      // Compute opening balance & Marg running totals
       const openingEntry = acc.entries.find((e) => e.entry_type === "OPENING");
       let openingBalance = 0;
       let openingSide: "Dr" | "Cr" = "Dr";
@@ -79,7 +81,6 @@ export async function GET(request: NextRequest) {
           amount: Number(e.debit),
         }));
 
-      // Sort reverse-chronologically (latest bill first till first bill)
       bills.sort((a, b) => b.dateTime - a.dateTime);
 
       let remaining = totalOutstanding;
@@ -92,7 +93,6 @@ export async function GET(request: NextRequest) {
       const creditDays = acc.credit_days || 90;
       const creditMs = creditDays * 24 * 60 * 60 * 1000;
 
-      // Allocate outstanding dues: latest bill first till first bill
       for (const b of bills) {
         let billPending = 0;
         if (remaining >= b.amount) {
@@ -110,20 +110,17 @@ export async function GET(request: NextRequest) {
           monthlyAmounts[monthKey] = Math.round(((monthlyAmounts[monthKey] || 0) + billPending) * 100) / 100;
           monthKeysSet.add(monthKey);
 
-          // Update oldest unpaid bill (as we progress towards earlier bills)
           oldestBillNo = b.docNo;
           oldestBillDate = b.date;
           const age = Math.max(0, Math.floor((now - b.dateTime) / (1000 * 60 * 60 * 24)));
           oldestAgeDays = age;
 
-          // Check if bill date is beyond credit period
           if (now - b.dateTime > creditMs) {
             overdueAmount = Math.round((overdueAmount + billPending) * 100) / 100;
           }
         }
       }
 
-      // Any remaining balance beyond current year bills is from Opening Balance (prior-year dues)
       if (remaining > 0.005) {
         monthlyAmounts["prior"] = Math.round(((monthlyAmounts["prior"] || 0) + remaining) * 100) / 100;
         monthKeysSet.add("prior");
@@ -134,15 +131,18 @@ export async function GET(request: NextRequest) {
         overdueAmount = Math.round((overdueAmount + remaining) * 100) / 100;
       }
 
-      const partyName = acc.customer?.name || acc.display_name;
+      const partyName =
+        acc.customer?.name ||
+        acc.informal_customer?.name ||
+        acc.display_name.replace(" (Informal)", "");
 
-      debtorRows.push({
-        id: acc.id,
-        customerId: acc.customer?.id || null,
+      accountRows.push({
         accountId: acc.id,
+        customerId: acc.customer?.id || acc.informal_customer?.id || null,
         partyName,
-        gstin: acc.customer?.gstin || null,
-        stateCode: acc.customer?.state_code || null,
+        gstin: acc.customer?.gstin || acc.informal_customer?.gstin || null,
+        stateCode: acc.customer?.state_code || acc.informal_customer?.state_code || null,
+        isInformal: acc.is_informal,
         totalInvoiced: Math.round(totals.periodDebit * 100) / 100,
         totalOutstanding,
         monthlyAmounts,
@@ -151,7 +151,123 @@ export async function GET(request: NextRequest) {
         oldestAgeDays,
         overdueAmount,
         unpaidBillsCount,
+      });
+    }
+
+    // 2. Collective Grouping by Customer:
+    // "If the same customer have normal Sales Invoices and Informal Invoices, two separate
+    // ledger accounts should be available for them but the amount will be collectively displayed in the debtor list."
+    const customerGroupMap = new Map<string, {
+      customerId: string | null;
+      partyName: string;
+      gstin: string | null;
+      stateCode: string | null;
+      regularRow?: AccountDebtorRow;
+      informalRow?: AccountDebtorRow;
+    }>();
+
+    for (const row of accountRows) {
+      // Group key: customerId if available, or normalized partyName
+      const groupKey = row.customerId || `name:${row.partyName.toLowerCase().trim()}`;
+      if (!customerGroupMap.has(groupKey)) {
+        customerGroupMap.set(groupKey, {
+          customerId: row.customerId,
+          partyName: row.partyName,
+          gstin: row.gstin,
+          stateCode: row.stateCode,
+        });
+      }
+      const group = customerGroupMap.get(groupKey)!;
+      if (row.isInformal) {
+        group.informalRow = row;
+      } else {
+        group.regularRow = row;
+      }
+      if (!group.gstin && row.gstin) group.gstin = row.gstin;
+      if (!group.stateCode && row.stateCode) group.stateCode = row.stateCode;
+    }
+
+    const debtorRows: Array<{
+      id: string;
+      customerId: string | null;
+      accountId: string | null;
+      partyName: string;
+      gstin: string | null;
+      stateCode: string | null;
+      totalInvoiced: number;
+      totalOutstanding: number;
+      monthlyAmounts: Record<string, number>;
+      oldestBillNo: string | null;
+      oldestBillDate: string | null;
+      oldestAgeDays: number | null;
+      overdueAmount: number;
+      unpaidBillsCount: number;
+      status: "CURRENT" | "DUE" | "OVERDUE";
+      hasBothAccounts: boolean;
+      hasInformal: boolean;
+      regularAccountId: string | null;
+      informalAccountId: string | null;
+      regularOutstanding: number;
+      informalOutstanding: number;
+    }> = [];
+
+    for (const group of customerGroupMap.values()) {
+      const reg = group.regularRow;
+      const inf = group.informalRow;
+
+      const hasBothAccounts = Boolean(reg && inf);
+      const hasInformal = Boolean(inf);
+
+      const totalInvoiced = Math.round(((reg?.totalInvoiced || 0) + (inf?.totalInvoiced || 0)) * 100) / 100;
+      const totalOutstanding = Math.round(((reg?.totalOutstanding || 0) + (inf?.totalOutstanding || 0)) * 100) / 100;
+      const overdueAmount = Math.round(((reg?.overdueAmount || 0) + (inf?.overdueAmount || 0)) * 100) / 100;
+      const unpaidBillsCount = (reg?.unpaidBillsCount || 0) + (inf?.unpaidBillsCount || 0);
+
+      // Merge monthlyAmounts
+      const mergedMonthly: Record<string, number> = {};
+      const allKeys = new Set([
+        ...Object.keys(reg?.monthlyAmounts || {}),
+        ...Object.keys(inf?.monthlyAmounts || {}),
+      ]);
+      for (const k of allKeys) {
+        mergedMonthly[k] = Math.round(
+          ((reg?.monthlyAmounts[k] || 0) + (inf?.monthlyAmounts[k] || 0)) * 100
+        ) / 100;
+      }
+
+      // Oldest bill information across both accounts
+      let oldestBillNo = reg?.oldestBillNo || inf?.oldestBillNo || null;
+      let oldestBillDate = reg?.oldestBillDate || inf?.oldestBillDate || null;
+      let oldestAgeDays = Math.max(reg?.oldestAgeDays || 0, inf?.oldestAgeDays || 0);
+      if (inf?.oldestAgeDays && (!reg?.oldestAgeDays || inf.oldestAgeDays > reg.oldestAgeDays)) {
+        oldestBillNo = inf.oldestBillNo;
+        oldestBillDate = inf.oldestBillDate;
+      }
+
+      const primaryAccountId = reg?.accountId || inf?.accountId || null;
+
+      debtorRows.push({
+        id: group.customerId || primaryAccountId || Math.random().toString(),
+        customerId: group.customerId,
+        accountId: primaryAccountId,
+        partyName: group.partyName,
+        gstin: group.gstin,
+        stateCode: group.stateCode,
+        totalInvoiced,
+        totalOutstanding,
+        monthlyAmounts: mergedMonthly,
+        oldestBillNo,
+        oldestBillDate,
+        oldestAgeDays: oldestAgeDays || null,
+        overdueAmount,
+        unpaidBillsCount,
         status: overdueAmount > 0.005 ? "OVERDUE" : unpaidBillsCount > 0 ? "DUE" : "CURRENT",
+        hasBothAccounts,
+        hasInformal,
+        regularAccountId: reg?.accountId || null,
+        informalAccountId: inf?.accountId || null,
+        regularOutstanding: reg?.totalOutstanding || 0,
+        informalOutstanding: inf?.totalOutstanding || 0,
       });
     }
 

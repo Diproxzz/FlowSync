@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
         { display_name: { contains: search, mode: "insensitive" } },
         { customer: { name: { contains: search, mode: "insensitive" } } },
         { customer: { gstin: { contains: search, mode: "insensitive" } } },
+        { informal_customer: { name: { contains: search, mode: "insensitive" } } },
         { supplier: { name: { contains: search, mode: "insensitive" } } },
         { supplier: { gstin: { contains: search, mode: "insensitive" } } },
       ];
@@ -26,6 +27,9 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         customer: {
+          select: { id: true, name: true, gstin: true, gstin_source: true },
+        },
+        informal_customer: {
           select: { id: true, name: true, gstin: true, gstin_source: true },
         },
         supplier: {
@@ -44,8 +48,8 @@ export async function GET(request: NextRequest) {
     let grandOverdue = 0;
 
     const accountRows = accounts.map((acc) => {
-      const gstin = acc.customer?.gstin || acc.supplier?.gstin || null;
-      const gstinSource = acc.customer?.gstin_source || acc.supplier?.gstin_source || null;
+      const gstin = acc.customer?.gstin || acc.informal_customer?.gstin || acc.supplier?.gstin || null;
+      const gstinSource = acc.customer?.gstin_source || acc.informal_customer?.gstin_source || acc.supplier?.gstin_source || null;
 
       // Extract opening entry
       const openingEntry = acc.entries.find((e) => e.entry_type === "OPENING");
@@ -102,7 +106,8 @@ export async function GET(request: NextRequest) {
         accountType: acc.account_type,
         displayName: acc.display_name,
         partyName: acc.display_name,
-        partyId: acc.customer_id || acc.supplier_id,
+        partyId: acc.customer_id || acc.informal_customer_id || acc.supplier_id,
+        isInformal: acc.is_informal,
         gstin,
         gstinSource,
         creditDays: acc.credit_days || 90,
