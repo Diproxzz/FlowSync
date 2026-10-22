@@ -66,10 +66,10 @@ export const APP_GUIDES: TaskGuide[] = [
     formula: "• WASP (₹/kg) = Total Taxable Sales Revenue (₹) / Total Sales Quantity (kg)\n• WAPC (₹/kg) = Total Taxable Purchase Cost (₹) / Total Purchase Quantity (kg)\n• Gross Profit Margin (%) = ((WASP - WAPC) / WASP) × 100\n• Gross Profit (₹) = Taxable Sales Revenue - (Sales Qty × WAPC)",
     steps: [
       "Go to [Executive Dashboard](/dashboard) and select the 'Profitability & Margins' tab.",
-      "Review the Top Metrics: Total Taxable Turnover, Total Landed Cost of Goods Sold (COGS), Gross Profit (₹), and Overall Gross Margin (%).",
+      "Review the Top Metrics: Total Taxable Turnover, Total Landed Cost of Goods Sold (COGS), Gross Profit (₹), and Blended Markup (%).",
       "Inspect the Two-Chart View:",
       "  1. Monthly Revenue & Profit (₹ in Lakhs) — clean blue and green comparative bars.",
-      "  2. Monthly Profit Margin Trend (%) — gradient area chart with percentage labels directly above each data point.",
+      "  2. Monthly Profit Markup Trend (%) — gradient area chart with percentage labels directly above each data point displaying monthly markup on cost.",
       "Scroll down to the 'Product-Level Profitability & Margins' table to examine per-chemical WASP, WAPC, Gross Margin %, and Margin Health status (Healthy ≥20%, Normal 10-20%, Thin <10%)."
     ],
     tips: [

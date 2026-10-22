@@ -250,17 +250,19 @@ export function ProfitabilityTab({
 
         <div className="bg-surface border border-border p-3.5 rounded-sm shadow-xs">
           <div className="flex items-center justify-between text-ink-3">
-            <span className="text-[11px] font-medium uppercase tracking-wider">Blended Margin</span>
+            <span className="text-[11px] font-medium uppercase tracking-wider">Blended Markup</span>
             <Percent className="w-3.5 h-3.5 text-primary" />
           </div>
           <p
             className={`text-lg font-bold num mt-1 ${
-              kpis.blendedMarginPct >= 10 ? "text-success" : "text-amber-700"
+              (kpis.blendedMarkupPct ?? (kpis.totalCogs > 0 ? (kpis.grossProfit / kpis.totalCogs) * 100 : 0)) >= 10
+                ? "text-success"
+                : "text-amber-700"
             }`}
           >
-            {kpis.blendedMarginPct.toFixed(1)}%
+            {(kpis.blendedMarkupPct ?? (kpis.totalCogs > 0 ? (kpis.grossProfit / kpis.totalCogs) * 100 : 0)).toFixed(1)}%
           </p>
-          <span className="text-[10px] text-ink-3 block mt-0.5">Overall portfolio margin</span>
+          <span className="text-[10px] text-ink-3 block mt-0.5">Overall portfolio markup</span>
         </div>
 
         <div className="bg-surface border border-border p-3.5 rounded-sm shadow-xs">
@@ -385,21 +387,23 @@ export function ProfitabilityTab({
           </div>
         </div>
 
-        {/* Chart 2: Margin Percentage Trend (%) */}
+        {/* Chart 2: Markup Percentage Trend (%) */}
         <div className="bg-surface border border-border p-4 rounded-sm shadow-xs">
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#9A5B24]" />
-                <h3 className="text-sm font-bold text-ink">2. Profit Margin Trend (%)</h3>
+                <h3 className="text-sm font-bold text-ink">2. Profit Markup Trend (%)</h3>
               </div>
               <p className="text-xs text-ink-3 mt-0.5">
-                Exact % of sales kept as profit each month (labeled directly on each point)
+                Average markup on cost applied each month (labeled directly on each point)
               </p>
             </div>
             <div className="text-right">
-              <span className="text-xs font-bold text-primary num">{kpis.blendedMarginPct.toFixed(1)}%</span>
-              <span className="text-[10px] text-ink-3 block">Overall Margin</span>
+              <span className="text-xs font-bold text-primary num">
+                {(kpis.blendedMarkupPct ?? (kpis.totalCogs > 0 ? (kpis.grossProfit / kpis.totalCogs) * 100 : 0)).toFixed(1)}%
+              </span>
+              <span className="text-[10px] text-ink-3 block">Overall Markup</span>
             </div>
           </div>
           <div className="h-64">
@@ -416,7 +420,7 @@ export function ProfitabilityTab({
                 <YAxis
                   stroke="var(--ink-3)"
                   fontSize={11}
-                  domain={[0, 40]}
+                  domain={[0, (dataMax: number) => Math.max(40, Math.ceil((dataMax + 5) / 10) * 10)]}
                   tickFormatter={(v) => `${v}%`}
                   tickLine={false}
                 />
@@ -424,12 +428,13 @@ export function ProfitabilityTab({
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const d = payload[0].payload;
+                      const markupVal = d.markupPct ?? (d.cogs > 0 ? (d.profit / d.cogs) * 100 : 0);
                       return (
                         <div className="bg-ink text-surface p-2.5 rounded-xs text-xs shadow-md space-y-1">
                           <p className="font-bold border-b border-surface/20 pb-1">{d.period}</p>
                           <div className="flex justify-between gap-4 text-amber-300">
-                            <span>Margin %:</span>
-                            <span className="font-mono font-bold text-sm">{d.marginPct.toFixed(1)}%</span>
+                            <span>Markup %:</span>
+                            <span className="font-mono font-bold text-sm">{markupVal.toFixed(1)}%</span>
                           </div>
                           <div className="flex justify-between gap-4 text-emerald-300 text-[10px]">
                             <span>Gross Profit:</span>
@@ -439,6 +444,10 @@ export function ProfitabilityTab({
                             <span>Revenue:</span>
                             <span>{formatINR(d.revenue)}</span>
                           </div>
+                          <div className="flex justify-between gap-4 text-slate-300 text-[10px]">
+                            <span>COGS:</span>
+                            <span>{formatINR(d.cogs)}</span>
+                          </div>
                         </div>
                       );
                     }
@@ -447,8 +456,8 @@ export function ProfitabilityTab({
                 />
                 <Area
                   type="monotone"
-                  dataKey="marginPct"
-                  name="Margin %"
+                  dataKey="markupPct"
+                  name="Markup %"
                   stroke={COLORS.accent}
                   strokeWidth={2.5}
                   fillOpacity={1}
@@ -456,10 +465,10 @@ export function ProfitabilityTab({
                   dot={{ r: 4, fill: COLORS.accent, strokeWidth: 2, stroke: "#fff" }}
                 >
                   <LabelList
-                    dataKey="marginPct"
+                    dataKey="markupPct"
                     position="top"
                     offset={10}
-                    formatter={(v: number) => `${v.toFixed(1)}%`}
+                    formatter={(v: number) => `${Number(v || 0).toFixed(1)}%`}
                     style={{ fontSize: "11px", fontWeight: "600", fill: "var(--ink)" }}
                   />
                 </Area>

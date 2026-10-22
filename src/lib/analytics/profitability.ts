@@ -7,6 +7,7 @@ export interface ProfitabilityKpis {
   totalCogs: number;
   grossProfit: number;
   blendedMarginPct: number;
+  blendedMarkupPct: number;
   totalVolumeKg: number;
   avgProfitPerKg: number;
   totalInventoryValuation: number;
@@ -56,6 +57,7 @@ export interface MonthlyProfitTrendPoint {
   cogs: number;
   profit: number;
   marginPct: number;
+  markupPct: number;
   volumeKg: number;
 }
 
@@ -396,12 +398,14 @@ export async function getProfitabilityAnalytics(
       const c = val.cogs.toNumber();
       const p = r - c;
       const m = r > 0 ? (p / r) * 100 : 0;
+      const markup = c > 0 ? (p / c) * 100 : 0;
       return {
         period,
         revenue: Math.round(r * 100) / 100,
         cogs: Math.round(c * 100) / 100,
         profit: Math.round(p * 100) / 100,
         marginPct: Math.round(m * 10) / 10,
+        markupPct: Math.round(markup * 10) / 10,
         volumeKg: Math.round(val.volumeKg.toNumber() * 10) / 10,
       };
     }
@@ -415,6 +419,7 @@ export async function getProfitabilityAnalytics(
   const totalCogs = totalCompanyCogs.toNumber();
   const grossProfit = totalRev - totalCogs;
   const blendedMarginPct = totalRev > 0 ? (grossProfit / totalRev) * 100 : 0;
+  const blendedMarkupPct = totalCogs > 0 ? (grossProfit / totalCogs) * 100 : 0;
   const totalVol = totalSoldVolume.toNumber();
   const avgProfitPerKg = totalVol > 0 ? grossProfit / totalVol : 0;
 
@@ -439,6 +444,7 @@ export async function getProfitabilityAnalytics(
       totalCogs: Math.round(totalCogs * 100) / 100,
       grossProfit: Math.round(grossProfit * 100) / 100,
       blendedMarginPct: Math.round(blendedMarginPct * 10) / 10,
+      blendedMarkupPct: Math.round(blendedMarkupPct * 10) / 10,
       totalVolumeKg: Math.round(totalVol * 10) / 10,
       avgProfitPerKg: Math.round(avgProfitPerKg * 100) / 100,
       totalInventoryValuation: Math.round(totalInventoryVal.toNumber() * 100) / 100,
