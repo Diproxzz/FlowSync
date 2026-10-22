@@ -50,7 +50,7 @@ export async function verifyCredentials(
         valid: true,
         role: "CLIENT",
         clientId: "indobest",
-        clientName: "Indobest Kolkata",
+        clientName: "Indobest",
         username: "Indobest",
       };
     }
@@ -65,7 +65,7 @@ export async function verifyCredentials(
             valid: true,
             role: "CLIENT",
             clientId: "indobest",
-            clientName: "Indobest Kolkata",
+            clientName: "Indobest",
             username: "Indobest",
           };
         }

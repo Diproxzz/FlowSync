@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       username: credResult.username || username,
       role: credResult.role || "CLIENT",
       clientId: credResult.clientId || "indobest",
-      clientName: credResult.clientName || "Indobest Kolkata",
+      clientName: credResult.clientName || "Indobest",
       isReadOnly: false,
     });
     setSessionCookie(token);

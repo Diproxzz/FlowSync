@@ -19,7 +19,7 @@ export async function GET() {
         clientId: session.clientId,
         clientName: session.clientName,
         activeClientId: session.activeClientId || (session.role === "ADMIN" ? "indobest" : session.clientId),
-        activeClientName: session.activeClientName || (session.role === "ADMIN" ? "Indobest Kolkata" : session.clientName),
+        activeClientName: session.activeClientName || (session.role === "ADMIN" ? "Indobest" : session.clientName),
         isReadOnly: !!session.isReadOnly,
         isAdmin: session.role === "ADMIN",
       },

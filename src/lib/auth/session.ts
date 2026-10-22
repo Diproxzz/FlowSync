@@ -31,7 +31,7 @@ export async function createSessionToken(
     username,
     role: isAdmin ? "ADMIN" : (!isString && payloadOrUsername.role) || "CLIENT",
     clientId: (!isString && payloadOrUsername.clientId) || (isAdmin ? "admin" : "indobest"),
-    clientName: (!isString && payloadOrUsername.clientName) || (isAdmin ? "Administrator" : "Indobest Kolkata"),
+    clientName: (!isString && payloadOrUsername.clientName) || (isAdmin ? "Administrator" : "Indobest"),
     activeClientId: !isString ? payloadOrUsername.activeClientId : undefined,
     activeClientName: !isString ? payloadOrUsername.activeClientName : undefined,
     isReadOnly: !isString ? !!payloadOrUsername.isReadOnly : false,

@@ -34,7 +34,7 @@ const SETTING_KEY = "flowsync_clients_registry";
 
 const DEFAULT_INDOBEST_CLIENT: ClientProfile = {
   id: "indobest",
-  name: "Indobest Kolkata",
+  name: "Indobest",
   username: "Indobest",
   // Corresponds to Indobest2026
   passwordHash: "$2a$10$o1bPBabpH8KUbih084A2sebh/wlj7EbqAtQ8Ky6afiEx/meGWpqwy",
