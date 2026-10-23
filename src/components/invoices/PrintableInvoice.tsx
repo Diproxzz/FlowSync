@@ -141,7 +141,7 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
         {/* Customer & Invoice Meta Row */}
         <div className="w-full flex text-[12px] leading-[1.35] border-b border-black min-h-[90px]">
           {/* Left Block: Customer Details */}
-          <div className="w-[58%] p-2 flex flex-col justify-between">
+          <div className="w-[53%] p-2 flex flex-col justify-between border-r border-black">
             <div>
               <div className="font-bold text-[14.5px] text-black">
                 {customer.name}
@@ -161,34 +161,40 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
           </div>
 
           {/* Right Block: Invoice Meta */}
-          <div className="w-[42%] p-2 flex flex-col justify-between text-[12px]">
+          <div className="w-[47%] p-2 flex flex-col justify-between text-[12px]">
             <div className="space-y-0.5">
-              <div className="flex items-center">
-                <span className="w-24 text-black">Invoice No. :</span>
-                <span className="font-bold text-black text-[12.5px]">{meta.invoiceNumber}</span>
-                <span className="ml-4 mr-1 text-black">Date :</span>
-                <span className="font-bold text-black text-[12.5px]">{meta.invoiceDate}</span>
+              {/* Invoice No & Date strictly on single line with no-wrap */}
+              <div className="flex items-center justify-between whitespace-nowrap text-[12px]">
+                <div className="flex items-center whitespace-nowrap">
+                  <span className="text-black whitespace-nowrap">Invoice No. :&nbsp;</span>
+                  <span className="font-bold text-black text-[12.5px] whitespace-nowrap">{meta.invoiceNumber}</span>
+                </div>
+                <div className="flex items-center whitespace-nowrap pl-2">
+                  <span className="text-black whitespace-nowrap">Date :&nbsp;</span>
+                  <span className="font-bold text-black text-[12.5px] whitespace-nowrap">{meta.invoiceDate}</span>
+                </div>
               </div>
-              <div className="flex items-center">
-                <span className="w-24 text-black">Order No. :</span>
-                <span className="text-black font-medium">{meta.orderNo || ""}</span>
+
+              <div className="flex items-center whitespace-nowrap text-[12px]">
+                <span className="w-28 text-black shrink-0 whitespace-nowrap">Order No. :</span>
+                <span className="text-black font-medium truncate">{meta.orderNo || ""}</span>
               </div>
-              <div className="flex items-center">
-                <span className="w-24 text-black">DELIVERY NOTE :</span>
-                <span className="text-black font-semibold uppercase">
+              <div className="flex items-center whitespace-nowrap text-[12px]">
+                <span className="w-28 text-black shrink-0 whitespace-nowrap">DELIVERY NOTE :</span>
+                <span className="text-black font-semibold uppercase truncate">
                   {meta.deliveryNote || ""}
                 </span>
               </div>
-              <div className="flex items-center">
-                <span className="w-24 text-black">DESTINATION :</span>
-                <span className="text-black font-semibold uppercase">
+              <div className="flex items-center whitespace-nowrap text-[12px]">
+                <span className="w-28 text-black shrink-0 whitespace-nowrap">DESTINATION :</span>
+                <span className="text-black font-semibold uppercase truncate">
                   {meta.destination || ""}
                 </span>
               </div>
             </div>
-            <div className="flex items-center mt-1">
-              <span className="w-24 text-black">E-WAY BILL NO. :</span>
-              <span className="text-black font-medium">{meta.ewayBillNo || ""}</span>
+            <div className="flex items-center mt-1 whitespace-nowrap text-[12px]">
+              <span className="w-28 text-black shrink-0 whitespace-nowrap">E-WAY BILL NO. :</span>
+              <span className="text-black font-medium truncate">{meta.ewayBillNo || ""}</span>
             </div>
           </div>
         </div>
@@ -306,19 +312,19 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
         {/* Subtotal & GST Summary Section */}
         <div className="w-full flex min-h-[82px] border-b border-black text-[12px]">
           {/* Left: TOTAL Qty and GST breakdown */}
-          <div className="w-[58%] p-2 flex flex-col justify-between">
-            <div className="font-bold text-[13px]">
+          <div className="w-[53%] p-2 flex flex-col justify-between">
+            <div className="font-bold text-[13px] whitespace-nowrap">
               TOTAL &nbsp;&nbsp;&nbsp;&nbsp; {calculation.totalQty}
             </div>
-            <div className="text-[11px] font-normal leading-tight text-black mt-1 font-mono">
+            <div className="text-[11px] font-normal leading-tight text-black mt-1 font-mono break-all">
               {calculation.gstSummaryLine}
             </div>
           </div>
 
           {/* Right: Calculations breakdown */}
-          <div className="w-[42%] border-l border-black p-2 space-y-0.5 text-[12px]">
+          <div className="w-[47%] border-l border-black p-2 space-y-0.5 text-[12px]">
             {/* SUB TOTAL */}
-            <div className="flex justify-between items-center text-black">
+            <div className="flex justify-between items-center text-black whitespace-nowrap">
               <span className="font-bold">SUB TOTAL</span>
               <span className="font-bold text-right">
                 {calculation.subTotal}
@@ -327,7 +333,7 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
 
             {/* Discount row (only if discount > 0) */}
             {hasDiscount && (
-              <div className="flex justify-between items-center text-black">
+              <div className="flex justify-between items-center text-black whitespace-nowrap">
                 <span>Discount {calculation.discountPct > 0 ? `${calculation.discountPct} %` : ""}</span>
                 <span className="text-right">
                   {calculation.discountAmount}
@@ -336,25 +342,25 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
             )}
 
             {/* SGST % */}
-            <div className="flex justify-between items-center text-black">
+            <div className="flex justify-between items-center text-black whitespace-nowrap">
               <span>SGST {calculation.sgstRatePct}</span>
               <span className="text-right font-semibold">{calculation.sgstTotal}</span>
             </div>
 
             {/* CGST % */}
-            <div className="flex justify-between items-center text-black">
+            <div className="flex justify-between items-center text-black whitespace-nowrap">
               <span>CGST {calculation.cgstRatePct}</span>
               <span className="text-right font-semibold">{calculation.cgstTotal}</span>
             </div>
 
             {/* Roundoff: Positioned directly below CGST %, matching Image 3 */}
-            <div className="flex justify-between items-center text-black">
+            <div className="flex justify-between items-center text-black whitespace-nowrap">
               <span>Roundoff</span>
               <span className="text-right font-semibold">{calculation.roundOff}</span>
             </div>
 
             {/* CR/DR NOTE 0.00 */}
-            <div className="flex justify-between items-center text-black">
+            <div className="flex justify-between items-center text-black whitespace-nowrap">
               <span>CR/DR NOTE</span>
               <span className="text-right">0.00</span>
             </div>
@@ -364,12 +370,12 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
         {/* Grand Total Row */}
         <div className="w-full flex items-center border-b-[1.5px] border-black text-[12px] py-1.5 px-2">
           {/* Left: Amount in words - in BOLD as requested */}
-          <div className="w-[58%] font-bold text-[12.5px] text-black tracking-tight">
+          <div className="w-[53%] font-bold text-[12.5px] text-black tracking-tight pr-2">
             {calculation.amountInWords}
           </div>
 
           {/* Right: GRAND TOTAL */}
-          <div className="w-[42%] flex justify-between items-center pl-1 font-black text-[15px] text-black">
+          <div className="w-[47%] flex justify-between items-center pl-2 font-black text-[15px] text-black whitespace-nowrap">
             <span>GRAND TOTAL</span>
             <span className="text-right">{calculation.grandTotal}</span>
           </div>

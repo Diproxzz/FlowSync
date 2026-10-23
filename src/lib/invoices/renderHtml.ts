@@ -121,7 +121,7 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
 
         <!-- Customer & Meta Row -->
         <div class="w-full flex text-[12px] leading-[1.35] border-b border-black min-h-[90px]">
-          <div class="w-[58%] p-2 flex flex-col justify-between">
+          <div class="w-[53%] p-2 flex flex-col justify-between border-r border-black">
             <div>
               <div class="font-bold text-[14.5px] text-black">${escapeHtml(customer.name)}</div>
               ${addressLinesHtml}
@@ -132,30 +132,35 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
             </div>
           </div>
 
-          <div class="w-[42%] p-2 flex flex-col justify-between text-[12px]">
+          <div class="w-[47%] p-2 flex flex-col justify-between text-[12px]">
             <div class="space-y-0.5">
-              <div class="flex items-center">
-                <span class="w-24 text-black">Invoice No. :</span>
-                <span class="font-bold text-black text-[12.5px]">${escapeHtml(meta.invoiceNumber)}</span>
-                <span class="ml-4 mr-1 text-black">Date :</span>
-                <span class="font-bold text-black text-[12.5px]">${escapeHtml(meta.invoiceDate)}</span>
+              <div class="flex items-center justify-between whitespace-nowrap text-[12px]">
+                <div class="flex items-center whitespace-nowrap">
+                  <span class="text-black whitespace-nowrap">Invoice No. :&nbsp;</span>
+                  <span class="font-bold text-black text-[12.5px] whitespace-nowrap">${escapeHtml(meta.invoiceNumber)}</span>
+                </div>
+                <div class="flex items-center whitespace-nowrap pl-2">
+                  <span class="text-black whitespace-nowrap">Date :&nbsp;</span>
+                  <span class="font-bold text-black text-[12.5px] whitespace-nowrap">${escapeHtml(meta.invoiceDate)}</span>
+                </div>
               </div>
-              <div class="flex items-center">
-                <span class="w-24 text-black">Order No. :</span>
-                <span class="text-black font-medium">${escapeHtml(meta.orderNo || "")}</span>
+
+              <div class="flex items-center whitespace-nowrap text-[12px]">
+                <span class="w-28 text-black shrink-0 whitespace-nowrap">Order No. :</span>
+                <span class="text-black font-medium truncate">${escapeHtml(meta.orderNo || "")}</span>
               </div>
-              <div class="flex items-center">
-                <span class="w-24 text-black">DELIVERY NOTE :</span>
-                <span class="text-black font-semibold uppercase">${escapeHtml(meta.deliveryNote || "")}</span>
+              <div class="flex items-center whitespace-nowrap text-[12px]">
+                <span class="w-28 text-black shrink-0 whitespace-nowrap">DELIVERY NOTE :</span>
+                <span class="text-black font-semibold uppercase truncate">${escapeHtml(meta.deliveryNote || "")}</span>
               </div>
-              <div class="flex items-center">
-                <span class="w-24 text-black">DESTINATION :</span>
-                <span class="text-black font-semibold uppercase">${escapeHtml(meta.destination || "")}</span>
+              <div class="flex items-center whitespace-nowrap text-[12px]">
+                <span class="w-28 text-black shrink-0 whitespace-nowrap">DESTINATION :</span>
+                <span class="text-black font-semibold uppercase truncate">${escapeHtml(meta.destination || "")}</span>
               </div>
             </div>
-            <div class="flex items-center mt-1">
-              <span class="w-24 text-black">E-WAY BILL NO. :</span>
-              <span class="text-black font-medium">${escapeHtml(meta.ewayBillNo || "")}</span>
+            <div class="flex items-center mt-1 whitespace-nowrap text-[12px]">
+              <span class="w-28 text-black shrink-0 whitespace-nowrap">E-WAY BILL NO. :</span>
+              <span class="text-black font-medium truncate">${escapeHtml(meta.ewayBillNo || "")}</span>
             </div>
           </div>
         </div>
@@ -206,42 +211,42 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
 
         <!-- Totals & GST Summary Section -->
         <div class="w-full flex min-h-[82px] border-b border-black text-[12px]">
-          <div class="w-[58%] p-2 flex flex-col justify-between">
-            <div class="font-bold text-[13px]">
+          <div class="w-[53%] p-2 flex flex-col justify-between">
+            <div class="font-bold text-[13px] whitespace-nowrap">
               TOTAL &nbsp;&nbsp;&nbsp;&nbsp; ${escapeHtml(calculation.totalQty)}
             </div>
-            <div class="text-[11px] font-normal leading-tight text-black mt-1 font-mono">
+            <div class="text-[11px] font-normal leading-tight text-black mt-1 font-mono break-all">
               ${escapeHtml(calculation.gstSummaryLine)}
             </div>
           </div>
 
-          <div class="w-[42%] border-l border-black p-2 space-y-0.5 text-[12px]">
-            <div class="flex justify-between items-center text-black">
+          <div class="w-[47%] border-l border-black p-2 space-y-0.5 text-[12px]">
+            <div class="flex justify-between items-center text-black whitespace-nowrap">
               <span class="font-bold">SUB TOTAL</span>
               <span class="font-bold text-right">${escapeHtml(calculation.subTotal)}</span>
             </div>
             ${
               hasDiscount
                 ? `
-            <div class="flex justify-between items-center text-black">
+            <div class="flex justify-between items-center text-black whitespace-nowrap">
               <span>Discount ${calculation.discountPct > 0 ? `${calculation.discountPct} %` : ""}</span>
               <span class="text-right">${escapeHtml(calculation.discountAmount)}</span>
             </div>`
                 : ""
             }
-            <div class="flex justify-between items-center text-black">
+            <div class="flex justify-between items-center text-black whitespace-nowrap">
               <span>SGST ${escapeHtml(calculation.sgstRatePct)}</span>
               <span class="text-right font-semibold">${escapeHtml(calculation.sgstTotal)}</span>
             </div>
-            <div class="flex justify-between items-center text-black">
+            <div class="flex justify-between items-center text-black whitespace-nowrap">
               <span>CGST ${escapeHtml(calculation.cgstRatePct)}</span>
               <span class="text-right font-semibold">${escapeHtml(calculation.cgstTotal)}</span>
             </div>
-            <div class="flex justify-between items-center text-black">
+            <div class="flex justify-between items-center text-black whitespace-nowrap">
               <span>Roundoff</span>
               <span class="text-right font-semibold">${escapeHtml(calculation.roundOff)}</span>
             </div>
-            <div class="flex justify-between items-center text-black">
+            <div class="flex justify-between items-center text-black whitespace-nowrap">
               <span>CR/DR NOTE</span>
               <span class="text-right">0.00</span>
             </div>
@@ -250,10 +255,10 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
 
         <!-- Grand Total Row -->
         <div class="w-full flex items-center border-b-[1.5px] border-black text-[12px] py-1.5 px-2">
-          <div class="w-[58%] font-bold text-[12.5px] text-black tracking-tight">
+          <div class="w-[53%] font-bold text-[12.5px] text-black tracking-tight pr-2">
             ${escapeHtml(calculation.amountInWords)}
           </div>
-          <div class="w-[42%] flex justify-between items-center pl-1 font-black text-[15px] text-black">
+          <div class="w-[47%] flex justify-between items-center pl-2 font-black text-[15px] text-black whitespace-nowrap">
             <span>GRAND TOTAL</span>
             <span class="text-right">${escapeHtml(calculation.grandTotal)}</span>
           </div>
