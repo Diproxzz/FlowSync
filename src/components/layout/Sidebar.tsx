@@ -20,6 +20,7 @@ import {
   BookOpen,
   FileSpreadsheet,
   FileSignature,
+  FilePlus2,
   ShieldAlert,
   ArrowLeft,
 } from "lucide-react";
@@ -134,6 +135,7 @@ export function Sidebar() {
       title: "Sales",
       items: [
         { label: "Sales Invoices", href: "/invoices", icon: Receipt },
+        { label: "Invoice Generation", href: "/invoices/generate", icon: FilePlus2 },
         { label: "Informal Invoices", href: "/informal-invoices", icon: FileSignature },
         { label: "Customers", href: "/customers", icon: Users },
       ],
