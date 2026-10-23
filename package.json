@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "npx tsx scripts/sync-product-master.ts && next start",
     "lint": "next lint",
     "format": "prettier --write .",
     "test": "vitest run",

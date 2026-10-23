@@ -10,6 +10,7 @@ import { normalizeInvoiceNumber, normalizeCustomerName } from "@/lib/matching/no
 import { postSalesInvoiceToLedger } from "@/lib/ledger/posting";
 import { MovementType, MovementSource } from "@prisma/client";
 import Decimal from "decimal.js";
+import { ensureProductMasterSynced } from "@/lib/products/sync-master";
 
 // Helper to determine the commercial name of a product
 function getProductCommercialName(p: { code: string; name: string; aliases: { alias: string }[] }): string {
@@ -27,6 +28,7 @@ function getProductCommercialName(p: { code: string; name: string; aliases: { al
 // GET: Bootstrap data & checks
 export async function GET(request: NextRequest) {
   try {
+    await ensureProductMasterSynced();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
     const invoiceId = searchParams.get("id");
