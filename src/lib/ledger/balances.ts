@@ -19,7 +19,7 @@ export interface ComputedBalanceRow {
   formattedBalance: string;
 }
 
-export interface MargTotalsResult {
+export interface StatementTotalsResult {
   openingBalance: number;
   openingSide: "Dr" | "Cr";
   periodDebit: number;
@@ -103,15 +103,15 @@ export function calculatePeriodOpening(
 }
 
 /**
- * Computes the Marg statement Totals row:
+ * Computes the statement Totals row:
  * Debit total includes opening when opening is Dr.
  * Credit total includes opening when opening is Cr.
  * Closing = Debit total - Credit total.
  */
-export function calculateMargTotals(
+export function calculateStatementTotals(
   periodEntries: BalanceEntryInput[],
   openingBalance: number = 0
-): MargTotalsResult {
+): StatementTotalsResult {
   let periodDebit = new Decimal(0);
   let periodCredit = new Decimal(0);
 

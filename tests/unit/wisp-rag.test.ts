@@ -25,7 +25,7 @@ describe("Wisp AI Assistant & RAG System", () => {
     });
 
     it("matches 'import statement' to statement import guide", () => {
-      const guides = findMatchingGuides("how to import marg statement");
+      const guides = findMatchingGuides("how to import statement");
       expect(guides.length).toBeGreaterThan(0);
       expect(guides.some((g) => g.id === "import_statement")).toBe(true);
     });

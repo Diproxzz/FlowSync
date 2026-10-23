@@ -146,7 +146,7 @@ export const APP_GUIDES: TaskGuide[] = [
     title: "How to Upload and Process Sales Invoices",
     keywords: ["upload invoice", "upload", "scan", "extract invoice", "add invoice", "process invoice", "new invoice"],
     route: "/upload",
-    summary: "Upload Marg ERP sales tax invoices (PDF or images) to automatically transcribe them using AI vision models and update stock & ledger.",
+    summary: "Upload sales tax invoices (PDF or images) to automatically transcribe them using AI vision models and update stock & ledger.",
     steps: [
       "Navigate to [Upload Invoice](/upload).",
       "Drag and drop your invoice PDF or image file (PNG/JPG) into the upload dropzone, or click 'Select File'.",
@@ -185,7 +185,7 @@ export const APP_GUIDES: TaskGuide[] = [
     title: "How to View and Manage Party Ledgers (Statements)",
     keywords: ["ledger", "party ledger", "statement", "view ledger", "account statement", "customer ledger", "supplier ledger", "print statement", "dr cr"],
     route: "/accounts",
-    summary: "View Marg ERP-style party ledgers with running balances (Dr/Cr), Marg totals row, and print-ready A4 statements.",
+    summary: "View party ledgers with running balances (Dr/Cr), totals row, and print-ready A4 statements.",
     steps: [
       "Go to [Party Ledgers](/accounts).",
       "Select either the 'Customers' tab or 'Suppliers' tab.",
@@ -217,14 +217,14 @@ export const APP_GUIDES: TaskGuide[] = [
   },
   {
     id: "import_statement",
-    title: "How to Import Marg ERP Account Statements",
-    keywords: ["import statement", "import ledger", "marg import", "upload statement", "reconcile", "reconciliation"],
+    title: "How to Import Account Statements",
+    keywords: ["import statement", "import ledger", "upload statement", "reconcile", "reconciliation"],
     route: "/accounts/import",
-    summary: "Import existing Marg ERP PDF or XLSX account statements to bulk-populate party ledger transactions.",
+    summary: "Import existing PDF or XLSX account statements to bulk-populate party ledger transactions.",
     steps: [
       "Go to [Import Statement](/accounts/import).",
       "Select the party account (Customer or Supplier) or let the parser auto-detect the party from the statement header.",
-      "Upload the Marg ERP ledger statement PDF or Excel file.",
+      "Upload the ledger statement PDF or Excel file.",
       "Preview the parsed transactions: Opening Balance, Date, Particulars, Cheque/Doc numbers, Debit, Credit, and Balance.",
       "Verify that the calculated closing balance matches the original file's closing balance.",
       "Click 'Confirm & Commit Import' to save all entries to the database."

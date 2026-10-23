@@ -310,10 +310,10 @@ export default function AccountStatementPage() {
 
       {/* 2. Summary Cards Component */}
       <SummaryCards
-        openingBalance={statementData.summary?.openingBalance ?? statementData.margTotals?.openingBalance ?? 0}
-        periodDebit={statementData.summary?.periodDebit ?? statementData.margTotals?.periodDebit ?? 0}
-        periodCredit={statementData.summary?.periodCredit ?? statementData.margTotals?.periodCredit ?? 0}
-        closingBalance={statementData.summary?.closingBalance ?? statementData.margTotals?.closingBalance ?? 0}
+        openingBalance={statementData.summary?.openingBalance ?? statementData.statementTotals?.openingBalance ?? 0}
+        periodDebit={statementData.summary?.periodDebit ?? statementData.statementTotals?.periodDebit ?? 0}
+        periodCredit={statementData.summary?.periodCredit ?? statementData.statementTotals?.periodCredit ?? 0}
+        closingBalance={statementData.summary?.closingBalance ?? statementData.statementTotals?.closingBalance ?? 0}
         accountType={account.accountType}
         openingBalanceSet={account.openingBalanceSet}
       />
@@ -361,7 +361,7 @@ export default function AccountStatementPage() {
       {activeTab === "statement" ? (
         <StatementTable
           rows={statementData.entries}
-          margTotals={statementData.margTotals}
+          statementTotals={statementData.statementTotals}
           onVoidEntry={handleVoidEntry}
           onDeleteEntry={handleDeleteEntry}
           onEditEntry={(row) => {
@@ -373,8 +373,8 @@ export default function AccountStatementPage() {
         <OutstandingTable
           items={openItemsData?.items || []}
           advance={openItemsData?.advance || 0}
-          closingBalance={statementData.summary?.closingBalance ?? statementData.margTotals?.closingBalance ?? 0}
-          closingSide={statementData.summary?.closingSide ?? statementData.margTotals?.closingSide ?? "Dr"}
+          closingBalance={statementData.summary?.closingBalance ?? statementData.statementTotals?.closingBalance ?? 0}
+          closingSide={statementData.summary?.closingSide ?? statementData.statementTotals?.closingSide ?? "Dr"}
           creditDays={account.creditDays}
           accountType={account.accountType}
         />
@@ -384,7 +384,7 @@ export default function AccountStatementPage() {
       <div className="print:hidden">
         <TotalDueBanner
           partyName={account.displayName}
-          totalDue={statementData.summary?.closingBalance ?? statementData.margTotals?.closingBalance ?? 0}
+          totalDue={statementData.summary?.closingBalance ?? statementData.statementTotals?.closingBalance ?? 0}
           accountType={account.accountType}
           overdueAmount={statementData.summary?.overdueAmount ?? openItemsData?.totalOverdue ?? 0}
           oldestBillNo={statementData.summary?.oldestBillNo ?? statementData.totalDue?.oldestBill}
@@ -431,8 +431,8 @@ export default function AccountStatementPage() {
         accountId={account.id}
         accountName={account.displayName}
         accountType={account.accountType}
-        currentOpeningBalance={statementData.summary?.openingBalance ?? statementData.margTotals?.openingBalance ?? 0}
-        currentOpeningSide={statementData.summary?.openingSide ?? statementData.margTotals?.openingSide ?? "Dr"}
+        currentOpeningBalance={statementData.summary?.openingBalance ?? statementData.statementTotals?.openingBalance ?? 0}
+        currentOpeningSide={statementData.summary?.openingSide ?? statementData.statementTotals?.openingSide ?? "Dr"}
         currentOpeningDate={statementData.period?.from}
         currentThroughDate={account.statementThroughDate}
         creditDays={account.creditDays}

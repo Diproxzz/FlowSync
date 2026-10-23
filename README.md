@@ -1,17 +1,17 @@
 # Indobest Insights 📊
 
 > **Single-Owner GST Invoice Transcription, Inventory Intelligence & Analytics Platform**  
-> Custom-built for Indobest Kolkata · Marg ERP Sales Invoice Processing & Chemical Stock Ledger
+> Custom-built for Indobest Kolkata · Sales Invoice Processing & Chemical Stock Ledger
 
 ---
 
 ## 🚀 Key Highlights & Capabilities
 
-1. **Vision LLM Invoice Extraction:** Scans & transcribes Marg ERP sales tax invoices using **Vision LLMs** (Gemini 2.5 Flash / 1.5 Flash primary; OpenRouter & Groq fallback; local Ollama optional).
+1. **Vision LLM Invoice Extraction:** Scans & transcribes sales tax invoices using **Vision LLMs** (Gemini 2.5 Flash / 1.5 Flash primary; OpenRouter & Groq fallback; local Ollama optional).
 2. **Zero Unreviewed Writes:** Human-in-the-loop verification with side-by-side zoomable document preview, live arithmetic validation, and auto-computed line breakdowns.
 3. **Compound Intelligence & Alias Learning:** Learns product and buyer aliases from user confirmations. Product codes automatically resolve via exact alias, leading-code prefix (`AA ACTOIL` $\rightarrow$ `AA`), or fuzzy Levenshtein matching.
 4. **Duplicate Prevention & Versioning:** Real-time normalized invoice number matching (`IB26-27/0473` $\equiv$ `ib26-27/0473`). Support for side-by-side diffing and safe replacement with version snapshotting (`invoice_revisions`).
-5. **Exact Double-Entry Stock Ledger:** Inventory is tracked as an append-only transaction ledger (`stock_movements`). Live stock is calculated via PostgreSQL view `v_stock_summary`, reconciling 100% with the Marg ERP workbook closing stock (72,743 kg).
+5. **Exact Double-Entry Stock Ledger:** Inventory is tracked as an append-only transaction ledger (`stock_movements`). Live stock is calculated via PostgreSQL view `v_stock_summary`, reconciling 100% with the workbook closing stock (72,743 kg).
 6. **Executive Analytics Dashboard:**
    - Real-time KPIs with prior-period deltas: Taxable Revenue, Volume (kg), Average Realization (₹/kg), Active Buyers.
    - Monthly trend graphs with dual-axis volume bars and revenue lines (Recharts).
@@ -91,7 +91,7 @@ npx prisma migrate deploy
 ```
 
 ### 3. Seed Master Products & Legacy Workbook Transactions
-Populate all 55 chemical products and 602 historical transactions from the Marg ERP Excel master:
+Populate all 55 chemical products and 602 historical transactions from the Excel master:
 ```bash
 npm run seed:legacy
 ```

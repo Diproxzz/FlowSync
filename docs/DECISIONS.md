@@ -28,7 +28,7 @@ This document captures the key architectural and design decisions made while bui
   - All currency calculations use `Decimal(14, 2)` (PostgreSQL `NUMERIC(14,2)` and `decimal.js`).
   - All inventory weights use `Decimal(12, 3)` (PostgreSQL `NUMERIC(12,3)`).
   - Derived round-offs are computed explicitly as `grandTotal - (taxableSubtotal + cgst + sgst + igst)`.
-- **Consequences:** 100% precision matching Marg ERP GST invoices and bank statements.
+- **Consequences:** 100% precision matching GST invoices and bank statements.
 
 ---
 
@@ -43,12 +43,12 @@ This document captures the key architectural and design decisions made while bui
 - **Context:** Storing mutable "current stock" directly as a column on `products` risks drift and race conditions during concurrent modifications, deletes, or invoice replacements.
 - **Decision:** Implement an append-only transaction ledger (`stock_movements`) supporting `OPENING`, `PURCHASE`, `SALE`, and `ADJUSTMENT` movement types. Compute live stock dynamically using the PostgreSQL aggregate view `v_stock_summary`:
   $$\text{Closing Stock} = \sum \text{Opening} + \sum \text{Purchase} - \sum \text{Sale} \pm \sum \text{Adjustment}$$
-- **Consequences:** Provides an audit trail for every kilogram of chemical product. Deleting or modifying an invoice automatically updates closing stock by deleting or snapshotting associated movements. Reconciles 100% with Marg ERP workbook total closing stock (72,743 kg).
+- **Consequences:** Provides an audit trail for every kilogram of chemical product. Deleting or modifying an invoice automatically updates closing stock by deleting or snapshotting associated movements. Reconciles 100% with workbook total closing stock (72,743 kg).
 
 ---
 
 ## ADR 06: Luhn Mod 36 GSTIN Validation & Own GSTIN Rejection
-- **Context:** Scanned Marg invoices show both Seller and Buyer GSTINs in close proximity. LLMs frequently confuse the seller's header GSTIN with the customer's GSTIN.
+- **Context:** Scanned invoices show both Seller and Buyer GSTINs in close proximity. LLMs frequently confuse the seller's header GSTIN with the customer's GSTIN.
 - **Decision:**
   1. Validate all GSTINs against the official 15-character Indian GST format `^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$`.
   2. Verify Luhn mod 36 checksum.

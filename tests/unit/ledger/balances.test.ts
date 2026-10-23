@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   computeRunningBalances,
-  calculateMargTotals,
+  calculateStatementTotals,
 } from "@/lib/ledger/balances";
 
-describe("Ledger Balances & Marg Totals (§5.2)", () => {
-  it("satisfies Marg convention: Debit total includes Dr opening balance", () => {
+describe("Ledger Balances & Statement Totals (§5.2)", () => {
+  it("satisfies statement convention: Debit total includes Dr opening balance", () => {
     // A H ENTERPRISE: Opening 6,63,181.00 Dr, 0 bills, 3 receipts total 2,62,561.00
     const opening = 663181.0;
     const entries = [
@@ -29,7 +29,7 @@ describe("Ledger Balances & Marg Totals (§5.2)", () => {
       },
     ];
 
-    const totals = calculateMargTotals(entries, opening);
+    const totals = calculateStatementTotals(entries, opening);
     expect(totals.openingBalance).toBe(663181.0);
     expect(totals.openingSide).toBe("Dr");
     expect(totals.periodDebit).toBe(0);

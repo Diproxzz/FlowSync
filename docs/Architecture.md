@@ -254,7 +254,7 @@ Pure functions returning `Issue[] = {path, severity: 'error'|'warning', code, me
 Server and client share this module.
 
 ### 6.7 Optional deterministic cross-check (phase 2)
-All of the owner's invoices come from one Marg ERP template. A Tesseract.js (free, local) OCR + regex/position parser can independently read invoice number, date and totals; disagreement with the LLM on these fields adds `CROSSCHECK_MISMATCH` warnings. Not required for v1.
+All of the owner's invoices come from one invoice template. A Tesseract.js (free, local) OCR + regex/position parser can independently read invoice number, date and totals; disagreement with the LLM on these fields adds `CROSSCHECK_MISMATCH` warnings. Not required for v1.
 
 ## 7. Matching (`src/lib/matching/`)
 

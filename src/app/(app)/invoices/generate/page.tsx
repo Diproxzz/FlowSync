@@ -4,7 +4,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Invoice Generation | Indobest Insights",
-  description: "Create and print pixel-faithful INDOBEST GST Marg ERP invoices",
+  description: "Create and print pixel-faithful INDOBEST GST invoices",
 };
 
 export default function InvoiceGeneratePage() {

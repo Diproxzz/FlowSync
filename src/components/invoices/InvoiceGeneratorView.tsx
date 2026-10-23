@@ -439,7 +439,7 @@ export function InvoiceGeneratorView() {
             </span>
           </div>
           <p className="text-xs text-ink-3 mt-1">
-            Pixel-faithful INDOBEST GST Marg ERP invoice creator with live calculations and stock integration.
+            Pixel-faithful INDOBEST GST invoice creator with live calculations and stock integration.
           </p>
         </div>
 
@@ -957,7 +957,7 @@ export function InvoiceGeneratorView() {
                 </div>
               </div>
 
-              {/* Totals Table matching Marg ERP layout (with Roundoff below CGST %) */}
+              {/* Totals Table matching layout (with Roundoff below CGST %) */}
               <div className="w-full md:w-80 space-y-1.5 text-xs">
                 <div className="flex justify-between py-1 border-b border-border text-ink-2">
                   <span>Total Quantity:</span>
@@ -1029,7 +1029,7 @@ export function InvoiceGeneratorView() {
         <div className="space-y-4">
           <div className="no-print flex items-center justify-between bg-surface border border-border p-3 rounded-sm">
             <span className="text-xs text-ink-2 font-medium">
-              Standard A4 Portrait PDF Preview (Pixel-identical Marg ERP Layout)
+              Standard A4 Portrait PDF Preview (Pixel-identical Layout)
             </span>
             <div className="flex items-center gap-2">
               <button

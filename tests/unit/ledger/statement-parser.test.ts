@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseMargStatementText } from "@/lib/ledger/parse/marg";
+import { parseStatementText } from "@/lib/ledger/parse/statement";
 import { validateStatement } from "@/lib/ledger/parse/validate";
 import {
   AAQIB_TANNERY_OCR,
@@ -8,9 +8,9 @@ import {
   TIGER_INTERNATIONAL_OCR,
 } from "../../fixtures/ledger/sample-statements";
 
-describe("Marg Statement Parser & Replay Validation (§2.1 & §3.3)", () => {
+describe("Statement Parser & Replay Validation (§2.1 & §3.3)", () => {
   it("parses and validates AAQIB TANNERY statement exactly", () => {
-    const stmt = parseMargStatementText(AAQIB_TANNERY_OCR);
+    const stmt = parseStatementText(AAQIB_TANNERY_OCR);
     expect(stmt.accountName).toBe("AAQIB TANNERY");
     expect(stmt.openingBalance).toBe(183393);
     expect(stmt.openingSide).toBe("Dr");
@@ -36,7 +36,7 @@ describe("Marg Statement Parser & Replay Validation (§2.1 & §3.3)", () => {
   });
 
   it("parses and validates Abdin Leather Conceria statement exactly", () => {
-    const stmt = parseMargStatementText(ABDIN_LEATHER_OCR);
+    const stmt = parseStatementText(ABDIN_LEATHER_OCR);
     expect(stmt.accountName).toBe("Abdin Leather Conceria Pvt. Ltd");
     expect(stmt.openingBalance).toBe(2160098);
     expect(stmt.openingSide).toBe("Dr");
@@ -56,7 +56,7 @@ describe("Marg Statement Parser & Replay Validation (§2.1 & §3.3)", () => {
   });
 
   it("parses and validates Dilshad Ahmed & Co statement exactly", () => {
-    const stmt = parseMargStatementText(DILSHAD_AHMED_OCR);
+    const stmt = parseStatementText(DILSHAD_AHMED_OCR);
     expect(stmt.accountName).toBe("Dilshad Ahmed & Co");
     expect(stmt.openingBalance).toBe(800419);
     expect(stmt.printedTotals.debit).toBe(3487773);
@@ -75,7 +75,7 @@ describe("Marg Statement Parser & Replay Validation (§2.1 & §3.3)", () => {
   });
 
   it("parses and validates TIGER INTERNATIONAL statement exactly", () => {
-    const stmt = parseMargStatementText(TIGER_INTERNATIONAL_OCR);
+    const stmt = parseStatementText(TIGER_INTERNATIONAL_OCR);
     expect(stmt.accountName).toBe("TIGER INTERNATIONAL");
     expect(stmt.openingBalance).toBe(3018917);
     expect(stmt.printedTotals.debit).toBe(6694485);
@@ -120,7 +120,7 @@ Sep 3 Bill No. IB26-27/0386 7375.00 11063.00 Dr
 Sep 14 Bill No. IB26-27/0414 18438.00 29501.00 Dr
 Total 29501.00 29501.00 Dr
 `;
-    const stmt = parseMargStatementText(aamisText);
+    const stmt = parseStatementText(aamisText);
     expect(stmt.accountName).toBe("AAMIS IMPEX");
     expect(stmt.openingBalance).toBe(0);
     expect(stmt.printedTotals.debit).toBe(29501);
@@ -136,7 +136,7 @@ Total 29501.00 29501.00 Dr
   });
 
   it("fails validation when a tampered amount disturbs running balance or totals", () => {
-    const stmt = parseMargStatementText(AAQIB_TANNERY_OCR);
+    const stmt = parseStatementText(AAQIB_TANNERY_OCR);
     // Tamper one bill amount
     stmt.entries[0].debit += 1000;
 
@@ -158,7 +158,7 @@ Aug 19 C/N No. 03 Dt. 19-08-2026 Adj.in 2000.00 8000.00 Dr
 Sep 05 D/N No. 01 500.00 8500.00 Dr
 Total 10500.00 2000.00 8500.00 Dr
 `;
-    const stmt = parseMargStatementText(textWithNotes);
+    const stmt = parseStatementText(textWithNotes);
     expect(stmt.entries).toHaveLength(3);
 
     const [inv, cn, dn] = stmt.entries;
@@ -193,7 +193,7 @@ Date Particulars Debit Credit Balance
 Jun 11 Bill No. A/0443/26-27 Dt. 11-06-2026 Entry No.P000014 9440.00 9440.00 Cr
 Total 9440.00 9440.00 Cr
 `;
-    const stmt = parseMargStatementText(anandaText);
+    const stmt = parseStatementText(anandaText);
     expect(stmt.accountName).toBe("ANANDA CHEMICALS & RUBBER PVT. LTD");
     expect(stmt.openingBalance).toBe(0);
     expect(stmt.printedTotals.debit).toBe(0);
@@ -235,7 +235,7 @@ Ag. IB26-27/0301 16833.00 0.00 Dr
 Oct 16 Bill No. IB26-27/0495 9426.00 9426.00 Dr
 Total 28279.00 18853.00 9426.00 Dr
 `;
-    const stmt = parseMargStatementText(ateefahText);
+    const stmt = parseStatementText(ateefahText);
     expect(stmt.accountName).toBe("ATEEFAH INTERNATIONAL");
     expect(stmt.entries).toHaveLength(5);
     expect(stmt.printedTotals.debit).toBe(28279);

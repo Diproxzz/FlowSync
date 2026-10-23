@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { parseMargStatementPdf, parseMargStatementText } from "@/lib/ledger/parse/marg";
+import { parseStatementPdf, parseStatementText } from "@/lib/ledger/parse/statement";
 import { validateStatement } from "@/lib/ledger/parse/validate";
 import { matchParty } from "@/lib/matching/party";
 import { prisma } from "@/lib/db";
@@ -49,9 +49,9 @@ export async function POST(request: NextRequest) {
       : crypto.createHash("sha256").update(rawText!).digest("hex");
 
     // 1. Parse Statement
-    const draft = buffer ? await parseMargStatementPdf(buffer) : parseMargStatementText(rawText!);
+    const draft = buffer ? await parseStatementPdf(buffer) : parseStatementText(rawText!);
 
-    // 2. Validate Statement by Replay & Marg Totals
+    // 2. Validate Statement by Replay & Totals
     const validation = validateStatement(draft);
 
     // 3. Determine Suggested Party Type by Closing Balance (Cr = Supplier / Creditor, Dr = Customer / Debtor)

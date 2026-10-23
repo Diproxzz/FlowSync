@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { calculateMargTotals, calculatePeriodOpening, computeRunningBalances } from "@/lib/ledger/balances";
+import { calculateStatementTotals, calculatePeriodOpening, computeRunningBalances } from "@/lib/ledger/balances";
 import { calculateOpenItems } from "@/lib/ledger/openItems";
 import { formatParticularsText } from "@/lib/ledger/particulars";
 import { normalizePartyName } from "@/lib/matching/party";
@@ -86,8 +86,8 @@ export async function GET(
     // Compute running balance for period
     const runningRows = computeRunningBalances(periodEntries as any, periodOpening);
 
-    // Marg Totals
-    const margTotals = calculateMargTotals(periodEntries as any, periodOpening);
+    // Totals
+    const statementTotals = calculateStatementTotals(periodEntries as any, periodOpening);
 
     // Open Items & Due
     const openItems = calculateOpenItems(
@@ -103,15 +103,15 @@ export async function GET(
     const oldestBillDate = openBills.length > 0 ? openBills[0].entryDate : null;
 
     const openingVal = periodOpening >= 0 ? periodOpening : -Math.abs(periodOpening);
-    const closingVal = margTotals.closingSide === "Dr" ? margTotals.closingBalance : -margTotals.closingBalance;
+    const closingVal = statementTotals.closingSide === "Dr" ? statementTotals.closingBalance : -statementTotals.closingBalance;
 
     const summary = {
       openingBalance: openingVal,
       openingSide: (periodOpening >= 0 ? "Dr" : "Cr") as "Dr" | "Cr",
-      periodDebit: margTotals.periodDebit,
-      periodCredit: margTotals.periodCredit,
+      periodDebit: statementTotals.periodDebit,
+      periodCredit: statementTotals.periodCredit,
       closingBalance: closingVal,
-      closingSide: margTotals.closingSide,
+      closingSide: statementTotals.closingSide,
       overdueAmount: openItems.totalOverdue,
       oldestBillNo: oldestBill,
       oldestBillDate,
@@ -208,12 +208,12 @@ export async function GET(
       });
     }
 
-    const margTotalsPayload = {
-      ...margTotals,
-      debitTotal: margTotals.totalDebitWithOpening,
-      creditTotal: margTotals.totalCreditWithOpening,
-      closing: margTotals.closingBalance,
-      closingSide: margTotals.closingSide,
+    const statementTotalsPayload = {
+      ...statementTotals,
+      debitTotal: statementTotals.totalDebitWithOpening,
+      creditTotal: statementTotals.totalCreditWithOpening,
+      closing: statementTotals.closingBalance,
+      closingSide: statementTotals.closingSide,
     };
 
     const accountData = {
@@ -240,14 +240,14 @@ export async function GET(
     };
 
     const totalDueData = {
-      balance: margTotals.closingBalance,
-      side: margTotals.closingSide,
+      balance: statementTotals.closingBalance,
+      side: statementTotals.closingSide,
       meaning:
         isCustomer
-          ? margTotals.closingSide === "Dr"
+          ? statementTotals.closingSide === "Dr"
             ? "party owes you"
             : "advance / credit held (you owe party)"
-          : margTotals.closingSide === "Cr"
+          : statementTotals.closingSide === "Cr"
           ? "you owe party"
           : "advance paid (party owes you)",
       overdueAmount: openItems.totalOverdue,
@@ -260,7 +260,7 @@ export async function GET(
       periodOpening: periodOpeningData,
       summary,
       entries: finalEntries,
-      margTotals: margTotalsPayload,
+      statementTotals: statementTotalsPayload,
       totalDue: totalDueData,
       importBatches: account.import_batches || [],
     };

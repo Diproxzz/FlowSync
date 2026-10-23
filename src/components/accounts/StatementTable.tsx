@@ -33,7 +33,7 @@ export interface StatementRow {
 
 interface StatementTableProps {
   rows: StatementRow[];
-  margTotals: {
+  statementTotals: {
     debitTotal: number;
     creditTotal: number;
     closing: number;
@@ -44,7 +44,7 @@ interface StatementTableProps {
   onDeleteEntry?: (entryId: string) => void;
 }
 
-export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry, onDeleteEntry }: StatementTableProps) {
+export function StatementTable({ rows, statementTotals, onVoidEntry, onEditEntry, onDeleteEntry }: StatementTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm print:rounded-none print:border print:border-slate-400 print:shadow-none print:overflow-visible">
       <div className="overflow-x-auto print:overflow-visible">
@@ -71,7 +71,7 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry, onD
                 const prevRow = idx > 0 ? rows[idx - 1] : null;
                 const rowDate = (row as any).entry_date || (row as any).date;
                 const prevDate = prevRow ? ((prevRow as any).entry_date || (prevRow as any).date) : null;
-                // Same day hide date repeat for clean visual matching Marg statements on screen
+                // Same day hide date repeat for clean visual matching statements on screen
                 const isSameDate = prevRow && prevDate === rowDate;
 
                 const isDebit = row.debit > 0;
@@ -220,7 +220,7 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry, onD
             )}
           </tbody>
 
-          {/* Marg Totals Row */}
+          {/* Totals Row */}
           <tfoot>
             <tr className="bg-muted/80 border-t-2 border-border font-semibold text-xs uppercase tracking-wide print:bg-slate-100 print:text-black print:border-t-2 print:border-b-2 print:border-black print:break-inside-avoid">
               <td className="py-3 px-4 font-mono print:py-2 print:px-2 print:text-xs">TOTAL</td>
@@ -228,29 +228,29 @@ export function StatementTable({ rows, margTotals, onVoidEntry, onEditEntry, onD
                 Total (incl. opening) &bull; <span className="italic font-mono text-[11px] print:text-[10px]">Debit − Credit = Closing</span>
               </td>
               <td className="py-3 px-4 text-right font-mono text-sm text-foreground print:py-2 print:px-2 print:text-xs print:text-black">
-                {formatINR(margTotals.debitTotal)}
+                {formatINR(statementTotals.debitTotal)}
               </td>
               <td className="py-3 px-4 text-right font-mono text-sm text-foreground print:py-2 print:px-2 print:text-xs print:text-black">
-                {formatINR(margTotals.creditTotal)}
+                {formatINR(statementTotals.creditTotal)}
               </td>
               <td
                 className={cn(
                   "py-3 px-4 text-right font-mono text-sm whitespace-nowrap print:py-2 print:px-2 print:text-xs",
-                  margTotals.closingSide === "Cr"
+                  statementTotals.closingSide === "Cr"
                     ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700"
                     : "text-foreground print:text-black"
                 )}
               >
-                <span>{formatINR(Math.abs(margTotals.closing))}</span>{" "}
+                <span>{formatINR(Math.abs(statementTotals.closing))}</span>{" "}
                 <span
                   className={cn(
                     "ml-1 font-bold inline-block w-4 text-right",
-                    margTotals.closingSide === "Dr"
+                    statementTotals.closingSide === "Dr"
                       ? "text-rose-600 dark:text-rose-400 print:text-rose-700"
                       : "text-emerald-600 dark:text-emerald-400 print:text-emerald-700"
                   )}
                 >
-                  {margTotals.closingSide}
+                  {statementTotals.closingSide}
                 </span>
               </td>
               <td className="print:hidden"></td>

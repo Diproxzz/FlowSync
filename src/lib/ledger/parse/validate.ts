@@ -87,7 +87,7 @@ export function validateStatement(stmt: ExtractedStatement): StatementValidation
     }
   }
 
-  // Marg Totals check
+  // Statement Totals check
   const openingDr = stmt.openingSide === "Dr" ? new Decimal(stmt.openingBalance) : new Decimal(0);
   const openingCr = stmt.openingSide === "Cr" ? new Decimal(stmt.openingBalance) : new Decimal(0);
 

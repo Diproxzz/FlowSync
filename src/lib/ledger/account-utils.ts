@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { calculateMargTotals } from "./balances";
+import { calculateStatementTotals } from "./balances";
 
 /**
  * Finds or automatically creates/links a regular LedgerAccount for a Customer.
@@ -224,7 +224,7 @@ export function calculateAccountTotalDue(account: any, isCustomer: boolean): num
     openingSide = deb >= cred ? "Dr" : "Cr";
   }
 
-  const totals = calculateMargTotals(
+  const totals = calculateStatementTotals(
     account.entries,
     openingSide === "Dr" ? openingBalance : -openingBalance
   );

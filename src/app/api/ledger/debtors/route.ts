@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { calculateMargTotals } from "@/lib/ledger/balances";
+import { calculateStatementTotals } from "@/lib/ledger/balances";
 import { build12MonthSchedule, rollInto12Months } from "@/lib/ledger/debtor-periods";
 import { getActiveClientContext } from "@/lib/auth/session";
 
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         openingSide = deb >= cred ? "Dr" : "Cr";
       }
 
-      const totals = calculateMargTotals(
+      const totals = calculateStatementTotals(
         acc.entries as any,
         openingSide === "Dr" ? openingBalance : -openingBalance
       );

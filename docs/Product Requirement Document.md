@@ -30,7 +30,7 @@ Indobest Insights is a single-owner web app for a leather-chemicals dealership (
 - G5. Give actionable analysis: what sells, to whom, at what rate vs standard, what is running low.
 
 **Non-goals (v1)**
-- Generating invoices (invoices come from Marg ERP).
+- Generating invoices.
 - Full accounting, payments/receivables, e-way bills, GST filing.
 - Multi-user roles, multi-company, mobile app.
 - Purchase-invoice OCR (purchases can be entered manually as stock-in; see FR-STK-3).
@@ -41,7 +41,7 @@ One owner-operator (Dipro). Works on desktop mostly, occasionally phone. Comfort
 
 ## 4. Ground truth from the sample invoices
 
-All three samples are **image-only PDFs (no text layer)** in the same Marg ERP template, one page each, one issuer. Extraction therefore needs a **vision-capable model** (or OCR).
+All three samples are **image-only PDFs (no text layer)** in the same invoice template, one page each, one issuer. Extraction therefore needs a **vision-capable model** (or OCR).
 
 | Field | Inv 473 | Inv 474 | Inv 475 |
 |---|---|---|---|

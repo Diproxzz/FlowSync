@@ -1,6 +1,6 @@
 /**
  * Converts a numeric amount into Indian English currency words format.
- * Matches Marg ERP INDOBEST invoice style:
+ * Matches INDOBEST invoice style:
  * e.g.
  * 9426   -> "Rs. Nine Thousand Four Hundred and Twenty Six only"
  * 16992  -> "Rs. Sixteen Thousand Nine Hundred and Ninety Two only"

@@ -28,7 +28,7 @@ function resolveFullDate(monthStr: string, dayStr: string, startYear: number, en
   return `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-export function parseMargStatementText(rawText: string): ExtractedStatement {
+export function parseStatementText(rawText: string): ExtractedStatement {
   const lines = rawText
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -418,7 +418,7 @@ export function parseMargStatementText(rawText: string): ExtractedStatement {
 /**
  * Parses statement from a PDF Buffer using pdfjs-dist text layer
  */
-export async function parseMargStatementPdf(pdfBuffer: Buffer): Promise<ExtractedStatement> {
+export async function parseStatementPdf(pdfBuffer: Buffer): Promise<ExtractedStatement> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   try {
     const workerFile = path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
@@ -477,5 +477,5 @@ export async function parseMargStatementPdf(pdfBuffer: Buffer): Promise<Extracte
   }
 
   const fullText = allLines.join("\n");
-  return parseMargStatementText(fullText);
+  return parseStatementText(fullText);
 }
