@@ -209,7 +209,13 @@ export function InvoiceGeneratorView() {
   const handleSelectCustomer = (cust: CustomerData) => {
     setSelectedCustomer(cust);
     setCustomerName(cust.name);
-    setCustomerAddress(cust.address || "");
+    const formattedAddr = (cust.address || "")
+      .replace(/\s*(19\s*-\s*WEST\s+BENGAL)/gi, "\n$1")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join("\n");
+    setCustomerAddress(formattedAddr);
     setCustomerPhone(cust.phone || "");
     setCustomerGstin(cust.gstin || "");
     setDeliveryNote(cust.deliveryNote || "");

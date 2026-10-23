@@ -8,7 +8,16 @@ export interface RenderInvoiceOptions {
 }
 
 export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoiceOptions): string {
-  const addressLines = (customer.address || "").split("\n").filter(Boolean);
+  // Ensure "19-WEST BENGAL" or "19 - WEST BENGAL" is placed on its own next line
+  const rawAddress = (customer.address || "").replace(
+    /\s*(19\s*-\s*WEST\s+BENGAL)/gi,
+    "\n$1"
+  );
+  const addressLines = rawAddress
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   const hasDiscount = calculation.hasDiscount;
 
   const colWidths = hasDiscount
@@ -41,31 +50,31 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
       ];
 
   const addressLinesHtml = addressLines
-    .map((line) => `<div class="text-black">${escapeHtml(line)}</div>`)
+    .map((line) => `<div class="text-black text-[12px]">${escapeHtml(line)}</div>`)
     .join("");
 
   const rowsHtml = calculation.items
     .map(
       (item) => `
-      <div class="w-full flex text-[12px] leading-[1.35] text-black font-normal pt-0.5" style="height: 22px;">
+      <div class="w-full flex text-[13px] leading-[1.35] text-black font-medium pt-0.5" style="height: 24px;">
         <div style="width: ${colWidths[0]}" class="text-center px-0.5">${item.sl}.</div>
-        <div style="width: ${colWidths[1]}" class="text-right pr-1.5 font-medium">${escapeHtml(item.qty)}</div>
+        <div style="width: ${colWidths[1]}" class="text-right pr-1.5 font-bold">${escapeHtml(item.qty)}</div>
         <div style="width: ${colWidths[2]}" class="text-right pr-1">${escapeHtml(item.pack)}</div>
-        <div style="width: ${colWidths[3]}" class="text-left pl-1.5 truncate uppercase font-medium">${escapeHtml(item.product)}</div>
+        <div style="width: ${colWidths[3]}" class="text-left pl-1.5 truncate uppercase font-bold text-[13px]">${escapeHtml(item.product)}</div>
         <div style="width: ${colWidths[4]}" class="text-center px-0.5">${escapeHtml(item.batch || "")}</div>
-        <div style="width: ${colWidths[5]}" class="text-center font-mono text-[10.5px] px-0.5 tracking-tight">${escapeHtml(item.hsn)}</div>
-        <div style="width: ${colWidths[6]}" class="text-right pr-1 font-mono text-[11px]">${escapeHtml(item.rate)}</div>
+        <div style="width: ${colWidths[5]}" class="text-center font-mono text-[11.5px] px-0.5 tracking-tight font-semibold">${escapeHtml(item.hsn)}</div>
+        <div style="width: ${colWidths[6]}" class="text-right pr-1 font-mono text-[12px] font-semibold">${escapeHtml(item.rate)}</div>
         ${
           hasDiscount
-            ? `<div style="width: ${colWidths[7]}" class="text-right pr-1 font-mono text-[11px]">${
+            ? `<div style="width: ${colWidths[7]}" class="text-right pr-1 font-mono text-[12px] font-semibold">${
                 item.discountPct && Number(item.discountPct) > 0 ? `${escapeHtml(item.discountPct)}%` : "0%"
               }</div>`
             : ""
         }
-        <div style="width: ${hasDiscount ? colWidths[8] : colWidths[7]}" class="text-right pr-1 font-medium font-mono text-[11px]">${escapeHtml(item.taxable)}</div>
-        <div style="width: ${hasDiscount ? colWidths[9] : colWidths[8]}" class="text-right pr-0.5 font-mono text-[11px]">${escapeHtml(item.sgstPct)}</div>
-        <div style="width: ${hasDiscount ? colWidths[10] : colWidths[9]}" class="text-right pr-0.5 font-mono text-[11px]">${escapeHtml(item.cgstPct)}</div>
-        <div style="width: ${hasDiscount ? colWidths[11] : colWidths[10]}" class="text-right pr-1.5 font-medium font-mono text-[11px]">${escapeHtml(item.amount)}</div>
+        <div style="width: ${hasDiscount ? colWidths[8] : colWidths[7]}" class="text-right pr-1 font-bold font-mono text-[12px]">${escapeHtml(item.taxable)}</div>
+        <div style="width: ${hasDiscount ? colWidths[9] : colWidths[8]}" class="text-right pr-0.5 font-mono text-[11.5px]">${escapeHtml(item.sgstPct)}</div>
+        <div style="width: ${hasDiscount ? colWidths[10] : colWidths[9]}" class="text-right pr-0.5 font-mono text-[11.5px]">${escapeHtml(item.cgstPct)}</div>
+        <div style="width: ${hasDiscount ? colWidths[11] : colWidths[10]}" class="text-right pr-1.5 font-bold font-mono text-[12.5px]">${escapeHtml(item.amount)}</div>
       </div>`
     )
     .join("");
@@ -84,7 +93,7 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
     >
       <!-- Top Copy Label -->
       <div class="w-full text-right pr-1 pb-1">
-        <span class="text-[11px] italic underline tracking-wide font-normal">
+        <span class="text-[12px] italic underline tracking-wide font-normal">
           ${escapeHtml(meta.copyType || "ORIGINAL")} / DUPLICATE / TRIPLICATE COPY
         </span>
       </div>
@@ -93,66 +102,66 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
       <div class="w-full border-[2.5px] border-black flex flex-col relative" style="height: calc(100% - 22px); box-sizing: border-box;">
         <!-- Header -->
         <div class="w-full pt-1.5 pb-1 text-center border-b border-black">
-          <h1 class="text-[30px] font-black tracking-wider leading-none m-0 p-0" style="font-family: Arial, sans-serif;">
+          <h1 class="text-[32px] font-black tracking-wider leading-none m-0 p-0" style="font-family: Arial, sans-serif;">
             INDOBEST
           </h1>
-          <div class="text-[10.5px] font-normal leading-[1.3] mt-1">19/10/2,GOBINDA KHATICK ROAD</div>
-          <div class="text-[10.5px] font-normal leading-[1.3]">KOLKATA-700046 19-WEST BENGAL</div>
-          <div class="text-[10.5px] font-normal leading-[1.3] mt-0.5">Phone : 8240892993</div>
-          <div class="text-[10.5px] font-normal leading-[1.3]">E-Mail : indobest@gmail.com</div>
-          <div class="text-[14.5px] font-black tracking-wide leading-tight mt-1" style="font-family: Arial, sans-serif;">
+          <div class="text-[11.5px] font-normal leading-[1.3] mt-1">19/10/2,GOBINDA KHATICK ROAD</div>
+          <div class="text-[11.5px] font-normal leading-[1.3]">KOLKATA-700046 19-WEST BENGAL</div>
+          <div class="text-[11.5px] font-normal leading-[1.3] mt-0.5">Phone : 8240892993</div>
+          <div class="text-[11.5px] font-normal leading-[1.3]">E-Mail : indobest@gmail.com</div>
+          <div class="text-[15.5px] font-black tracking-wide leading-tight mt-1" style="font-family: Arial, sans-serif;">
             GST INVOICE
           </div>
         </div>
 
         <!-- GSTIN Banner -->
-        <div class="w-full py-0.5 text-center text-[10.5px] font-normal border-b border-black">
+        <div class="w-full py-0.5 text-center text-[11.5px] font-semibold border-b border-black">
           GSTIN : 19AVZPC2361G1ZA
         </div>
 
         <!-- Customer & Meta Row -->
-        <div class="w-full flex text-[11px] leading-[1.35] border-b border-black min-h-[84px]">
+        <div class="w-full flex text-[12px] leading-[1.35] border-b border-black min-h-[90px]">
           <div class="w-[58%] p-2 flex flex-col justify-between">
             <div>
-              <div class="font-bold text-[13px] text-black">${escapeHtml(customer.name)}</div>
+              <div class="font-bold text-[14.5px] text-black">${escapeHtml(customer.name)}</div>
               ${addressLinesHtml}
-              ${customer.phone ? `<div class="text-black">PH.NO.: ${escapeHtml(customer.phone)}</div>` : ""}
+              ${customer.phone ? `<div class="text-black text-[12px] mt-0.5">PH.NO.: ${escapeHtml(customer.phone)}</div>` : ""}
             </div>
-            <div class="mt-1 font-normal text-black">
+            <div class="mt-1 font-semibold text-[12px] text-black">
               GSTIN : ${escapeHtml(customer.gstin || "URP")}
             </div>
           </div>
 
-          <div class="w-[42%] p-2 flex flex-col justify-between">
+          <div class="w-[42%] p-2 flex flex-col justify-between text-[12px]">
             <div class="space-y-0.5">
               <div class="flex items-center">
                 <span class="w-24 text-black">Invoice No. :</span>
-                <span class="font-bold text-black">${escapeHtml(meta.invoiceNumber)}</span>
+                <span class="font-bold text-black text-[12.5px]">${escapeHtml(meta.invoiceNumber)}</span>
                 <span class="ml-4 mr-1 text-black">Date :</span>
-                <span class="font-bold text-black">${escapeHtml(meta.invoiceDate)}</span>
+                <span class="font-bold text-black text-[12.5px]">${escapeHtml(meta.invoiceDate)}</span>
               </div>
               <div class="flex items-center">
                 <span class="w-24 text-black">Order No. :</span>
-                <span class="text-black">${escapeHtml(meta.orderNo || "")}</span>
+                <span class="text-black font-medium">${escapeHtml(meta.orderNo || "")}</span>
               </div>
               <div class="flex items-center">
                 <span class="w-24 text-black">DELIVERY NOTE :</span>
-                <span class="text-black uppercase">${escapeHtml(meta.deliveryNote || "")}</span>
+                <span class="text-black font-semibold uppercase">${escapeHtml(meta.deliveryNote || "")}</span>
               </div>
               <div class="flex items-center">
                 <span class="w-24 text-black">DESTINATION :</span>
-                <span class="text-black uppercase">${escapeHtml(meta.destination || "")}</span>
+                <span class="text-black font-semibold uppercase">${escapeHtml(meta.destination || "")}</span>
               </div>
             </div>
             <div class="flex items-center mt-1">
               <span class="w-24 text-black">E-WAY BILL NO. :</span>
-              <span class="text-black">${escapeHtml(meta.ewayBillNo || "")}</span>
+              <span class="text-black font-medium">${escapeHtml(meta.ewayBillNo || "")}</span>
             </div>
           </div>
         </div>
 
         <!-- Item Table -->
-        <div class="w-full relative flex flex-col flex-1" style="min-height: 360px; maxHeight: 430px;">
+        <div class="w-full relative flex flex-col flex-1" style="min-height: 360px; max-height: 430px;">
           <!-- Grid Lines -->
           <div class="absolute inset-0 flex pointer-events-none z-10">
             ${verticalBordersHtml}
@@ -170,20 +179,20 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
               : ""
           }
 
-          <!-- Table Header -->
-          <div class="w-full flex border-b border-black text-[10.5px] font-bold text-black leading-tight text-center relative z-20 bg-white" style="height: 22px;">
-            <div style="width: ${colWidths[0]}" class="p-0.5 text-center">Sl.</div>
-            <div style="width: ${colWidths[1]}" class="p-0.5 text-right pr-1.5">Qnty</div>
-            <div style="width: ${colWidths[2]}" class="p-0.5 text-right pr-1">Pack</div>
-            <div style="width: ${colWidths[3]}" class="p-0.5 text-left pl-1.5">Product</div>
-            <div style="width: ${colWidths[4]}" class="p-0.5 text-center">Batch</div>
-            <div style="width: ${colWidths[5]}" class="p-0.5 text-center">HSN</div>
-            <div style="width: ${colWidths[6]}" class="p-0.5 text-right pr-1">Rate</div>
-            ${hasDiscount ? `<div style="width: ${colWidths[7]}" class="p-0.5 text-right pr-1">Disc %</div>` : ""}
-            <div style="width: ${hasDiscount ? colWidths[8] : colWidths[7]}" class="p-0.5 text-right pr-1">TAXABLE</div>
-            <div style="width: ${hasDiscount ? colWidths[9] : colWidths[8]}" class="p-0.5 text-right pr-0.5 text-[8.5px]">SGST</div>
-            <div style="width: ${hasDiscount ? colWidths[10] : colWidths[9]}" class="p-0.5 text-right pr-0.5 text-[8.5px]">CGST</div>
-            <div style="width: ${hasDiscount ? colWidths[11] : colWidths[10]}" class="p-0.5 text-right pr-1.5">Amount</div>
+          <!-- Table Header with Vertical Borders -->
+          <div class="w-full flex border-b border-black text-[11.5px] font-bold text-black leading-tight text-center relative z-20 bg-white" style="height: 24px;">
+            <div style="width: ${colWidths[0]}" class="p-0.5 text-center border-r border-black flex items-center justify-center">Sl.</div>
+            <div style="width: ${colWidths[1]}" class="p-0.5 text-right pr-1.5 border-r border-black flex items-center justify-end">Qnty</div>
+            <div style="width: ${colWidths[2]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">Pack</div>
+            <div style="width: ${colWidths[3]}" class="p-0.5 text-left pl-1.5 border-r border-black flex items-center justify-start">Product</div>
+            <div style="width: ${colWidths[4]}" class="p-0.5 text-center border-r border-black flex items-center justify-center">Batch</div>
+            <div style="width: ${colWidths[5]}" class="p-0.5 text-center border-r border-black flex items-center justify-center">HSN</div>
+            <div style="width: ${colWidths[6]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">Rate</div>
+            ${hasDiscount ? `<div style="width: ${colWidths[7]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">Disc %</div>` : ""}
+            <div style="width: ${hasDiscount ? colWidths[8] : colWidths[7]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">TAXABLE</div>
+            <div style="width: ${hasDiscount ? colWidths[9] : colWidths[8]}" class="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">SGST</div>
+            <div style="width: ${hasDiscount ? colWidths[10] : colWidths[9]}" class="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">CGST</div>
+            <div style="width: ${hasDiscount ? colWidths[11] : colWidths[10]}" class="p-0.5 text-right pr-1.5 flex items-center justify-end">Amount</div>
           </div>
 
           <!-- Data Rows -->
@@ -196,17 +205,17 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
         <div class="w-full border-t border-black"></div>
 
         <!-- Totals & GST Summary Section -->
-        <div class="w-full flex min-h-[78px] border-b border-black text-[11px]">
+        <div class="w-full flex min-h-[82px] border-b border-black text-[12px]">
           <div class="w-[58%] p-2 flex flex-col justify-between">
-            <div class="font-bold text-[11.5px]">
+            <div class="font-bold text-[13px]">
               TOTAL &nbsp;&nbsp;&nbsp;&nbsp; ${escapeHtml(calculation.totalQty)}
             </div>
-            <div class="text-[10px] font-normal leading-tight text-black mt-1">
+            <div class="text-[11px] font-normal leading-tight text-black mt-1 font-mono">
               ${escapeHtml(calculation.gstSummaryLine)}
             </div>
           </div>
 
-          <div class="w-[42%] border-l border-black p-2 space-y-0.5">
+          <div class="w-[42%] border-l border-black p-2 space-y-0.5 text-[12px]">
             <div class="flex justify-between items-center text-black">
               <span class="font-bold">SUB TOTAL</span>
               <span class="font-bold text-right">${escapeHtml(calculation.subTotal)}</span>
@@ -222,15 +231,15 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
             }
             <div class="flex justify-between items-center text-black">
               <span>SGST ${escapeHtml(calculation.sgstRatePct)}</span>
-              <span class="text-right">${escapeHtml(calculation.sgstTotal)}</span>
+              <span class="text-right font-semibold">${escapeHtml(calculation.sgstTotal)}</span>
             </div>
             <div class="flex justify-between items-center text-black">
               <span>CGST ${escapeHtml(calculation.cgstRatePct)}</span>
-              <span class="text-right">${escapeHtml(calculation.cgstTotal)}</span>
+              <span class="text-right font-semibold">${escapeHtml(calculation.cgstTotal)}</span>
             </div>
             <div class="flex justify-between items-center text-black">
               <span>Roundoff</span>
-              <span class="text-right">${escapeHtml(calculation.roundOff)}</span>
+              <span class="text-right font-semibold">${escapeHtml(calculation.roundOff)}</span>
             </div>
             <div class="flex justify-between items-center text-black">
               <span>CR/DR NOTE</span>
@@ -240,18 +249,18 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
         </div>
 
         <!-- Grand Total Row -->
-        <div class="w-full flex items-center border-b-[1.5px] border-black text-[11px] py-1.5 px-2">
-          <div class="w-[58%] font-bold text-[11.5px] text-black tracking-tight">
+        <div class="w-full flex items-center border-b-[1.5px] border-black text-[12px] py-1.5 px-2">
+          <div class="w-[58%] font-bold text-[12.5px] text-black tracking-tight">
             ${escapeHtml(calculation.amountInWords)}
           </div>
-          <div class="w-[42%] flex justify-between items-center pl-1 font-black text-[13.5px] text-black">
+          <div class="w-[42%] flex justify-between items-center pl-1 font-black text-[15px] text-black">
             <span>GRAND TOTAL</span>
             <span class="text-right">${escapeHtml(calculation.grandTotal)}</span>
           </div>
         </div>
 
         <!-- Terms & Signatures -->
-        <div class="w-full flex text-[9.5px] leading-[1.3] p-2 min-h-[110px]">
+        <div class="w-full flex text-[10.5px] leading-[1.3] p-2 min-h-[120px]">
           <div class="w-[62%] flex flex-col justify-between">
             <div>
               <div>
@@ -262,15 +271,18 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
               <div>from the date of invoice after which interest will be charged 12% p.a.</div>
               <div>All disputes subject to &nbsp;Jurisdication only.</div>
               <div class="text-[8px] tracking-widest text-black">----------------------------------------------------</div>
-              <div class="font-bold text-[10px] mt-0.5 text-black">BANK DETAIL: UNION BANK OF INDIA, BRANCH : SUNDARI MOHAN AVENUE</div>
-              <div class="font-bold text-[10px] text-black">ACCOUNT NO.: 301401010500559, IFSC: UBIN0530140</div>
+              <div class="font-bold text-[11px] mt-0.5 text-black">BANK DETAIL: UNION BANK OF INDIA, BRANCH : SUNDARI MOHAN AVENUE</div>
+              <div class="font-bold text-[11px] text-black">ACCOUNT NO.: 301401010500559, IFSC: UBIN0530140</div>
             </div>
-            <div class="font-normal text-black mt-2">Customers Seal and Signature</div>
+            <div class="mt-3">
+              <div class="font-semibold text-black text-[11px]">Customers Seal and Signature</div>
+              <div class="h-7 w-full"></div>
+            </div>
           </div>
 
           <div class="w-[38%] flex flex-col justify-between pl-6 text-right">
-            <div class="font-bold text-[11.5px] text-black pr-1">For INDOBEST</div>
-            <div class="font-normal text-[10px] text-black pr-1 mb-1">Authorised signatory</div>
+            <div class="font-bold text-[13px] text-black pr-1">For INDOBEST</div>
+            <div class="font-normal text-[11px] text-black pr-1 mb-2">Authorised signatory</div>
           </div>
         </div>
       </div>
