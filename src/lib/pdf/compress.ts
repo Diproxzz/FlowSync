@@ -16,7 +16,8 @@ export async function compressPdf(
 ): Promise<void> {
   const scriptPath = path.resolve(process.cwd(), "scripts/compress_pdf.py");
   try {
-    const { stdout, stderr } = await execFileAsync("python", [
+    const pythonBin = process.platform === "win32" ? "python" : "python3";
+    const { stdout, stderr } = await execFileAsync(pythonBin, [
       scriptPath,
       inputPath,
       outputPath,

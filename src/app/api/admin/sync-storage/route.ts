@@ -34,7 +34,12 @@ import zipfile
 with zipfile.ZipFile(r"${zipPath.replace(/\\/g, "/")}", 'r') as z:
     z.extractall(r"${storageDir.replace(/\\/g, "/")}")
 `;
-    await execFileAsync("python", ["-c", pythonScript]);
+    const pythonBin = process.platform === "win32" ? "python" : "python3";
+    try {
+      await execFileAsync(pythonBin, ["-c", pythonScript]);
+    } catch {
+      await execFileAsync("tar", ["-xf", zipPath, "-C", storageDir]);
+    }
     await fs.unlink(zipPath).catch(() => {});
 
     return NextResponse.json({ ok: true, message: "Storage synced successfully" });
