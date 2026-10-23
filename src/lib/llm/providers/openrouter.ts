@@ -53,7 +53,7 @@ export class OpenRouterProvider implements LLMProvider {
         "Content-Type": "application/json",
         Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
         "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "FlowSync",
+        "X-Title": "FlowPilot",
       },
       body: JSON.stringify(body),
       signal: req.signal,

@@ -59,11 +59,11 @@ function LoginForm() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
-            alt="FlowSync"
+            alt="FlowPilot"
             className="h-16 w-auto object-contain drop-shadow-sm"
           />
         </div>
-        <h1 className="text-xl font-bold text-ink tracking-tight">FlowSync</h1>
+        <h1 className="text-xl font-bold text-ink tracking-tight">FlowPilot</h1>
         <p className="text-xs text-ink-3 mt-1">Single-owner GST Invoice & Stock Intelligence</p>
       </div>
 
@@ -143,7 +143,7 @@ function LoginForm() {
       </form>
 
       <div className="mt-8 pt-4 border-t border-border text-center">
-        <p className="text-[11px] text-ink-3">Mandatory login to view and operate FlowSync</p>
+        <p className="text-[11px] text-ink-3">Mandatory login to view and operate FlowPilot</p>
       </div>
     </div>
   );

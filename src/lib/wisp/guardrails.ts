@@ -37,9 +37,9 @@ const BLOCKED_PATTERNS: RegExp[] = [
 ];
 
 const POLITE_GUARDRAIL_REJECTION =
-  "I am **Wisp**, your business intelligence and application assistant for **FlowSync**! " +
+  "I am **Wisp**, your business intelligence and application assistant for **FlowPilot**! " +
   "For security, privacy, and compliance reasons, I do not disclose internal system architectures, developer identities, API credentials, or underlying configuration details.\n\n" +
-  "I am here strictly to assist you with your business data—such as analyzing sales, purchases, stock inventory, party ledgers, customer balances, invoices, or answering questions about FlowSync's features and reports. How can I assist with your business operations today?";
+  "I am here strictly to assist you with your business data—such as analyzing sales, purchases, stock inventory, party ledgers, customer balances, invoices, or answering questions about FlowPilot's features and reports. How can I assist with your business operations today?";
 
 export function evaluateGuardrails(query: string): GuardrailResult {
   const q = query.trim();

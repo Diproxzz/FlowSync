@@ -192,11 +192,11 @@ export function Sidebar() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
-            alt="FlowSync"
+            alt="FlowPilot"
             className="h-7 w-auto object-contain"
           />
           <div className="flex flex-col">
-            <span className="font-bold text-sm leading-tight text-ink tracking-tight">FlowSync</span>
+            <span className="font-bold text-sm leading-tight text-ink tracking-tight">FlowPilot</span>
             <span className="text-[10px] text-ink-3 tracking-wider font-mono">
               {session?.isAdmin
                 ? session.isReadOnly

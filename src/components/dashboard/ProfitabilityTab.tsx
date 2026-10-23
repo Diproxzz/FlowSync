@@ -197,7 +197,7 @@ export function ProfitabilityTab({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `flowsync_profitability_${period}_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `flowpilot_profitability_${period}_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -534,7 +534,7 @@ export function WispChat() {
                   </button>
                 </form>
                 <div className="mt-1 text-[9px] text-center text-muted-foreground">
-                  Wisp answers strictly about FlowSync records and features.
+                  Wisp answers strictly about FlowPilot records and features.
                 </div>
               </div>
             </>

@@ -77,11 +77,11 @@ export function Topbar({ title }: TopbarProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo.png"
-              alt="FlowSync"
+              alt="FlowPilot"
               className="h-7 w-auto object-contain"
             />
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-ink tracking-tight">FlowSync</span>
+              <span className="font-bold text-sm text-ink tracking-tight">FlowPilot</span>
               <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                 Administrator
               </span>
@@ -101,12 +101,12 @@ export function Topbar({ title }: TopbarProps) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo.png"
-                  alt="FlowSync"
+                  alt="FlowPilot"
                   className="h-7 w-auto object-contain group-hover:scale-105 transition"
                 />
                 <div className="flex flex-col">
                   <span className="font-bold text-xs leading-tight text-ink tracking-tight flex items-center gap-1">
-                    FlowSync
+                    FlowPilot
                     <ChevronRight className="w-3 h-3 text-ink-3 group-hover:translate-x-0.5 transition" />
                   </span>
                   <span className="text-[9px] text-ink-3 uppercase tracking-wider font-mono">Menu</span>
@@ -116,7 +116,7 @@ export function Topbar({ title }: TopbarProps) {
 
             {!isPinned && <div className="h-4 w-px bg-border" />}
 
-            <h1 className="text-sm font-semibold text-ink">{title || "FlowSync"}</h1>
+            <h1 className="text-sm font-semibold text-ink">{title || "FlowPilot"}</h1>
           </>
         )}
       </div>

@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
         {
           error: {
             code: "UNAUTHORIZED",
-            message: "Authentication required. Please sign in with your FlowSync credentials.",
+            message: "Authentication required. Please sign in with your FlowPilot credentials.",
           },
         },
         { status: 401 }

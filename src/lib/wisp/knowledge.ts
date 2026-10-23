@@ -1,5 +1,5 @@
 /**
- * FlowSync Application Knowledge Base for Wisp Assistant
+ * FlowPilot Application Knowledge Base for Wisp Assistant
  * Contains step-by-step guidance, formulas, mathematical definitions,
  * features, workflows, and route mappings.
  */
@@ -62,7 +62,7 @@ export const APP_GUIDES: TaskGuide[] = [
     ],
     route: "/dashboard",
     summary:
-      "FlowSync calculates commercial profitability strictly on Taxable Value (excluding GST) using volume-weighted averages: WASP (Weighted Average Sale Price) and WAPC (Weighted Average Purchase Cost).",
+      "FlowPilot calculates commercial profitability strictly on Taxable Value (excluding GST) using volume-weighted averages: WASP (Weighted Average Sale Price) and WAPC (Weighted Average Purchase Cost).",
     formula: "• WASP (₹/kg) = Total Taxable Sales Revenue (₹) / Total Sales Quantity (kg)\n• WAPC (₹/kg) = Total Taxable Purchase Cost (₹) / Total Purchase Quantity (kg)\n• Gross Profit Margin (%) = ((WASP - WAPC) / WASP) × 100\n• Gross Profit (₹) = Taxable Sales Revenue - (Sales Qty × WAPC)",
     steps: [
       "Go to [Executive Dashboard](/dashboard) and select the 'Profitability & Margins' tab.",
