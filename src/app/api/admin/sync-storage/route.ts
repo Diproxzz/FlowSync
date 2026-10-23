@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
 
     const filename = file.name || "temp_bundle.tar.gz";
     const archivePath = path.join(storageDir, filename);
+    const arrayBuffer = await file.arrayBuffer();
     await fs.writeFile(archivePath, Buffer.from(arrayBuffer));
 
     if (filename.endsWith(".tar.gz") || filename.endsWith(".tgz")) {

@@ -224,20 +224,19 @@ export function WispChat() {
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 group border border-primary/20 print:hidden cursor-pointer"
-          title="Ask Wisp - AI Indobest Assistant"
+          className="fixed bottom-5 right-5 z-40 flex items-center justify-center w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 group border border-primary/20 print:hidden cursor-pointer"
+          title="Wisp - Business Assistant"
         >
           <div className="relative flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/wisp.png"
               alt="Wisp"
-              className="w-6 h-6 object-contain"
+              className="w-7 h-7 object-contain"
             />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping absolute -top-1 -right-1" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 absolute -top-1 -right-1 border border-background" />
           </div>
-          <span className="font-semibold text-xs tracking-wide">Ask Wisp</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute -top-0.5 -right-0.5" />
-          <span className="w-2 h-2 rounded-full bg-emerald-400 absolute -top-0.5 -right-0.5" />
         </button>
       )}
 
