@@ -1,0 +1,46 @@
+name: Daily Profile & Database Backup
+
+on:
+  schedule:
+    # 18:25 UTC = 23:55 IST (every day at the end of the day)
+    - cron: '25 18 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI anytime
+
+jobs:
+  backup:
+    name: Run End-of-Day Profile Backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run Daily Backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is not set in GitHub repository secrets."
+            echo "If you set secrets.DATABASE_URL to your production database URL, this workflow will dump and archive your production database daily."
+            exit 0
+          fi
+          npm run backup
+
+      - name: Archive Backup Artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-backup-${{ github.sha }}
+          path: backups/daily/
+          retention-days: 90

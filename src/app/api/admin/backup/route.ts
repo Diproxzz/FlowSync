@@ -4,8 +4,10 @@ import fs from "fs";
 import path from "path";
 import { runDailyBackup } from "@/../scripts/daily-backup";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get("action");
     const baseDir = path.resolve(process.cwd(), "backups", "daily");
     const latestPath = path.join(baseDir, "latest.json");
 
@@ -14,6 +16,31 @@ export async function GET() {
       try {
         latestManifest = JSON.parse(fs.readFileSync(latestPath, "utf-8"));
       } catch {}
+    }
+
+    // Direct download action
+    if (action === "download" || action === "download-fresh") {
+      let backupFile = "";
+      if (action !== "download-fresh" && latestManifest?.backupDir) {
+        const candidate = path.join(latestManifest.backupDir, "profile-data.json");
+        if (fs.existsSync(candidate)) backupFile = candidate;
+      }
+
+      if (!backupFile) {
+        const result = await runDailyBackup();
+        backupFile = path.join(result.backupDir, "profile-data.json");
+      }
+
+      const fileBuffer = fs.readFileSync(backupFile);
+      const dateStr = new Date().toISOString().split("T")[0];
+      return new Response(fileBuffer, {
+        status: 200,
+        headers: {
+          "Content-Disposition": `attachment; filename="flowsync-profile-backup-${dateStr}.json"`,
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store, max-age=0",
+        },
+      });
     }
 
     const availableBackups: Array<{ name: string; createdAt: string }> = [];

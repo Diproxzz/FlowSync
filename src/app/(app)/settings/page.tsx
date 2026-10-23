@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft, Download, Database, ShieldCheck, Clock, FileJson } from "lucide-react";
 
 interface ProviderInfo {
   id: string;
@@ -39,6 +40,41 @@ export default function SettingsPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ [id: string]: { ok: boolean; message: string } }>({});
+  const [backupInfo, setBackupInfo] = useState<{ latest?: any; backups?: Array<{ name: string; createdAt: string }> } | null>(null);
+  const [backupTriggering, setBackupTriggering] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+
+  const fetchBackupInfo = async () => {
+    try {
+      const res = await fetch("/api/admin/backup");
+      if (res.ok) {
+        const data = await res.json();
+        setBackupInfo(data);
+      }
+    } catch (e) {
+      console.error("Failed to load backup info", e);
+    }
+  };
+
+  const handleTriggerBackup = async () => {
+    setBackupTriggering(true);
+    setBackupMessage(null);
+    try {
+      const res = await fetch("/api/admin/backup", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setBackupMessage("Backup successfully completed!");
+        await fetchBackupInfo();
+      } else {
+        setBackupMessage(`Backup failed: ${data.error || "Unknown error"}`);
+      }
+    } catch (e: any) {
+      setBackupMessage(`Backup failed: ${e.message || "Network error"}`);
+    } finally {
+      setBackupTriggering(false);
+      setTimeout(() => setBackupMessage(null), 5000);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -56,6 +92,7 @@ export default function SettingsPage() {
         const sData = await sessionRes.json();
         setIsAdmin(!!sData.data?.isAdmin);
       }
+      fetchBackupInfo();
     } catch (err) {
       console.error(err);
     } finally {
@@ -373,6 +410,92 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+
+        {/* Profile Backup & Disaster Recovery */}
+        <div className="bg-surface border border-border rounded-sm p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-border gap-2">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-primary" />
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Data & Profile Backup</h3>
+                <p className="text-[11px] text-ink-3">Automated end-of-day snapshots and on-demand profile export</p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium border border-emerald-500/20 w-fit">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Daily Automated Backups Active</span>
+            </div>
+          </div>
+
+          <div className="bg-bg border border-border rounded-sm p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-ink-3" />
+                  <span>
+                    Last Backup:{" "}
+                    {backupInfo?.latest?.timestamp
+                      ? new Date(backupInfo.latest.timestamp).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "Pending initial run"}
+                  </span>
+                </div>
+                {backupInfo?.latest?.counts && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="px-2 py-0.5 rounded bg-surface border border-border text-[11px] text-ink-2">
+                      Invoices: <strong className="text-ink">{backupInfo.latest.counts.invoices ?? 0}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-surface border border-border text-[11px] text-ink-2">
+                      Purchases: <strong className="text-ink">{backupInfo.latest.counts.purchases ?? 0}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-surface border border-border text-[11px] text-ink-2">
+                      Customers: <strong className="text-ink">{backupInfo.latest.counts.customers ?? 0}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-surface border border-border text-[11px] text-ink-2">
+                      Products: <strong className="text-ink">{backupInfo.latest.counts.products ?? 0}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-surface border border-border text-[11px] text-ink-2">
+                      Ledger Accounts: <strong className="text-ink">{backupInfo.latest.counts.ledgerAccounts ?? 0}</strong>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href="/api/admin/backup?action=download"
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-fg rounded-sm text-xs font-medium hover:opacity-90 transition shadow-xs cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Backup (.json)</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleTriggerBackup}
+                  disabled={backupTriggering}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border text-ink rounded-sm text-xs font-medium hover:bg-surface-2 transition disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={cn("w-3.5 h-3.5", backupTriggering && "animate-spin")} />
+                  <span>{backupTriggering ? "Backing up..." : "Backup Now"}</span>
+                </button>
+              </div>
+            </div>
+
+            {backupMessage && (
+              <div className="p-2.5 bg-surface-2 border border-border text-ink rounded text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                <span>{backupMessage}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="text-[11px] text-ink-3 leading-relaxed">
+            <strong>Production Safety:</strong> In production (Railway / Cloud PostgreSQL), your remote database is safeguarded with cloud-level snapshots. You can also click <strong>Download Backup (.json)</strong> anytime to export and keep a complete copy of all your company profile data, invoices, products, and ledger accounts offline on your computer.
+          </div>
+        </div>
 
         {saveSuccess && (
           <div className="p-3 bg-success-bg text-success border border-success/30 rounded-sm text-xs flex items-center gap-2 font-medium">
