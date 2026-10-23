@@ -14,7 +14,8 @@
     "test:live-llm": "tsx scripts/test-live-llm.ts",
     "hash-password": "tsx scripts/hash-password.ts",
     "seed": "tsx prisma/seed.ts",
-    "seed:legacy": "tsx scripts/seed-from-xlsx.ts --with-legacy-transactions"
+    "seed:legacy": "tsx scripts/seed-from-xlsx.ts --with-legacy-transactions",
+    "backup": "tsx scripts/daily-backup.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
