@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft, Download, Database, ShieldCheck, Clock, FileJson } from "lucide-react";
+import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft, Download, Database, ShieldCheck, Clock, FileJson, Upload } from "lucide-react";
 
 interface ProviderInfo {
   id: string;
@@ -73,6 +73,36 @@ export default function SettingsPage() {
     } finally {
       setBackupTriggering(false);
       setTimeout(() => setBackupMessage(null), 5000);
+    }
+  };
+
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setBackupTriggering(true);
+    setBackupMessage("Reading and restoring backup data into database...");
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const res = await fetch("/api/admin/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore", data: json }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setBackupMessage("Production changes & backup restored successfully into database!");
+        await fetchBackupInfo();
+      } else {
+        setBackupMessage(`Restore failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setBackupMessage(`Restore error: ${err.message}`);
+    } finally {
+      setBackupTriggering(false);
+      e.target.value = "";
+      setTimeout(() => setBackupMessage(null), 6000);
     }
   };
 
@@ -463,7 +493,7 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <a
                   href="/api/admin/backup?action=download"
                   download
@@ -472,6 +502,17 @@ export default function SettingsPage() {
                   <Download className="w-3.5 h-3.5" />
                   <span>Download Backup (.json)</span>
                 </a>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border text-ink rounded-sm text-xs font-medium hover:bg-surface-2 transition cursor-pointer">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Restore / Sync from Prod</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={handleRestoreFile}
+                    disabled={backupTriggering}
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={handleTriggerBackup}
@@ -492,8 +533,13 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div className="text-[11px] text-ink-3 leading-relaxed">
-            <strong>Production Safety:</strong> In production (Railway / Cloud PostgreSQL), your remote database is safeguarded with cloud-level snapshots. You can also click <strong>Download Backup (.json)</strong> anytime to export and keep a complete copy of all your company profile data, invoices, products, and ledger accounts offline on your computer.
+          <div className="text-[11px] text-ink-3 leading-relaxed space-y-1">
+            <div>
+              <strong>Syncing with Production:</strong> Any changes made in production (products, commercial names, invoices, customers, ledger entries) can be brought into your local environment with 1 click using <strong>Restore / Sync from Prod</strong> (select the JSON downloaded from production) or in your terminal via <code className="bg-surface px-1 py-0.5 rounded text-ink">npm run pull:production</code>.
+            </div>
+            <div>
+              <strong>Real-Time Live Mirroring:</strong> You can also point <code className="bg-surface px-1 py-0.5 rounded text-ink">DATABASE_URL</code> in your local <code className="bg-surface px-1 py-0.5 rounded text-ink">.env</code> directly to your production PostgreSQL connection string to share live data in real time.
+            </div>
           </div>
         </div>
 

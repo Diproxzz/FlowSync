@@ -2,29 +2,19 @@ import path from "path";
 import fs from "fs";
 import { prisma } from "@/lib/db";
 
-let isSynced = false;
+let lastSyncMtime = 0;
 
 function normalize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-export async function ensureProductMasterSynced() {
-  if (isSynced) return;
+export async function ensureProductMasterSynced(force = false) {
+  const jsonPath = path.resolve(process.cwd(), "data/seed/products-master.json");
+  if (!fs.existsSync(jsonPath)) return;
 
   try {
-    const aa = await prisma.product.findUnique({
-      where: { code: "AA" },
-      select: { name: true },
-    });
-
-    // If AA already has its full commercial name, mark as synced and return
-    if (aa && aa.name === "AA ACTOIL") {
-      isSynced = true;
-      return;
-    }
-
-    const jsonPath = path.resolve(process.cwd(), "data/seed/products-master.json");
-    if (!fs.existsSync(jsonPath)) return;
+    const currentMtime = fs.statSync(jsonPath).mtimeMs;
+    if (!force && lastSyncMtime === currentMtime) return;
 
     const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as Array<{
       code: string;
@@ -87,7 +77,7 @@ export async function ensureProductMasterSynced() {
       }
     }
 
-    isSynced = true;
+    lastSyncMtime = currentMtime;
   } catch (err) {
     console.error("Auto product master sync error:", err);
   }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { runDailyBackup } from "@/../scripts/daily-backup";
+import { restoreFromJsonData } from "@/../scripts/restore-backup";
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,6 +75,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await request.json().catch(() => null);
+      if (body?.action === "restore" && body?.data) {
+        const restoreResult = await restoreFromJsonData(body.data);
+        return NextResponse.json(restoreResult);
+      }
+    }
+
     const result = await runDailyBackup();
     return NextResponse.json(result);
   } catch (error: any) {
