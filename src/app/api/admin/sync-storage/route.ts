@@ -25,22 +25,24 @@ export async function POST(request: NextRequest) {
     const storageDir = path.resolve(process.cwd(), env.STORAGE_LOCAL_DIR || "./storage");
     await fs.mkdir(storageDir, { recursive: true });
 
-    const arrayBuffer = await file.arrayBuffer();
-    const zipPath = path.join(storageDir, "temp_bundle.zip");
-    await fs.writeFile(zipPath, Buffer.from(arrayBuffer));
+    const filename = file.name || "temp_bundle.tar.gz";
+    const archivePath = path.join(storageDir, filename);
+    await fs.writeFile(archivePath, Buffer.from(arrayBuffer));
 
-    const pythonScript = `
+    if (filename.endsWith(".tar.gz") || filename.endsWith(".tgz")) {
+      await execFileAsync("tar", ["-xzf", archivePath, "-C", storageDir]);
+    } else if (filename.endsWith(".tar")) {
+      await execFileAsync("tar", ["-xf", archivePath, "-C", storageDir]);
+    } else {
+      const pythonScript = `
 import zipfile
-with zipfile.ZipFile(r"${zipPath.replace(/\\/g, "/")}", 'r') as z:
+with zipfile.ZipFile(r"${archivePath.replace(/\\/g, "/")}", 'r') as z:
     z.extractall(r"${storageDir.replace(/\\/g, "/")}")
 `;
-    const pythonBin = process.platform === "win32" ? "python" : "python3";
-    try {
+      const pythonBin = process.platform === "win32" ? "python" : "python3";
       await execFileAsync(pythonBin, ["-c", pythonScript]);
-    } catch {
-      await execFileAsync("tar", ["-xf", zipPath, "-C", storageDir]);
     }
-    await fs.unlink(zipPath).catch(() => {});
+    await fs.unlink(archivePath).catch(() => {});
 
     return NextResponse.json({ ok: true, message: "Storage synced successfully" });
   } catch (error: any) {

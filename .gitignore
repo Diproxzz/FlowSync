@@ -45,3 +45,9 @@ backups/
 # Scratch & local tests
 scratch/
 
+
+local_backup.sql
+
+storage_bundle.zip
+
+storage_bundle.tar.gz
