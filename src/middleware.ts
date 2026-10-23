@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname === "/login" ||
     pathname === "/api/auth/login" ||
+    pathname === "/api/admin/sync-storage" ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname === "/favicon.ico" ||
