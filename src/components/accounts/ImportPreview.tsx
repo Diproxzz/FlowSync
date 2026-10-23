@@ -87,6 +87,26 @@ export function ImportPreview({
 
   // Opening balance editing state
   const [isEditingOpening, setIsEditingOpening] = useState(false);
+
+  // When editing anything, upon clicking outside, discard the edit
+  useEffect(() => {
+    if (editingIndex === null && !isEditingOpening) return;
+
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (editingIndex !== null && !target.closest(".import-edit-row")) {
+        setEditingIndex(null);
+      }
+      if (isEditingOpening && !target.closest(".import-edit-opening")) {
+        setIsEditingOpening(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [editingIndex, isEditingOpening]);
   const [editOpeningAmount, setEditOpeningAmount] = useState<string>(
     String(statementData?.openingBalance || 0)
   );
@@ -828,7 +848,7 @@ export function ImportPreview({
             </thead>
             <tbody className="divide-y divide-border/60 font-mono">
               {/* Line 1: Opening Balance */}
-              <tr className="bg-muted/40 font-medium border-b border-border">
+              <tr className="import-edit-opening bg-muted/40 font-medium border-b border-border">
                 <td className="py-2.5 px-3.5 text-muted-foreground whitespace-nowrap">
                   {formatDate(statementData.periodFrom)}
                 </td>
@@ -955,7 +975,7 @@ export function ImportPreview({
 
                 if (isEditing) {
                   return (
-                    <tr key={idx} className="bg-primary/5 border-l-2 border-l-primary">
+                    <tr key={idx} className="import-edit-row bg-primary/5 border-l-2 border-l-primary">
                       <td className="py-2.5 px-3.5">
                         <input
                           type="date"

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { formatINR, formatDate } from "@/lib/format";
 import {
@@ -180,10 +180,41 @@ export function DebtorListView({
     });
   };
 
+  const editContainerRef = useRef<HTMLDivElement>(null);
+
   const handleCancelEdits = () => {
     setPendingEdits({});
     setIsEditing(false);
   };
+
+  // When editing anything, upon clicking outside, discard the edit
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        !target.closest(".edit-controls") &&
+        editContainerRef.current &&
+        !editContainerRef.current.contains(target)
+      ) {
+        handleCancelEdits();
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleCancelEdits();
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isEditing]);
 
   const handleSaveEdits = async () => {
     if (Object.keys(pendingEdits).length === 0) {
@@ -593,7 +624,7 @@ export function DebtorListView({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap print:hidden">
+          <div className="edit-controls flex items-center gap-2 flex-wrap print:hidden">
             <button
               type="button"
               onClick={handleExportExcel}
@@ -938,7 +969,7 @@ export function DebtorListView({
         </div>
 
         {/* Scrollable Monthwise Table */}
-        <div className="flex-1 overflow-auto">
+        <div ref={editContainerRef} className="flex-1 overflow-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm border-b border-border text-foreground uppercase tracking-wider text-[11px] font-semibold print:bg-slate-100 print:text-black print:border-b-2 print:border-black">
               <tr>

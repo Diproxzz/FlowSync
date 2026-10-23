@@ -305,15 +305,13 @@ export default function InvoiceDetailPage({
             </button>
           )}
 
-          {invoice.source_file_key && (
-            <button
-              onClick={() => setShowFile(!showFile)}
-              className="h-8 px-3 border border-border bg-surface text-ink hover:bg-surface-2 rounded-sm text-xs font-medium flex items-center gap-1.5 transition"
-            >
-              <Eye className="w-3.5 h-3.5 text-ink-3" />
-              <span>{showFile ? "Hide Source" : "View Source PDF"}</span>
-            </button>
-          )}
+          <button
+            onClick={() => setShowFile(!showFile)}
+            className="h-8 px-3 border border-border bg-surface text-ink hover:bg-surface-2 rounded-sm text-xs font-medium flex items-center gap-1.5 transition shadow-xs"
+          >
+            <Eye className="w-3.5 h-3.5 text-ink-3" />
+            <span>{showFile ? "Hide Source PDF" : "View Source PDF"}</span>
+          </button>
 
           <button
             onClick={handleDelete}
@@ -469,27 +467,30 @@ export default function InvoiceDetailPage({
         </div>
       </div>
 
-      {/* Optional Split View: Source PDF Viewer */}
-      {showFile && invoice.source_file_key && (
-        <div className="bg-surface border border-border rounded-sm overflow-hidden">
-          <div className="bg-surface-2 px-4 py-2 border-b border-border flex items-center justify-between text-xs">
+      {/* Document PDF / Tax Invoice Viewer */}
+      {showFile && (
+        <div className="bg-surface border border-border rounded-sm overflow-hidden shadow-xs">
+          <div className="bg-surface-2 px-4 py-2.5 border-b border-border flex items-center justify-between text-xs">
             <span className="font-medium text-ink flex items-center gap-2">
-              <FileText className="w-3.5 h-3.5 text-primary" /> Original Scanned Document
+              <FileText className="w-3.5 h-3.5 text-primary" />
+              <span>{invoice.source_file_key ? "Original Scanned Document" : "Tax Invoice (Saved in Database)"}</span>
             </span>
-            <a
-              href={`/api/invoices/${invoice.id}/file`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline flex items-center gap-1 text-[11px]"
-            >
-              Open in new tab <ExternalLink className="w-3 h-3" />
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href={`/api/invoices/${invoice.id}/file`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline flex items-center gap-1 text-xs font-medium"
+              >
+                Open in new tab <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
-          <div className="h-[650px] w-full bg-surface-2">
+          <div className="h-[750px] w-full bg-surface-2">
             <iframe
               src={`/api/invoices/${invoice.id}/file`}
               className="w-full h-full border-0"
-              title="Original Document PDF"
+              title="Invoice PDF Document"
             />
           </div>
         </div>

@@ -118,6 +118,23 @@ export default function StockPage() {
     setSaveError(null);
   };
 
+  // When editing anything, upon clicking outside, discard the edit
+  useEffect(() => {
+    if (!editingId) return;
+
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".stock-edit-row")) {
+        handleCancelEdit();
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [editingId]);
+
   const handleSaveEdit = async (productId: string) => {
     setSavingId(productId);
     setSaveError(null);
@@ -451,7 +468,7 @@ export default function StockPage() {
                     };
 
                     return (
-                      <tr key={r.productId} className="bg-primary/5 border-2 border-primary/40">
+                      <tr key={r.productId} className="stock-edit-row bg-primary/5 border-2 border-primary/40">
                         {/* Product Code & Name */}
                         <td className="py-2 px-3">
                           <span className="font-mono font-semibold text-primary block">{r.code}</span>

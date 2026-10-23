@@ -108,14 +108,9 @@ export function InvoiceGeneratorView() {
     },
   ]);
 
-  // Product Autocomplete floating dropdown state (fixed position escapes all table clipping)
+  // Product Autocomplete dropdown state (anchored relatively to the input holder)
   const [activeProductIndex, setActiveProductIndex] = useState<number | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState("");
-  const [productDropdownPos, setProductDropdownPos] = useState<{ top: number; left: number; width: number }>({
-    top: 0,
-    left: 0,
-    width: 360,
-  });
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -259,14 +254,8 @@ export function InvoiceGeneratorView() {
     });
   };
 
-  // Focus on product input: compute fixed coordinates for floating dropdown
-  const handleProductInputFocus = (e: React.FocusEvent<HTMLInputElement>, idx: number) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setProductDropdownPos({
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: Math.max(rect.width, 360),
-    });
+  // Focus on product input: open autocomplete dropdown relative to active input
+  const handleProductInputFocus = (idx: number) => {
     setActiveProductIndex(idx);
     setProductSearchQuery(lines[idx].product);
   };
@@ -759,7 +748,7 @@ export function InvoiceGeneratorView() {
               </button>
             </div>
 
-            <div className="overflow-x-auto pb-8">
+            <div className="overflow-x-auto pb-32">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-surface-2 text-ink-2 font-medium border-b border-border">
@@ -785,25 +774,53 @@ export function InvoiceGeneratorView() {
                           {idx + 1}
                         </td>
 
-                        {/* Product Input with Floating Autocomplete */}
-                        <td className="py-2 px-2">
-                          <input
-                            type="text"
-                            value={line.product}
-                            onChange={(e) => {
-                              updateLine(idx, "product", e.target.value);
-                              setProductSearchQuery(e.target.value);
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setProductDropdownPos({
-                                top: rect.bottom + 4,
-                                left: rect.left,
-                                width: Math.max(rect.width, 360),
-                              });
-                              setActiveProductIndex(idx);
-                            }}
-                            onFocus={(e) => handleProductInputFocus(e, idx)}
-                            className="product-input-field w-full px-2 py-1 text-xs bg-surface border border-border rounded-sm text-ink focus:outline-none focus:border-primary font-medium uppercase"
-                          />
+                        {/* Product Input with Autocomplete relative to input holder */}
+                        <td className="py-2 px-2 min-w-[220px]">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={line.product}
+                              onChange={(e) => {
+                                updateLine(idx, "product", e.target.value);
+                                setProductSearchQuery(e.target.value);
+                                setActiveProductIndex(idx);
+                              }}
+                              onFocus={() => handleProductInputFocus(idx)}
+                              className="product-input-field w-full px-2 py-1 text-xs bg-surface border border-border rounded-sm text-ink focus:outline-none focus:border-primary font-medium uppercase"
+                              placeholder="Type product name..."
+                            />
+
+                            {/* Dropdown positioned directly relative to input holder with theme-aware styling */}
+                            {activeProductIndex === idx && filteredProducts.length > 0 && (
+                              <div className="product-autocomplete-dropdown absolute left-0 top-full mt-1 w-full min-w-[340px] z-50 bg-surface border border-border rounded-md shadow-2xl max-h-56 overflow-y-auto divide-y divide-border">
+                                {filteredProducts.map((p) => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault(); // prevent blur before selection
+                                      handleSelectProduct(idx, p);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-surface-2 transition flex justify-between items-center text-ink cursor-pointer"
+                                  >
+                                    <div>
+                                      <span className="font-semibold text-ink">
+                                        {p.commercialName}
+                                      </span>
+                                      {p.commercialName !== p.name && (
+                                        <span className="text-[10px] text-ink-3 ml-1.5 font-normal">
+                                          ({p.name})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-mono text-ink-3 text-[11px] shrink-0 ml-2">
+                                      HSN: {p.default_hsn || "—"} | Pack: {p.pack_size_kg || "—"}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </td>
 
                         {/* Pack */}
@@ -905,45 +922,7 @@ export function InvoiceGeneratorView() {
               </table>
             </div>
 
-            {/* Floating Product Autocomplete Dropdown with fixed positioning (never clipped by table overflow) */}
-            {activeProductIndex !== null && filteredProducts.length > 0 && (
-              <div
-                style={{
-                  position: "fixed",
-                  top: productDropdownPos.top,
-                  left: productDropdownPos.left,
-                  width: productDropdownPos.width,
-                  zIndex: 9999,
-                }}
-                className="product-autocomplete-dropdown bg-surface border border-border rounded shadow-2xl max-h-56 overflow-y-auto divide-y divide-border bg-white"
-              >
-                {filteredProducts.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault(); // prevent blur
-                      handleSelectProduct(activeProductIndex, p);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-surface-2 transition flex justify-between items-center"
-                  >
-                    <div>
-                      <span className="font-semibold text-ink">
-                        {p.commercialName}
-                      </span>
-                      {p.commercialName !== p.name && (
-                        <span className="text-[10px] text-ink-3 ml-1.5">
-                          ({p.name})
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-mono text-ink-3 text-[11px]">
-                      HSN: {p.default_hsn || "—"} | Pack: {p.pack_size_kg || "—"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+
 
             {/* Subtotal, Roundoff & Totals Summary Panel */}
             <div className="pt-4 border-t border-border flex flex-col md:flex-row justify-between gap-6">
