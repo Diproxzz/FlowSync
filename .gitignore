@@ -14,7 +14,7 @@ dist/
 # /src/generated/
 
 # Storage & temp
-storage/
+/storage/
 tmp/
 temp/
 *.log
