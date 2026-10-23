@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession, createSessionToken, setSessionCookie } from "@/lib/auth/session";
 import { getClientById } from "@/lib/clients/store";

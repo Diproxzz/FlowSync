@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseMargStatementPdf, parseMargStatementText } from "@/lib/ledger/parse/marg";
