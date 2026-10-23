@@ -14,4 +14,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npx prisma db push --accept-data-loss && npm run start"
+cmd = "npx prisma db push --accept-data-loss && npx tsx scripts/sync-product-master.ts && npm run start"

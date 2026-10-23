@@ -1,0 +1,1109 @@
+[
+  {
+    "code": "AA",
+    "name": "AA ACTOIL",
+    "category": "ACTOIL",
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 98.3,
+    "std_purchase_rate": 96,
+    "std_sale_rate": 106,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ACTOIL AA",
+      "AA ACTOIL",
+      "AA"
+    ]
+  },
+  {
+    "code": "AC",
+    "name": "AC",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 120,
+    "landing_cost": 100,
+    "std_purchase_rate": 183,
+    "std_sale_rate": 183,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "ACT E",
+    "name": "ACTILIME E",
+    "category": null,
+    "default_hsn": "29221900",
+    "pack_size_kg": 120,
+    "landing_cost": 120,
+    "std_purchase_rate": 74,
+    "std_sale_rate": 102,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ACTILIME E"
+    ]
+  },
+  {
+    "code": "Act. Conc",
+    "name": "ACTAZYME A CONC.",
+    "category": null,
+    "default_hsn": "32029030",
+    "pack_size_kg": 25,
+    "landing_cost": 157,
+    "std_purchase_rate": 139,
+    "std_sale_rate": 180,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ACTAZYME A CONC."
+    ]
+  },
+  {
+    "code": "ACT.A",
+    "name": "ACTAZYME A",
+    "category": null,
+    "default_hsn": "32029030",
+    "pack_size_kg": 25,
+    "landing_cost": 124,
+    "std_purchase_rate": 124,
+    "std_sale_rate": 155,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ACTAZYM-A",
+      "ACTAZYME A"
+    ]
+  },
+  {
+    "code": "ACTYBIND PU 1169",
+    "name": "ACTYBIND PU 1169",
+    "category": null,
+    "default_hsn": "38099390",
+    "pack_size_kg": 60,
+    "landing_cost": 350,
+    "std_purchase_rate": null,
+    "std_sale_rate": 362,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ACTYBIND PU 1169"
+    ]
+  },
+  {
+    "code": "ALFI",
+    "name": "ALFI ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 131,
+    "std_purchase_rate": 130,
+    "std_sale_rate": 196,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ALFI ACTAN"
+    ]
+  },
+  {
+    "code": "AM",
+    "name": "AM",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 25,
+    "landing_cost": 100,
+    "std_purchase_rate": 115,
+    "std_sale_rate": 125,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "AMMONIUM BI-CARBONATE",
+    "name": "AMMONIUM BI-CARBONATE",
+    "category": null,
+    "default_hsn": "28369990",
+    "pack_size_kg": null,
+    "landing_cost": 50,
+    "std_purchase_rate": 32,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "AMMONIUM BI-CARBONATE"
+    ]
+  },
+  {
+    "code": "AW",
+    "name": "BIO AW ACTIDEC",
+    "category": null,
+    "default_hsn": "38099390",
+    "pack_size_kg": 25,
+    "landing_cost": 158,
+    "std_purchase_rate": 210,
+    "std_sale_rate": 203,
+    "reorder_level_kg": null,
+    "aliases": [
+      "BIO AW ACTIDEC"
+    ]
+  },
+  {
+    "code": "BASIC CHROME SULPHATE",
+    "name": "BASIC CHROME SULPHATE",
+    "category": null,
+    "default_hsn": "32029010",
+    "pack_size_kg": null,
+    "landing_cost": 80,
+    "std_purchase_rate": 82,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "BASIC CHROME SULPHATE"
+    ]
+  },
+  {
+    "code": "BAYER CREAM",
+    "name": "BAYER CREAM",
+    "category": null,
+    "default_hsn": "30049099",
+    "pack_size_kg": null,
+    "landing_cost": 420,
+    "std_purchase_rate": null,
+    "std_sale_rate": 446,
+    "reorder_level_kg": null,
+    "aliases": [
+      "BAYER CREAM"
+    ]
+  },
+  {
+    "code": "BESTRUB 108",
+    "name": "BESTRUB 108",
+    "category": null,
+    "default_hsn": "40025100",
+    "pack_size_kg": null,
+    "landing_cost": 135,
+    "std_purchase_rate": null,
+    "std_sale_rate": 320,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "BPR",
+    "name": "BPR",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 120,
+    "landing_cost": null,
+    "std_purchase_rate": 256,
+    "std_sale_rate": 355,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "BU ACTRACT",
+    "name": "BU ACTRACT",
+    "category": null,
+    "default_hsn": "32029020",
+    "pack_size_kg": 20,
+    "landing_cost": 242,
+    "std_purchase_rate": null,
+    "std_sale_rate": 276,
+    "reorder_level_kg": null,
+    "aliases": [
+      "BU ACTRACT"
+    ]
+  },
+  {
+    "code": "C5I",
+    "name": "C5I BIOCIDE",
+    "category": "BIOCIDE",
+    "default_hsn": "38099390",
+    "pack_size_kg": 20,
+    "landing_cost": 726,
+    "std_purchase_rate": 600,
+    "std_sale_rate": 900,
+    "reorder_level_kg": null,
+    "aliases": [
+      "C51 BIOCIDE",
+      "C51 BIOCIDЕ",
+      "C5I BIOCIDE",
+      "C5I",
+      "BIOCIDE C5I"
+    ]
+  },
+  {
+    "code": "CBSI BROWN",
+    "name": "CBSI BROWN",
+    "category": null,
+    "default_hsn": "32041217",
+    "pack_size_kg": 25,
+    "landing_cost": null,
+    "std_purchase_rate": null,
+    "std_sale_rate": 524,
+    "reorder_level_kg": null,
+    "aliases": [
+      "CBSI BROWN"
+    ]
+  },
+  {
+    "code": "CM BROWN",
+    "name": "CM BROWN",
+    "category": null,
+    "default_hsn": "32041217",
+    "pack_size_kg": 25,
+    "landing_cost": null,
+    "std_purchase_rate": null,
+    "std_sale_rate": 634,
+    "reorder_level_kg": null,
+    "aliases": [
+      "CM BROWN"
+    ]
+  },
+  {
+    "code": "CONTAINER STORAGE",
+    "name": "CONTAINER STORAGE",
+    "category": null,
+    "default_hsn": "996729",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 800,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "CONTAINER STORAGE"
+    ]
+  },
+  {
+    "code": "CONTAINER TRANSPORT",
+    "name": "CONTAINER TRANSPORT",
+    "category": null,
+    "default_hsn": "996711",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 9750,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "CONTAINER TRANSPORT"
+    ]
+  },
+  {
+    "code": "CRTI",
+    "name": "CRTI ACTIFIX",
+    "category": null,
+    "default_hsn": "38099390",
+    "pack_size_kg": 25,
+    "landing_cost": 61,
+    "std_purchase_rate": 62,
+    "std_sale_rate": 85,
+    "reorder_level_kg": null,
+    "aliases": [
+      "CRTI ACTIFIX"
+    ]
+  },
+  {
+    "code": "CSY ACTYBIND",
+    "name": "CSY ACTYBIND",
+    "category": null,
+    "default_hsn": "38099390",
+    "pack_size_kg": 120,
+    "landing_cost": 210,
+    "std_purchase_rate": null,
+    "std_sale_rate": 239,
+    "reorder_level_kg": null,
+    "aliases": [
+      "CSY ACTYBIND"
+    ]
+  },
+  {
+    "code": "CWET",
+    "name": "CWET-40",
+    "category": null,
+    "default_hsn": "34021190",
+    "pack_size_kg": 50,
+    "landing_cost": 40,
+    "std_purchase_rate": 45,
+    "std_sale_rate": 245,
+    "reorder_level_kg": null,
+    "aliases": [
+      "CWET-40"
+    ]
+  },
+  {
+    "code": "DB",
+    "name": "DB ACTOL",
+    "category": null,
+    "default_hsn": "34021190",
+    "pack_size_kg": 120,
+    "landing_cost": 228,
+    "std_purchase_rate": 86,
+    "std_sale_rate": 103,
+    "reorder_level_kg": null,
+    "aliases": [
+      "DB ACTOL"
+    ]
+  },
+  {
+    "code": "DCD",
+    "name": "DCD",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 25,
+    "landing_cost": 100,
+    "std_purchase_rate": 120,
+    "std_sale_rate": 140,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "DESTINATION BOND FEE",
+    "name": "DESTINATION BOND FEE",
+    "category": null,
+    "default_hsn": "996713",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 500,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "DESTINATION BOND FEE"
+    ]
+  },
+  {
+    "code": "DESTINATION CFS CHARGES",
+    "name": "DESTINATION CFS CHARGES",
+    "category": null,
+    "default_hsn": "996713",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 10550,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "DESTINATION CFS CHARGES"
+    ]
+  },
+  {
+    "code": "DESTINATION CUSTOM CLEARANCE",
+    "name": "DESTINATION CUSTOM CLEARANCE",
+    "category": null,
+    "default_hsn": "996713",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 5000,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "DESTINATION CUSTOM CLEARANCE"
+    ]
+  },
+  {
+    "code": "DESTINATION TRANSPORTATION CHARGES",
+    "name": "DESTINATION TRANSPORTATION CHARGES",
+    "category": null,
+    "default_hsn": "996713",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 14000,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "DESTINATION TRANSPORTATION CHARGES"
+    ]
+  },
+  {
+    "code": "DLPS",
+    "name": "ACTIPACT DLP-S",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": null,
+    "landing_cost": 326,
+    "std_purchase_rate": 380,
+    "std_sale_rate": 460,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "ECO 6",
+    "name": "ECO 6 ACTYL",
+    "category": null,
+    "default_hsn": "38099390",
+    "pack_size_kg": 25,
+    "landing_cost": 222,
+    "std_purchase_rate": 250,
+    "std_sale_rate": 330,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ECO 6 ACTYL"
+    ]
+  },
+  {
+    "code": "EF",
+    "name": "EF",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 120,
+    "landing_cost": 200,
+    "std_purchase_rate": 220,
+    "std_sale_rate": 260,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "FCMI",
+    "name": "FCMI",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 25,
+    "landing_cost": 100,
+    "std_purchase_rate": 125,
+    "std_sale_rate": 140,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "FCTI",
+    "name": "FCTI",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 25,
+    "landing_cost": 100,
+    "std_purchase_rate": 130,
+    "std_sale_rate": 145,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "FD",
+    "name": "FD ACTRACT",
+    "category": null,
+    "default_hsn": "32029090",
+    "pack_size_kg": 25,
+    "landing_cost": 82,
+    "std_purchase_rate": 100,
+    "std_sale_rate": 120,
+    "reorder_level_kg": null,
+    "aliases": [
+      "FD ACTRACT"
+    ]
+  },
+  {
+    "code": "FI",
+    "name": "FI ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 140,
+    "std_purchase_rate": 140,
+    "std_sale_rate": 160,
+    "reorder_level_kg": null,
+    "aliases": [
+      "FI ACTAN"
+    ]
+  },
+  {
+    "code": "FP",
+    "name": "FP ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 101,
+    "std_purchase_rate": 100,
+    "std_sale_rate": 125,
+    "reorder_level_kg": null,
+    "aliases": [
+      "FP ACTAN"
+    ]
+  },
+  {
+    "code": "G1",
+    "name": "G1",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 100,
+    "landing_cost": 100,
+    "std_purchase_rate": 105,
+    "std_sale_rate": 135,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "G2",
+    "name": "G2",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 100,
+    "landing_cost": 100,
+    "std_purchase_rate": 95,
+    "std_sale_rate": 130,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "G50",
+    "name": "G50",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 120,
+    "landing_cost": 500,
+    "std_purchase_rate": 102,
+    "std_sale_rate": 125,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "GAC ACTAN",
+    "name": "GAC ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 20,
+    "landing_cost": 221,
+    "std_purchase_rate": null,
+    "std_sale_rate": 221,
+    "reorder_level_kg": null,
+    "aliases": [
+      "GAC ACTAN"
+    ]
+  },
+  {
+    "code": "ITS",
+    "name": "ITS",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 110,
+    "landing_cost": 200,
+    "std_purchase_rate": 210,
+    "std_sale_rate": 278,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "KG",
+    "name": "KG ACTOIL",
+    "category": null,
+    "default_hsn": "40025100",
+    "pack_size_kg": 110,
+    "landing_cost": 92.75,
+    "std_purchase_rate": 93,
+    "std_sale_rate": 93,
+    "reorder_level_kg": null,
+    "aliases": [
+      "KG ACTOIL"
+    ]
+  },
+  {
+    "code": "KI",
+    "name": "KI ACTOL",
+    "category": null,
+    "default_hsn": "34021190",
+    "pack_size_kg": 120,
+    "landing_cost": 72,
+    "std_purchase_rate": 85,
+    "std_sale_rate": 103,
+    "reorder_level_kg": null,
+    "aliases": [
+      "KI ACTOIL",
+      "KI ACTOL"
+    ]
+  },
+  {
+    "code": "KR",
+    "name": "NUROL KR",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 180,
+    "std_purchase_rate": 163,
+    "std_sale_rate": 175,
+    "reorder_level_kg": null,
+    "aliases": [
+      "NUROL KR"
+    ]
+  },
+  {
+    "code": "LA",
+    "name": "LA ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 83,
+    "std_purchase_rate": 120,
+    "std_sale_rate": 150,
+    "reorder_level_kg": null,
+    "aliases": [
+      "LA ACTAN"
+    ]
+  },
+  {
+    "code": "LIFT N LIFT OFF RECEIVABLE",
+    "name": "LIFT N LIFT OFF RECEIVABLE",
+    "category": null,
+    "default_hsn": "996711",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 4576,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "LIFT N LIFT OFF RECEIVABLE"
+    ]
+  },
+  {
+    "code": "LORRY FREIGHT",
+    "name": "LORRY FREIGHT",
+    "category": null,
+    "default_hsn": "996511",
+    "pack_size_kg": null,
+    "landing_cost": null,
+    "std_purchase_rate": 5.5,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "LORRY FREIGHT"
+    ]
+  },
+  {
+    "code": "MDI",
+    "name": "MDI",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 110,
+    "landing_cost": 100,
+    "std_purchase_rate": 105,
+    "std_sale_rate": 130,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "NHI",
+    "name": "NHI ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 95,
+    "std_purchase_rate": 100,
+    "std_sale_rate": 120,
+    "reorder_level_kg": null,
+    "aliases": [
+      "NHI ACTAN"
+    ]
+  },
+  {
+    "code": "NSA",
+    "name": "NSA ACTIPICKLE",
+    "category": null,
+    "default_hsn": "38099390",
+    "pack_size_kg": 25,
+    "landing_cost": 204,
+    "std_purchase_rate": 148,
+    "std_sale_rate": 148,
+    "reorder_level_kg": null,
+    "aliases": [
+      "NSA ACTIPICKLE"
+    ]
+  },
+  {
+    "code": "NSCI",
+    "name": "NSCI ACTOIL",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 165,
+    "std_purchase_rate": 165,
+    "std_sale_rate": 221,
+    "reorder_level_kg": null,
+    "aliases": [
+      "NSCI ACTOIL"
+    ]
+  },
+  {
+    "code": "OIT 9",
+    "name": "OIT 9 ACTISOLV",
+    "category": null,
+    "default_hsn": "38099390",
+    "pack_size_kg": 30,
+    "landing_cost": 900,
+    "std_purchase_rate": 149,
+    "std_sale_rate": 229,
+    "reorder_level_kg": null,
+    "aliases": [
+      "OIT 9 ACTISOLV",
+      "OIT9 BIOCIDЕ",
+      "OIT9 ACTISOLV"
+    ]
+  },
+  {
+    "code": "OPTICAL BRIGHTNERS(OB)",
+    "name": "OPTICAL BRIGHTNERS(OB)",
+    "category": null,
+    "default_hsn": "32042090",
+    "pack_size_kg": null,
+    "landing_cost": 2500,
+    "std_purchase_rate": 2650,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "OPTICAL BRIGHTNERS(OB)"
+    ]
+  },
+  {
+    "code": "OX90",
+    "name": "OX90",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 120,
+    "landing_cost": 250,
+    "std_purchase_rate": 250,
+    "std_sale_rate": 280,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "PAC ACTAN",
+    "name": "PAC ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 125,
+    "landing_cost": 168,
+    "std_purchase_rate": null,
+    "std_sale_rate": 190,
+    "reorder_level_kg": null,
+    "aliases": [
+      "PAC ACTAN"
+    ]
+  },
+  {
+    "code": "PBS",
+    "name": "PBS",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 120,
+    "landing_cost": 150,
+    "std_purchase_rate": 150,
+    "std_sale_rate": 150,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "PIGMENT WHITE C18",
+    "name": "PIGMENT WHITE C18",
+    "category": null,
+    "default_hsn": "32041761",
+    "pack_size_kg": 35,
+    "landing_cost": 200,
+    "std_purchase_rate": null,
+    "std_sale_rate": 250,
+    "reorder_level_kg": null,
+    "aliases": [
+      "PIGMENT WHITE C18"
+    ]
+  },
+  {
+    "code": "RM",
+    "name": "RM ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 120,
+    "std_purchase_rate": 123,
+    "std_sale_rate": 126,
+    "reorder_level_kg": null,
+    "aliases": [
+      "RM ACTAN"
+    ]
+  },
+  {
+    "code": "RP7",
+    "name": "RP7",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 25,
+    "landing_cost": 100,
+    "std_purchase_rate": 100,
+    "std_sale_rate": 125,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "RPN",
+    "name": "RPN",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 25,
+    "landing_cost": 100,
+    "std_purchase_rate": 100,
+    "std_sale_rate": 120,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "RU",
+    "name": "RU ACTIPACT",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 120,
+    "landing_cost": 295,
+    "std_purchase_rate": 176,
+    "std_sale_rate": 198,
+    "reorder_level_kg": null,
+    "aliases": [
+      "RU ACTIPACT"
+    ]
+  },
+  {
+    "code": "SBAI",
+    "name": "SBAI ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 97,
+    "std_purchase_rate": 115,
+    "std_sale_rate": 140,
+    "reorder_level_kg": null,
+    "aliases": [
+      "SBAI ACTAN"
+    ]
+  },
+  {
+    "code": "SBL",
+    "name": "SBL ACTOIL",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 100,
+    "std_purchase_rate": 99,
+    "std_sale_rate": 112,
+    "reorder_level_kg": null,
+    "aliases": [
+      "SBL ACTOIL"
+    ]
+  },
+  {
+    "code": "SC ACTAN 50-1",
+    "name": "SC ACTAN 50-1",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": null,
+    "landing_cost": 265,
+    "std_purchase_rate": 265,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "SC ACTAN 50-1"
+    ]
+  },
+  {
+    "code": "Silcoat",
+    "name": "Silcoat CS30,OSOL TSM3",
+    "category": null,
+    "default_hsn": "38241000",
+    "pack_size_kg": 60,
+    "landing_cost": 47,
+    "std_purchase_rate": 45,
+    "std_sale_rate": 122,
+    "reorder_level_kg": null,
+    "aliases": [
+      "Silcoat CS30,OSOL TSM3"
+    ]
+  },
+  {
+    "code": "SILCOAT CS30 OSOL TSM4",
+    "name": "SILCOAT CS30 OSOL TSM4",
+    "category": null,
+    "default_hsn": "38241000",
+    "pack_size_kg": null,
+    "landing_cost": 54,
+    "std_purchase_rate": 52,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "SILCOAT CS30 OSOL TSM4"
+    ]
+  },
+  {
+    "code": "SNA",
+    "name": "SNA ACTOIL",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 99.3,
+    "std_purchase_rate": 97,
+    "std_sale_rate": 111,
+    "reorder_level_kg": null,
+    "aliases": [
+      "SNA ACTOIL"
+    ]
+  },
+  {
+    "code": "SUL",
+    "name": "SARCUROL SUL",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 150,
+    "landing_cost": 150,
+    "std_purchase_rate": 148,
+    "std_sale_rate": 185,
+    "reorder_level_kg": null,
+    "aliases": [
+      "SARCULROL SUL",
+      "SARCUROL SUL"
+    ]
+  },
+  {
+    "code": "SUM",
+    "name": "SUM",
+    "category": null,
+    "default_hsn": null,
+    "pack_size_kg": 120,
+    "landing_cost": 100,
+    "std_purchase_rate": 67,
+    "std_sale_rate": 125,
+    "reorder_level_kg": null,
+    "aliases": []
+  },
+  {
+    "code": "TiO2",
+    "name": "TITANIUM DIOXIDE",
+    "category": null,
+    "default_hsn": "28230010",
+    "pack_size_kg": 25,
+    "landing_cost": 180,
+    "std_purchase_rate": 175,
+    "std_sale_rate": 225,
+    "reorder_level_kg": null,
+    "aliases": [
+      "TITANIUM DIOXIDE"
+    ]
+  },
+  {
+    "code": "TiO2 R",
+    "name": "TITANIUM DIOXIDE(R-6618)",
+    "category": null,
+    "default_hsn": "32061110",
+    "pack_size_kg": 25,
+    "landing_cost": 230,
+    "std_purchase_rate": 230,
+    "std_sale_rate": 282,
+    "reorder_level_kg": null,
+    "aliases": [
+      "TITANIUM DIOXIDE(R-6618)"
+    ]
+  },
+  {
+    "code": "UG ACTOIL",
+    "name": "UG ACTOIL",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": null,
+    "landing_cost": 110,
+    "std_purchase_rate": 110,
+    "std_sale_rate": null,
+    "reorder_level_kg": null,
+    "aliases": [
+      "UG ACTOIL"
+    ]
+  },
+  {
+    "code": "WAK",
+    "name": "WAK ACTOIL",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 95.5,
+    "std_purchase_rate": 94,
+    "std_sale_rate": 102,
+    "reorder_level_kg": null,
+    "aliases": [
+      "WAK ACTOIL"
+    ]
+  },
+  {
+    "code": "WFAT",
+    "name": "BESTOIL W FAT",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 105,
+    "std_purchase_rate": 130,
+    "std_sale_rate": 135,
+    "reorder_level_kg": null,
+    "aliases": [
+      "BESTOIL W FAT"
+    ]
+  },
+  {
+    "code": "WTI",
+    "name": "WTI ACTAN",
+    "category": null,
+    "default_hsn": "32021000",
+    "pack_size_kg": 25,
+    "landing_cost": 100,
+    "std_purchase_rate": 125,
+    "std_sale_rate": 157,
+    "reorder_level_kg": null,
+    "aliases": [
+      "WTI ACTAN"
+    ]
+  },
+  {
+    "code": "XAC",
+    "name": "XAC ACTOIL",
+    "category": null,
+    "default_hsn": "34039100",
+    "pack_size_kg": 120,
+    "landing_cost": 132.75,
+    "std_purchase_rate": 135,
+    "std_sale_rate": 160,
+    "reorder_level_kg": null,
+    "aliases": [
+      "XAC ACTOIL"
+    ]
+  },
+  {
+    "code": "XNB 900",
+    "name": "APCOTEX XNB900",
+    "category": null,
+    "default_hsn": "40025100",
+    "pack_size_kg": 200,
+    "landing_cost": 135,
+    "std_purchase_rate": 160,
+    "std_sale_rate": 270,
+    "reorder_level_kg": null,
+    "aliases": [
+      "APCOTEX XNB900"
+    ]
+  },
+  {
+    "code": "YELLOW POWDER(RUBBER GRADE)",
+    "name": "YELLOW POWDER(RUBBER GRADE)",
+    "category": null,
+    "default_hsn": "25030090",
+    "pack_size_kg": 25,
+    "landing_cost": 200,
+    "std_purchase_rate": null,
+    "std_sale_rate": 85,
+    "reorder_level_kg": null,
+    "aliases": [
+      "YELLOW POWDER(RUBBER GRADE)"
+    ]
+  },
+  {
+    "code": "ZDBC PILCURE",
+    "name": "ZDBC PILCURE",
+    "category": null,
+    "default_hsn": "38121000",
+    "pack_size_kg": 20,
+    "landing_cost": 200,
+    "std_purchase_rate": null,
+    "std_sale_rate": 365,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ZDBC PILCURE"
+    ]
+  },
+  {
+    "code": "ZnO",
+    "name": "ZINC OXIDE",
+    "category": null,
+    "default_hsn": "28170010",
+    "pack_size_kg": 25,
+    "landing_cost": 250,
+    "std_purchase_rate": 260,
+    "std_sale_rate": 280,
+    "reorder_level_kg": null,
+    "aliases": [
+      "ZINC OXIDE"
+    ]
+  }
+]

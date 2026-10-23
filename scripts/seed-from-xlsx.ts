@@ -91,7 +91,6 @@ export async function seedFromXlsx(options: SeedOptions = {}) {
     const product = await prisma.product.upsert({
       where: { code: item.code },
       update: {
-        name: item.name,
         category: item.category,
         pack_size_kg: item.packSize ? item.packSize.toFixed(2) : null,
         std_purchase_rate: item.purchaseRate ? item.purchaseRate.toFixed(2) : null,
