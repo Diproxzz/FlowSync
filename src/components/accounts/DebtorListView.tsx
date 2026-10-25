@@ -155,16 +155,48 @@ export function DebtorListView({
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
 
+  const EDITABLE_BREAKDOWN_MONTHS = ["2025-12", "2026-01", "2026-02", "2026-03"];
+
+  const isMonthEditable = (monthKey: string, monthIndex: number): boolean => {
+    // Column 0 is the prior base column (auto-calculated)
+    if (monthIndex === 0) return false;
+    // Dec 2025, Jan 2026, Feb 2026, Mar 2026 are editable
+    return EDITABLE_BREAKDOWN_MONTHS.includes(monthKey);
+  };
+
+  const getBasePriorPool = (d: DebtorItem): number => {
+    const priorKey = activeMonths[0]?.key || "2025-11";
+    const initialPrior = d.monthlyAmounts[priorKey] || 0;
+    const initialEditableSum = EDITABLE_BREAKDOWN_MONTHS.reduce(
+      (sum, k) => sum + (d.monthlyAmounts[k] || 0),
+      0
+    );
+    return Math.round((initialPrior + initialEditableSum) * 100) / 100;
+  };
+
+  const getPriorMonthValue = (d: DebtorItem): number => {
+    const pool = getBasePriorPool(d);
+    const debtorEdits = pendingEdits[d.id] || {};
+    const currentEditableSum = EDITABLE_BREAKDOWN_MONTHS.reduce((sum, k) => {
+      const val = debtorEdits[k] !== undefined ? debtorEdits[k] : (d.monthlyAmounts[k] || 0);
+      return sum + (Number(val) || 0);
+    }, 0);
+    return Math.round((pool - currentEditableSum) * 100) / 100;
+  };
+
   const getDebtorMonthly = (d: DebtorItem): Record<string, number> => {
-    if (!pendingEdits[d.id]) return d.monthlyAmounts;
+    const priorKey = activeMonths[0]?.key || "2025-11";
+    const priorVal = getPriorMonthValue(d);
+    const debtorEdits = pendingEdits[d.id] || {};
+
     return {
       ...d.monthlyAmounts,
-      ...pendingEdits[d.id],
+      ...debtorEdits,
+      [priorKey]: priorVal,
     };
   };
 
   const getDebtorTotal = (d: DebtorItem): number => {
-    if (!pendingEdits[d.id]) return d.totalOutstanding;
     const amounts = getDebtorMonthly(d);
     return Math.round(activeMonths.reduce((sum, m) => sum + (amounts[m.key] || 0), 0) * 100) / 100;
   };
@@ -181,30 +213,38 @@ export function DebtorListView({
   };
 
   const editContainerRef = useRef<HTMLDivElement>(null);
+  const modalContainerRef = useRef<HTMLDivElement>(null);
 
   const handleCancelEdits = () => {
     setPendingEdits({});
     setIsEditing(false);
   };
 
-  // When editing anything, upon clicking outside, discard the edit
+  // When editing, clicking Discard button or pressing Escape key will discard edits.
+  // Clicking buttons or inputs inside the modal will NEVER wipe pending edits.
   useEffect(() => {
     if (!isEditing) return;
 
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+      // Never discard if clicking inside modal, on any button, or on edit controls
       if (
-        !target.closest(".edit-controls") &&
-        editContainerRef.current &&
-        !editContainerRef.current.contains(target)
+        target.closest("button") ||
+        target.closest(".edit-controls") ||
+        target.closest("input") ||
+        modalContainerRef.current?.contains(target)
       ) {
-        handleCancelEdits();
+        return;
       }
+      handleCancelEdits();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         handleCancelEdits();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleSaveEdits();
       }
     };
 
@@ -214,7 +254,7 @@ export function DebtorListView({
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isEditing]);
+  }, [isEditing, pendingEdits]);
 
   const handleSaveEdits = async () => {
     if (Object.keys(pendingEdits).length === 0) {
@@ -227,14 +267,17 @@ export function DebtorListView({
     setSaveSuccessMessage(null);
 
     try {
+      const priorKey = activeMonths[0]?.key || "2025-11";
       const updates = Object.entries(pendingEdits).map(([debtorId, monthEdits]) => {
         const debtor = activeDebtors.find((d) => d.id === debtorId);
+        const priorVal = debtor ? getPriorMonthValue(debtor) : 0;
         return {
           debtorId,
           partyName: debtor ? debtor.partyName : debtorId,
           monthlyAmounts: {
             ...(debtor ? debtor.monthlyAmounts : {}),
             ...monthEdits,
+            [priorKey]: priorVal,
           },
         };
       });
@@ -253,12 +296,15 @@ export function DebtorListView({
         throw new Error(json.error?.message || "Failed to save debtor schedule");
       }
 
+      // Update activeDebtors in state with newly saved amounts including the subtracted prior
       setActiveDebtors((prev) =>
         prev.map((d) => {
           if (!pendingEdits[d.id]) return d;
+          const priorVal = getPriorMonthValue(d);
           const updatedMonthly = {
             ...d.monthlyAmounts,
             ...pendingEdits[d.id],
+            [priorKey]: priorVal,
           };
           const updatedTotal = Math.round(
             activeMonths.reduce((sum, m) => sum + (updatedMonthly[m.key] || 0), 0) * 100
@@ -367,7 +413,7 @@ export function DebtorListView({
       grandOverdue: Math.round(grandOverdue * 100) / 100,
       monthTotals,
     };
-  }, [filteredDebtors, activeMonths]);
+  }, [filteredDebtors, activeMonths, pendingEdits]);
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -606,7 +652,7 @@ export function DebtorListView({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible">
-      <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-[96vw] xl:max-w-7xl max-h-[94vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 print:border-none print:shadow-none print:max-w-none print:max-h-none print:overflow-visible">
+      <div ref={modalContainerRef} className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-[96vw] xl:max-w-7xl max-h-[94vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 print:border-none print:shadow-none print:max-w-none print:max-h-none print:overflow-visible">
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:border-b-2 print:border-black">
           <div>
@@ -773,11 +819,11 @@ export function DebtorListView({
 
         {/* Edit Mode Notice Banner */}
         {isEditing && (
-          <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <div className="edit-controls px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
-                <strong>Editable Schedule Active:</strong> Type new amounts into any of the 12 month columns. Row totals and column totals recalculate automatically.
+                <strong>Editable Schedule Active:</strong> Enter breakdown in <strong>Dec 2025, Jan 2026, Feb 2026, Mar 2026</strong>. Column 1 (<strong>{activeMonths[0]?.label}</strong>) automatically subtracts these amounts. Columns from Apr 2026 onward are locked live invoices.
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -980,27 +1026,54 @@ export function DebtorListView({
                 </th>
 
                 {/* 12-Month Schedule Columns */}
-                {activeMonths.map((m) => (
-                  <th
-                    key={m.key}
-                    className="py-2.5 px-3 text-right font-mono min-w-[110px] whitespace-nowrap"
-                    title={m.isRollupStart ? "Includes all dues from this month and prior periods" : undefined}
-                  >
-                    <div className="flex items-center justify-end gap-1">
-                      <span>{m.label}</span>
-                      {m.isRollupStart && (
-                        <span className="text-[9px] px-1 py-0.2 rounded bg-primary/10 text-primary font-normal normal-case">
-                          prior+
-                        </span>
+                {activeMonths.map((m, mIdx) => {
+                  const isEditable = isMonthEditable(m.key, mIdx);
+                  const isPrior = mIdx === 0 || m.isRollupStart;
+                  const isLocked = !isEditable && !isPrior;
+
+                  return (
+                    <th
+                      key={m.key}
+                      className={cn(
+                        "py-2.5 px-3 text-right font-mono min-w-[110px] whitespace-nowrap",
+                        isEditing && isEditable && "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                        isEditing && isPrior && "bg-primary/5 text-primary",
+                        isEditing && isLocked && "opacity-60"
                       )}
-                      {isEditing && (
-                        <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold normal-case">
-                          edit
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                ))}
+                      title={
+                        isPrior
+                          ? "Auto-subtracted base prior dues"
+                          : isEditable
+                          ? "Editable breakdown column (subtracted from prior dues)"
+                          : "System invoice dues (non-editable)"
+                      }
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>{m.label}</span>
+                        {isPrior && (
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-primary/10 text-primary font-normal normal-case">
+                            prior+
+                          </span>
+                        )}
+                        {isEditing && isPrior && (
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-primary/20 text-primary font-semibold normal-case">
+                            auto
+                          </span>
+                        )}
+                        {isEditing && isEditable && (
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold normal-case">
+                            edit
+                          </span>
+                        )}
+                        {isEditing && isLocked && (
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-muted text-muted-foreground font-normal normal-case">
+                            locked
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
 
                 <th className="py-2.5 px-3 min-w-[130px] whitespace-nowrap">Oldest Bill</th>
                 <th className="py-2.5 px-3 text-center min-w-[70px]">Ageing</th>
@@ -1074,34 +1147,79 @@ export function DebtorListView({
                       </td>
 
                       {/* Monthwise Amounts */}
-                      {activeMonths.map((m) => {
+                      {activeMonths.map((m, mIdx) => {
+                        const isEditable = isMonthEditable(m.key, mIdx);
+                        const isPrior = mIdx === 0 || m.isRollupStart;
                         const cellModified = pendingEdits[d.id]?.[m.key] !== undefined;
-                        const amt = cellModified ? pendingEdits[d.id][m.key] : (d.monthlyAmounts[m.key] || 0);
+                        const monthlyVals = getDebtorMonthly(d);
+                        const amt = monthlyVals[m.key] || 0;
 
                         if (isEditing) {
-                          return (
-                            <td key={m.key} className="py-1 px-1.5 text-right font-mono min-w-[105px]">
-                              <input
-                                type="number"
-                                step="any"
-                                value={amt === 0 ? "" : amt}
-                                placeholder="0"
-                                onChange={(e) => {
-                                  const rawVal = e.target.value.trim();
-                                  const val = rawVal === "" ? 0 : parseFloat(rawVal) || 0;
-                                  handleCellChange(d.id, d.partyName, m.key, val);
-                                }}
+                          // 1. Column 0: Nov 2025* (prior base) - strictly auto-subtracted, not typed directly
+                          if (isPrior) {
+                            return (
+                              <td
+                                key={m.key}
                                 className={cn(
-                                  "w-full text-right px-2 py-1 text-xs font-mono rounded border transition-colors focus:outline-none focus:ring-1 focus:ring-primary",
-                                  cellModified
-                                    ? "bg-amber-500/15 border-amber-500 text-foreground font-bold shadow-2xs"
-                                    : "bg-background border-border text-foreground hover:border-muted-foreground/50"
+                                  "py-1.5 px-2 text-right font-mono whitespace-nowrap bg-primary/5 border border-primary/20",
+                                  amt < 0 ? "text-rose-600 dark:text-rose-400 font-bold" : "text-foreground font-semibold"
                                 )}
-                              />
+                                title={`Base prior dues: ${formatINR(getBasePriorPool(d))} (subtracts entered breakdown amounts)`}
+                              >
+                                <div className="flex flex-col items-end">
+                                  <span className="text-xs font-mono font-bold">
+                                    {amt !== 0 ? formatINR(amt) : "—"}
+                                  </span>
+                                  <span className="text-[9px] text-primary/70 font-sans font-normal">
+                                    auto-subtracted
+                                  </span>
+                                </div>
+                              </td>
+                            );
+                          }
+
+                          // 2. Editable breakdown columns (Dec 2025, Jan 2026, Feb 2026, Mar 2026)
+                          if (isEditable) {
+                            const rawInputVal = pendingEdits[d.id]?.[m.key] !== undefined
+                              ? pendingEdits[d.id][m.key]
+                              : (d.monthlyAmounts[m.key] || 0);
+
+                            return (
+                              <td key={m.key} className="py-1 px-1.5 text-right font-mono min-w-[105px]">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={rawInputVal === 0 ? "" : rawInputVal}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    const rawVal = e.target.value.trim();
+                                    const val = rawVal === "" ? 0 : parseFloat(rawVal) || 0;
+                                    handleCellChange(d.id, d.partyName, m.key, val);
+                                  }}
+                                  className={cn(
+                                    "w-full text-right px-2 py-1 text-xs font-mono rounded border transition-colors focus:outline-none focus:ring-1 focus:ring-primary",
+                                    cellModified
+                                      ? "bg-amber-500/15 border-amber-500 text-foreground font-bold shadow-2xs"
+                                      : "bg-background border-border text-foreground hover:border-muted-foreground/50"
+                                  )}
+                                />
+                              </td>
+                            );
+                          }
+
+                          // 3. Locked columns (Apr 2026 till end) - live system invoices from database
+                          return (
+                            <td
+                              key={m.key}
+                              className="py-2 px-3 text-right font-mono whitespace-nowrap text-muted-foreground bg-muted/10 opacity-70 cursor-not-allowed"
+                              title="System invoice dues from database (non-editable)"
+                            >
+                              {amt > 0 ? formatINR(amt) : "—"}
                             </td>
                           );
                         }
 
+                        // Normal view (when not editing)
                         return (
                           <td
                             key={m.key}
@@ -1110,12 +1228,14 @@ export function DebtorListView({
                               "py-2.5 px-3 text-right font-mono whitespace-nowrap",
                               amt > 0
                                 ? "font-semibold text-foreground"
+                                : amt < 0
+                                ? "font-bold text-rose-600 dark:text-rose-400"
                                 : "text-muted-foreground/60",
                               d.hasManualOverride && amt > 0 && "text-primary font-bold"
                             )}
                             title={d.hasManualOverride ? "Custom saved schedule amount (double-click to edit)" : "Double-click to edit"}
                           >
-                            {amt > 0 ? formatINR(amt) : "—"}
+                            {amt !== 0 ? formatINR(amt) : "—"}
                           </td>
                         );
                       })}

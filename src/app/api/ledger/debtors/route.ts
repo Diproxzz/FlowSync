@@ -271,8 +271,12 @@ export async function GET(request: NextRequest) {
       // Check if this debtor has manual breakdown overrides saved
       const debtorOverride =
         modeOverrides[group.partyName] ||
+        modeOverrides[group.partyName.trim()] ||
         (group.customerId ? modeOverrides[group.customerId] : undefined) ||
-        (primaryAccountId ? modeOverrides[primaryAccountId] : undefined);
+        (primaryAccountId ? modeOverrides[primaryAccountId] : undefined) ||
+        (Object.entries(modeOverrides).find(
+          ([k]) => k.trim().toLowerCase() === group.partyName.trim().toLowerCase()
+        )?.[1] as any);
 
       let hasManualOverride = false;
       if (debtorOverride && typeof debtorOverride === "object") {
@@ -397,9 +401,14 @@ export async function POST(request: NextRequest) {
 
     if (Array.isArray(updates)) {
       for (const u of updates) {
-        const partyKey = u.partyName || u.debtorId;
-        if (partyKey && u.monthlyAmounts && typeof u.monthlyAmounts === "object") {
-          currentOverrides[mode][partyKey] = u.monthlyAmounts;
+        if (u.monthlyAmounts && typeof u.monthlyAmounts === "object") {
+          if (u.partyName) {
+            currentOverrides[mode][u.partyName] = u.monthlyAmounts;
+            currentOverrides[mode][u.partyName.trim()] = u.monthlyAmounts;
+          }
+          if (u.debtorId) {
+            currentOverrides[mode][u.debtorId] = u.monthlyAmounts;
+          }
         }
       }
     }
