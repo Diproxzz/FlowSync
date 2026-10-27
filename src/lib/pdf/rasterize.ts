@@ -79,9 +79,9 @@ export async function rasterizePdfPureNode(
 
   let createCanvasFn: any = null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const canvasPkg = require("@napi-rs/canvas");
-    createCanvasFn = canvasPkg.createCanvas;
+    const dynamicRequire = new Function("id", "return require(id)");
+    const canvasPkg = dynamicRequire("@napi-rs/canvas");
+    createCanvasFn = canvasPkg?.createCanvas;
   } catch (e) {
     console.warn("[rasterizePdfPureNode] @napi-rs/canvas could not be loaded; text-only fallback will be used:", e);
   }
