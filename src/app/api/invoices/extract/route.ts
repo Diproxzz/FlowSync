@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Rasterize pages and inspect text layer
     let pages: Array<{ pageNumber: number; pngBase64: string; text?: string }> = [];
+    let extractedText = "";
     const ext = path.extname(file.name).toLowerCase();
 
     if (ext === ".pdf") {
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       const tempPdfPath = path.resolve(process.cwd(), "storage/temp", fileToken);
       const pdfInspection = await inspectAndRasterizePdf(tempPdfPath);
       pages = pdfInspection.pages;
+      extractedText = pdfInspection.extractedText || "";
     } else if ([".png", ".jpg", ".jpeg"].includes(ext)) {
       const b64 = buffer.toString("base64");
       pages = [
@@ -65,14 +67,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call LLM orchestrator with images
-    const images = pages.map((p) => ({
-      mime: "image/png" as const,
-      base64: p.pngBase64,
-    }));
+    // Call LLM orchestrator with valid images and text
+    const images = pages
+      .filter((p) => p.pngBase64 && p.pngBase64.length > 100)
+      .map((p) => ({
+        mime: "image/png" as const,
+        base64: p.pngBase64,
+      }));
 
     const extraction = await extractInvoiceData({
       images,
+      text: extractedText,
       fileHash,
     });
 

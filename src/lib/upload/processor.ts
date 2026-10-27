@@ -85,10 +85,12 @@ export async function processUploadJob(jobId: string) {
     }
 
     // 5. Call LLM extraction orchestrator with images and text
-    const images = pages.map((p) => ({
-      mime: "image/png" as const,
-      base64: p.pngBase64,
-    }));
+    const images = pages
+      .filter((p) => p.pngBase64 && p.pngBase64.length > 100)
+      .map((p) => ({
+        mime: "image/png" as const,
+        base64: p.pngBase64,
+      }));
 
     const extraction = await extractInvoiceData({
       images,

@@ -40,14 +40,16 @@ export async function POST(request: NextRequest) {
     // Save temporary copy for confirmation step
     const fileToken = await storage.saveTemp(buffer, file.name);
 
-    // Rasterize pages
+    // Rasterize pages and extract text
     let pages: Array<{ pageNumber: number; pngBase64: string; text?: string }> = [];
+    let extractedText = "";
     const ext = path.extname(file.name).toLowerCase();
 
     if (ext === ".pdf") {
       const tempPdfPath = path.resolve(process.cwd(), "storage/temp", fileToken);
       const pdfInspection = await inspectAndRasterizePdf(tempPdfPath);
       pages = pdfInspection.pages;
+      extractedText = pdfInspection.extractedText || "";
     } else if ([".png", ".jpg", ".jpeg"].includes(ext)) {
       const b64 = buffer.toString("base64");
       pages = [{ pageNumber: 1, pngBase64: b64, text: "" }];
@@ -58,14 +60,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call LLM orchestrator for Purchase
-    const images = pages.map((p) => ({
-      mime: "image/png" as const,
-      base64: p.pngBase64,
-    }));
+    // Call LLM orchestrator for Purchase with valid images and text
+    const images = pages
+      .filter((p) => p.pngBase64 && p.pngBase64.length > 100)
+      .map((p) => ({
+        mime: "image/png" as const,
+        base64: p.pngBase64,
+      }));
 
     const extraction = await extractPurchaseData({
       images,
+      text: extractedText,
       fileHash,
     });
 

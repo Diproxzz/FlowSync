@@ -15,16 +15,21 @@ export class GeminiProvider implements LLMProvider {
     }
 
     const candidateModels = Array.from(
-      new Set([
-        env.GEMINI_MODEL,
-        "gemini-3.7-flash",
-        "gemini-3.8-flash",
-        "gemini-2.5-flash",
-        "gemini-flash-latest",
-        "gemini-3.5-flash",
-      ].filter(Boolean))
+      new Set(
+        [
+          env.GEMINI_MODEL,
+          "gemini-2.5-flash",
+          "gemini-flash-latest",
+          "gemini-1.5-flash",
+        ].filter(Boolean)
+      )
     );
 
+    const validImages = (req.images || []).filter(
+      (img) => img && typeof img.base64 === "string" && img.base64.trim().length > 100
+    );
+
+    let includeImages = validImages.length > 0;
     let lastError: Error | null = null;
 
     for (const model of candidateModels) {
@@ -32,17 +37,16 @@ export class GeminiProvider implements LLMProvider {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
 
         const parts: any[] = [];
-
-        // Add text prompt
         parts.push({ text: `${req.systemPrompt}\n\n${req.userPrompt}` });
 
         if (req.text) {
           parts.push({ text: `Document text layer:\n${req.text}` });
         }
 
-        // Add images if provided
-        if (req.images && req.images.length > 0) {
-          for (const img of req.images) {
+        if (includeImages) {
+          // If text is available, send at most 1 page image to prevent payload bloat
+          const imagesToSend = req.text && req.text.trim().length > 150 ? validImages.slice(0, 1) : validImages;
+          for (const img of imagesToSend) {
             parts.push({
               inlineData: {
                 mimeType: img.mime,
@@ -70,9 +74,19 @@ export class GeminiProvider implements LLMProvider {
         if (!res.ok) {
           const errJson = await res.json().catch(() => ({}));
           const message = errJson.error?.message || `Gemini API returned status ${res.status}`;
+
+          // If image processing fails, retry immediately with text-only payload if text is available
+          if (message.includes("Unable to process input image") && includeImages && req.text && req.text.trim().length > 50) {
+            console.warn(`[Gemini] Failed to process image (${message}). Retrying with text-only payload...`);
+            includeImages = false;
+            return await this.extract({ ...req, images: [] });
+          }
+
           // If model not found (404), rate limited (429), or overloaded (503), back off and try next model
           if (res.status === 404 || res.status === 429 || res.status === 503) {
-            console.warn(`Gemini model ${model} returned ${res.status} (${message}), backing off and trying next candidate...`);
+            console.warn(
+              `Gemini model ${model} returned ${res.status} (${message}), backing off and trying next candidate...`
+            );
             lastError = new Error(`Gemini error (${model}): ${message}`);
             await new Promise((r) => setTimeout(r, 1500));
             continue;
@@ -99,6 +113,6 @@ export class GeminiProvider implements LLMProvider {
       }
     }
 
-    throw lastError || new Error("All candidate Gemini models failed");
+    throw lastError || new Error("All Gemini model attempts failed");
   }
 }
