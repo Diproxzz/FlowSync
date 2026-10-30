@@ -36,11 +36,7 @@ interface CustomerOption {
   deliveryNote?: string;
 }
 
-const DELIVERY_NOTE_SUGGESTIONS = [
-  "CYCLE VAN",
-  "TEMPO",
-  "HAND DELIVERY",
-];
+const DELIVERY_NOTE_SUGGESTIONS = ["CYCLE VAN", "WB03D0517", "WB11D3608"];
 
 interface PreviewFormProps {
   initialDraft: ExtractedInvoice;
@@ -757,7 +753,7 @@ export function PreviewForm({
                     invoice: { ...draft.invoice, deliveryNote: e.target.value } as any,
                   })
                 }
-                placeholder="e.g. CYCLE VAN"
+                placeholder=""
                 className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono uppercase focus:outline-none focus:border-primary"
               />
               <datalist id="preview-delivery-note-options">
@@ -795,7 +791,7 @@ export function PreviewForm({
                     invoice: { ...draft.invoice, destination: e.target.value } as any,
                   })
                 }
-                placeholder="e.g. KLC ZONE-8 PLOT-605"
+                placeholder=""
                 className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono uppercase focus:outline-none focus:border-primary"
               />
             </div>
@@ -811,7 +807,7 @@ export function PreviewForm({
                     invoice: { ...draft.invoice, ewayBillNo: e.target.value } as any,
                   })
                 }
-                placeholder="e.g. 241001234567"
+                placeholder=""
                 className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono focus:outline-none focus:border-primary"
               />
             </div>
