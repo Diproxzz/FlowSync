@@ -41,6 +41,17 @@ export function normalizeRawExtractedInvoice(raw: any): any {
     invoice = {
       number: raw.invoiceNumber || raw.invoice_number || raw.invoiceNo || raw.invoice_no,
       date: raw.invoiceDate || raw.invoice_date || raw.date,
+      deliveryNote: raw.deliveryNote || raw.delivery_note || null,
+      destination: raw.destination || null,
+      ewayBillNo: raw.ewayBillNo || raw.eway_bill_no || null,
+    };
+  } else if (invoice) {
+    invoice = {
+      number: invoice.number || invoice.invoiceNumber || invoice.invoice_number,
+      date: invoice.date || invoice.invoiceDate || invoice.invoice_date,
+      deliveryNote: invoice.deliveryNote || invoice.delivery_note || raw.deliveryNote || raw.delivery_note || null,
+      destination: invoice.destination || raw.destination || null,
+      ewayBillNo: invoice.ewayBillNo || invoice.eway_bill_no || raw.ewayBillNo || raw.eway_bill_no || null,
     };
   }
 
@@ -233,6 +244,9 @@ export const ExtractedInvoiceSchema = z.preprocess(
     invoice: z.object({
       number: z.string().min(1),
       date: z.string(),
+      deliveryNote: z.string().nullable().optional(),
+      destination: z.string().nullable().optional(),
+      ewayBillNo: z.string().nullable().optional(),
     }),
     items: z.array(ExtractedInvoiceItemSchema).min(1),
     totals: z.object({

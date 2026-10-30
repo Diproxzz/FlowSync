@@ -75,7 +75,7 @@ interface InvoiceDetail {
   source_file_key: string | null;
   extraction_provider: string | null;
   extraction_model: string | null;
-  warnings: any[] | null;
+  warnings: any;
   version: number;
   created_at: string;
   updated_at: string;
@@ -129,6 +129,11 @@ export default function InvoiceDetailPage({
   }, [id]);
 
   const buildInitialDraft = (inv: InvoiceDetail): ExtractedInvoice => {
+    const meta =
+      inv.warnings && typeof inv.warnings === "object" && !Array.isArray(inv.warnings)
+        ? (inv.warnings as Record<string, any>)
+        : {};
+
     return {
       customer: {
         name: inv.customer?.name || inv.customer_name_snapshot || "",
@@ -138,6 +143,9 @@ export default function InvoiceDetailPage({
       invoice: {
         number: inv.invoice_number,
         date: inv.invoice_date ? inv.invoice_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        deliveryNote: meta.deliveryNote || null,
+        destination: meta.destination || null,
+        ewayBillNo: meta.ewayBillNo || null,
       },
       items: inv.items.map((it, idx) => ({
         lineNo: it.line_no || idx + 1,
@@ -423,30 +431,58 @@ export default function InvoiceDetailPage({
           <div className="flex items-center gap-1.5 text-xs text-ink-3 font-medium">
             <Calendar className="w-3.5 h-3.5 text-primary" /> Invoice Details
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span className="text-ink-3">Date:</span>
-              <p className="font-mono font-medium text-ink">{formatDate(invoice.invoice_date)}</p>
-            </div>
-            <div>
-              <span className="text-ink-3">Status:</span>
-              <p className="font-medium text-emerald-600 flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> Confirmed
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-3">Extraction Provider:</span>
-              <p className="font-mono text-ink-2 text-[11px]">
-                {invoice.extraction_provider || "manual"}
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-3">Extracted At:</span>
-              <p className="text-ink-2 text-[11px]">
-                {new Date(invoice.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
+          {(() => {
+            const metaObj =
+              invoice.warnings &&
+              typeof invoice.warnings === "object" &&
+              !Array.isArray(invoice.warnings)
+                ? (invoice.warnings as Record<string, any>)
+                : {};
+            return (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-ink-3">Date:</span>
+                  <p className="font-mono font-medium text-ink">{formatDate(invoice.invoice_date)}</p>
+                </div>
+                <div>
+                  <span className="text-ink-3">Status:</span>
+                  <p className="font-medium text-emerald-600 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Confirmed
+                  </p>
+                </div>
+                {metaObj.deliveryNote && (
+                  <div>
+                    <span className="text-ink-3">Delivery Note:</span>
+                    <p className="font-mono text-ink-2 text-[11px] uppercase">{metaObj.deliveryNote}</p>
+                  </div>
+                )}
+                {metaObj.destination && (
+                  <div>
+                    <span className="text-ink-3">Destination:</span>
+                    <p className="font-mono text-ink-2 text-[11px] uppercase">{metaObj.destination}</p>
+                  </div>
+                )}
+                {metaObj.ewayBillNo && (
+                  <div>
+                    <span className="text-ink-3">E-Way Bill No:</span>
+                    <p className="font-mono text-ink-2 text-[11px]">{metaObj.ewayBillNo}</p>
+                  </div>
+                )}
+                <div>
+                  <span className="text-ink-3">Extraction Provider:</span>
+                  <p className="font-mono text-ink-2 text-[11px]">
+                    {invoice.extraction_provider || "manual"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-ink-3">Extracted At:</span>
+                  <p className="text-ink-2 text-[11px]">
+                    {new Date(invoice.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Financial Summary */}

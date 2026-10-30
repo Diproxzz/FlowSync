@@ -24,17 +24,35 @@ export async function GET(request: NextRequest) {
       }
     : {};
 
-  const customers = await prisma.customer.findMany({
-    where,
-    include: {
-      aliases: true,
-      ledger_account: { select: { id: true, display_name: true } },
-      _count: { select: { invoices: true } },
-    },
-    orderBy: { name: "asc" },
+  const [customers, metaSettings] = await Promise.all([
+    prisma.customer.findMany({
+      where,
+      include: {
+        aliases: true,
+        ledger_account: { select: { id: true, display_name: true } },
+        _count: { select: { invoices: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.setting.findMany({
+      where: { key: { startsWith: "customer_meta_" } },
+    }),
+  ]);
+
+  const metaMap: Record<string, any> = {};
+  metaSettings.forEach((s) => {
+    const custId = s.key.replace("customer_meta_", "");
+    metaMap[custId] = s.value;
   });
 
-  return NextResponse.json({ customers });
+  const enrichedCustomers = customers.map((c) => ({
+    ...c,
+    destination: metaMap[c.id]?.destination || "",
+    deliveryNote: metaMap[c.id]?.deliveryNote || "",
+    phone: metaMap[c.id]?.phone || "",
+  }));
+
+  return NextResponse.json({ customers: enrichedCustomers });
 }
 
 export async function POST(request: NextRequest) {

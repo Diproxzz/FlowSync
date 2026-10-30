@@ -32,7 +32,15 @@ interface CustomerOption {
   id: string;
   name: string;
   gstin: string | null;
+  destination?: string;
+  deliveryNote?: string;
 }
+
+const DELIVERY_NOTE_SUGGESTIONS = [
+  "CYCLE VAN",
+  "TEMPO",
+  "HAND DELIVERY",
+];
 
 interface PreviewFormProps {
   initialDraft: ExtractedInvoice;
@@ -712,6 +720,11 @@ export function PreviewForm({
                         name: found.name,
                         gstin: found.gstin || draft.customer.gstin,
                       },
+                      invoice: {
+                        ...draft.invoice,
+                        destination: (draft.invoice as any).destination || found.destination || "",
+                        deliveryNote: (draft.invoice as any).deliveryNote || found.deliveryNote || "",
+                      },
                     });
                   } else {
                     setCustomerRes({ status: "NEW", confidence: 0 });
@@ -726,6 +739,81 @@ export function PreviewForm({
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border/40">
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[11px] font-medium text-ink-2">Delivery Note</label>
+              </div>
+              <input
+                type="text"
+                list="preview-delivery-note-options"
+                value={(draft.invoice as any).deliveryNote || ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    invoice: { ...draft.invoice, deliveryNote: e.target.value } as any,
+                  })
+                }
+                placeholder="e.g. CYCLE VAN"
+                className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono uppercase focus:outline-none focus:border-primary"
+              />
+              <datalist id="preview-delivery-note-options">
+                {DELIVERY_NOTE_SUGGESTIONS.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+              <div className="flex gap-1 mt-1">
+                {DELIVERY_NOTE_SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        invoice: { ...draft.invoice, deliveryNote: s } as any,
+                      })
+                    }
+                    className="text-[9.5px] px-1.5 py-0.5 rounded border border-border bg-surface-2 text-ink-3 hover:text-ink hover:border-primary transition"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-ink-2 mb-1">Destination</label>
+              <input
+                type="text"
+                value={(draft.invoice as any).destination || ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    invoice: { ...draft.invoice, destination: e.target.value } as any,
+                  })
+                }
+                placeholder="e.g. KLC ZONE-8 PLOT-605"
+                className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono uppercase focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-ink-2 mb-1">E-Way Bill No.</label>
+              <input
+                type="text"
+                value={(draft.invoice as any).ewayBillNo || ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    invoice: { ...draft.invoice, ewayBillNo: e.target.value } as any,
+                  })
+                }
+                placeholder="e.g. 241001234567"
+                className="w-full px-2.5 py-1.5 text-xs bg-surface border border-border rounded-sm text-ink font-mono focus:outline-none focus:border-primary"
+              />
             </div>
           </div>
         </div>

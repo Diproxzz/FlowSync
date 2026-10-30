@@ -273,6 +273,37 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
         where: { invoice_id: existing.id },
       });
 
+      // Prepare warnings and metadata snapshot
+      const existingMeta =
+        existing.warnings &&
+        typeof existing.warnings === "object" &&
+        !Array.isArray(existing.warnings)
+          ? (existing.warnings as Record<string, any>)
+          : {};
+
+      const updatedMeta: Record<string, any> = {
+        ...existingMeta,
+        ...(draft.invoice.deliveryNote !== undefined ? { deliveryNote: (draft.invoice.deliveryNote || "").trim() } : {}),
+        ...(draft.invoice.destination !== undefined ? { destination: (draft.invoice.destination || "").trim() } : {}),
+        ...(draft.invoice.ewayBillNo !== undefined ? { ewayBillNo: (draft.invoice.ewayBillNo || "").trim() } : {}),
+      };
+
+      const hasMetaFields = Boolean(
+        updatedMeta.deliveryNote ||
+        updatedMeta.destination ||
+        updatedMeta.ewayBillNo ||
+        updatedMeta.orderNo ||
+        Object.keys(existingMeta).length > 0
+      );
+
+      const nonErrorIssues = validation.issues.filter((i) => i.severity !== "error");
+      const warningsPayload = hasMetaFields
+        ? ({
+            ...updatedMeta,
+            ...(nonErrorIssues.length > 0 ? { validationIssues: nonErrorIssues } : {}),
+          } as unknown as Prisma.InputJsonValue)
+        : (nonErrorIssues as unknown as Prisma.InputJsonValue);
+
       // Update invoice record
       savedInvoice = await tx.invoice.update({
         where: { id: existing.id },
@@ -295,11 +326,26 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
           source_file_key: storageKey || existing.source_file_key,
           extraction_provider: provider || existing.extraction_provider,
           extraction_model: model || existing.extraction_model,
-          warnings: validation.issues.filter((i) => i.severity !== "error") as unknown as Prisma.InputJsonValue,
+          warnings: warningsPayload,
           version: existing.version + 1,
         },
       });
     } else {
+      const newMeta: Record<string, any> = {
+        ...(draft.invoice.deliveryNote ? { deliveryNote: draft.invoice.deliveryNote.trim() } : {}),
+        ...(draft.invoice.destination ? { destination: draft.invoice.destination.trim() } : {}),
+        ...(draft.invoice.ewayBillNo ? { ewayBillNo: draft.invoice.ewayBillNo.trim() } : {}),
+      };
+
+      const hasNewMeta = Boolean(newMeta.deliveryNote || newMeta.destination || newMeta.ewayBillNo);
+      const nonErrorIssues = validation.issues.filter((i) => i.severity !== "error");
+      const warningsCreatePayload = hasNewMeta
+        ? ({
+            ...newMeta,
+            ...(nonErrorIssues.length > 0 ? { validationIssues: nonErrorIssues } : {}),
+          } as unknown as Prisma.InputJsonValue)
+        : (nonErrorIssues as unknown as Prisma.InputJsonValue);
+
       // Create new invoice record
       savedInvoice = await tx.invoice.create({
         data: {
@@ -322,10 +368,41 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
           source_file_key: storageKey,
           extraction_provider: provider,
           extraction_model: model,
-          warnings: validation.issues.filter((i) => i.severity !== "error") as unknown as Prisma.InputJsonValue,
+          warnings: warningsCreatePayload,
           version: 1,
         },
       });
+    }
+
+    // Persist customer destination/deliveryNote for next invoice
+    if (customerId && (draft.invoice.destination || draft.invoice.deliveryNote)) {
+      try {
+        const settingKey = `customer_meta_${customerId}`;
+        const existingCustMeta = await tx.setting.findUnique({ where: { key: settingKey } });
+        const currentCustMeta = (existingCustMeta?.value as Record<string, any>) || {};
+        await tx.setting.upsert({
+          where: { key: settingKey },
+          create: {
+            key: settingKey,
+            value: {
+              ...currentCustMeta,
+              ...(draft.invoice.destination ? { destination: draft.invoice.destination.trim() } : {}),
+              ...(draft.invoice.deliveryNote ? { deliveryNote: draft.invoice.deliveryNote.trim() } : {}),
+              updated_at: new Date().toISOString(),
+            },
+          },
+          update: {
+            value: {
+              ...currentCustMeta,
+              ...(draft.invoice.destination ? { destination: draft.invoice.destination.trim() } : {}),
+              ...(draft.invoice.deliveryNote ? { deliveryNote: draft.invoice.deliveryNote.trim() } : {}),
+              updated_at: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (err) {
+        console.warn("Failed to persist customer metadata on invoice update:", err);
+      }
     }
 
     // 6. Insert Items & Automatic SALE Stock Movements
