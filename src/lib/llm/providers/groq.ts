@@ -67,13 +67,19 @@ export class GroqProvider implements LLMProvider {
     const totalKeys = keys.length;
 
     for (const model of candidateModels) {
+      const isVisionModel = model.includes("qwen") || model.includes("vision");
+      if (includeImagesInPayload && !isVisionModel && (!req.text || req.text.trim().length < 50)) {
+        // Text-only model cannot process document without text layer
+        continue;
+      }
+
       for (let keyAttempt = 0; keyAttempt < totalKeys; keyAttempt++) {
         const keyIndex = (activeKeyIndex + keyAttempt) % totalKeys;
         const currentApiKey = keys[keyIndex];
 
         const messages = [
           { role: "system", content: req.systemPrompt },
-          { role: "user", content: buildUserContent(includeImagesInPayload) },
+          { role: "user", content: buildUserContent(includeImagesInPayload && isVisionModel) },
         ];
 
         const body: any = {

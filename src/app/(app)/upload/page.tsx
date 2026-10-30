@@ -534,7 +534,10 @@ function UploadPageContent() {
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
             {/* Left Column: Document Viewer */}
             <div className="lg:col-span-5 h-full min-h-[400px]">
-              <DocumentViewer pages={activeJob.extracted_data.pages} />
+              <DocumentViewer
+                pages={activeJob.extracted_data.pages}
+                fileToken={activeJob.extracted_data.fileToken || (activeJob as any).file_token}
+              />
             </div>
 
             {/* Right Column: Editable Preview Form */}

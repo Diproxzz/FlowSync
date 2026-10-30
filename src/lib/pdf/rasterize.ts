@@ -4,6 +4,7 @@ import fsSync from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
 import { promisify } from "util";
+import { createRequire } from "module";
 
 const execFileAsync = promisify(execFile);
 
@@ -60,7 +61,7 @@ export async function getPythonBin(): Promise<string | null> {
  */
 export async function rasterizePdfPureNode(
   filePath: string,
-  dpi = 150
+  dpi = 100
 ): Promise<RasterizedPage[]> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   try {
@@ -79,11 +80,11 @@ export async function rasterizePdfPureNode(
 
   let createCanvasFn: any = null;
   try {
-    const dynamicRequire = new Function("id", "return require(id)");
-    const canvasPkg = dynamicRequire("@napi-rs/canvas");
+    const nodeRequire = createRequire(import.meta.url);
+    const canvasPkg = nodeRequire("@napi-rs/canvas");
     createCanvasFn = canvasPkg?.createCanvas;
   } catch (e) {
-    console.warn("[rasterizePdfPureNode] @napi-rs/canvas could not be loaded; text-only fallback will be used:", e);
+    console.warn("[rasterizePdfPureNode] @napi-rs/canvas could not be loaded via createRequire:", e);
   }
 
   const fileBytes = await fs.readFile(filePath);
@@ -162,7 +163,7 @@ export async function rasterizePdfPureNode(
  */
 export async function rasterizePdf(
   filePath: string,
-  dpi = 150
+  dpi = 100
 ): Promise<RasterizedPage[]> {
   const scriptPath = path.resolve(process.cwd(), "scripts/rasterize-pdf.py");
 
@@ -170,11 +171,11 @@ export async function rasterizePdf(
   try {
     const pythonBin = await getPythonBin();
     if (pythonBin) {
-      const { stdout, stderr } = await execFileAsync(pythonBin, [
-        scriptPath,
-        filePath,
-        String(dpi),
-      ]);
+      const { stdout, stderr } = await execFileAsync(
+        pythonBin,
+        [scriptPath, filePath, String(dpi)],
+        { maxBuffer: 50 * 1024 * 1024 }
+      );
 
       if (!stderr || stdout) {
         const parsed = JSON.parse(stdout.trim());

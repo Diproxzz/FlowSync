@@ -14,8 +14,8 @@ RULES:
 - If the customer party block has no GSTIN or says "Unregistered", set customer.gstin to null.
 
 2. INVOICE NUMBER & DATE:
-- "Invoice No." is e.g. "IB26-27/0473". Transcribe exactly as printed without adding or removing characters.
-- "Date" is printed as DD-MM-YYYY (e.g. 12-10-2026). Convert it to ISO YYYY-MM-DD (e.g. 2026-10-12).
+- "Invoice No." (format pattern: IB26-27/XXXX). Transcribe the exact invoice number printed on the invoice document without adding or removing characters. NEVER invent or assume an invoice number.
+- "Date" is printed as DD-MM-YYYY. Convert it to ISO YYYY-MM-DD. Transcribe the exact date printed on the document.
 
 3. ITEMS TABLE:
 - "Sl." = line number (1, 2, ...).

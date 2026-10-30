@@ -3,7 +3,7 @@ import json
 import base64
 import pymupdf
 
-def process_pdf(pdf_path, dpi=150):
+def process_pdf(pdf_path, dpi=100):
     doc = pymupdf.open(pdf_path)
     pages = []
     
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     pdf_path = sys.argv[1]
-    dpi = int(sys.argv[2]) if len(sys.argv) > 2 else 150
+    dpi = int(sys.argv[2]) if len(sys.argv) > 2 else 100
     try:
         result = process_pdf(pdf_path, dpi)
         print(json.dumps(result))

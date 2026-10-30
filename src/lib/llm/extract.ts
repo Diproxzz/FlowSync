@@ -85,6 +85,18 @@ export async function extractInvoiceData(input: {
   const isPurchase = documentType === "PURCHASE";
   const startTime = Date.now();
 
+  const validImages = (input.images || []).filter(
+    (img) => img && typeof img.base64 === "string" && img.base64.trim().length > 100
+  );
+  const hasText = Boolean(input.text && input.text.trim().length > 20);
+
+  if (!hasText && validImages.length === 0) {
+    throw new ExtractionError(
+      "Unable to read invoice: No readable text or images found in the uploaded document. Please upload a clear PDF or image file.",
+      []
+    );
+  }
+
   // Determine provider order from DB settings or env
   const dbSetting = await prisma.setting.findUnique({ where: { key: "provider_order" } });
   const rawOrder = (dbSetting?.value as string[]) || env.LLM_PROVIDER_ORDER.split(",").map((s) => s.trim());

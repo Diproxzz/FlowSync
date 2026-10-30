@@ -7,7 +7,7 @@ export interface PdfInspectionResult {
 }
 
 export async function inspectAndRasterizePdf(filePath: string): Promise<PdfInspectionResult> {
-  const pages = await rasterizePdf(filePath, 150);
+  const pages = await rasterizePdf(filePath, 100);
   const combinedText = pages.map((p) => p.text).join("\n").trim();
   const hasTextLayer = combinedText.length > 200;
 

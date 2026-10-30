@@ -18,9 +18,11 @@ export class GeminiProvider implements LLMProvider {
       new Set(
         [
           env.GEMINI_MODEL,
-          "gemini-2.5-flash",
+          "gemini-3.8-flash",
+          "gemini-1.5-flash-latest",
           "gemini-flash-latest",
-          "gemini-1.5-flash",
+          "gemini-2.0-flash",
+          "gemini-2.5-flash",
         ].filter(Boolean)
       )
     );
