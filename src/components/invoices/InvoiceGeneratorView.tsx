@@ -64,6 +64,7 @@ export function InvoiceGeneratorView() {
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [products, setProducts] = useState<ProductData[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState<string>("IB26-27/0499");
+  const [nextAvailableNumber, setNextAvailableNumber] = useState<string>("");
   const [isInvoiceNumberTaken, setIsInvoiceNumberTaken] = useState(false);
   const [isCheckingNumber, setIsCheckingNumber] = useState(false);
   const [recentInvoices, setRecentInvoices] = useState<any[]>([]);
@@ -119,7 +120,7 @@ export function InvoiceGeneratorView() {
   const [activeTab, setActiveTab] = useState<"form" | "preview" | "history">("form");
 
   // Load Bootstrap data
-  const loadBootstrapData = async () => {
+  const loadBootstrapData = async (updateNumber = true) => {
     try {
       setLoading(true);
       const res = await fetch("/api/invoices/generate");
@@ -128,7 +129,10 @@ export function InvoiceGeneratorView() {
       setCustomers(data.customers || []);
       setProducts(data.products || []);
       if (data.nextInvoiceNumber) {
-        setInvoiceNumber(data.nextInvoiceNumber);
+        setNextAvailableNumber(data.nextInvoiceNumber);
+        if (updateNumber) {
+          setInvoiceNumber(data.nextInvoiceNumber);
+        }
       }
       setRecentInvoices(data.recentInvoices || []);
     } catch (err: any) {
@@ -139,7 +143,7 @@ export function InvoiceGeneratorView() {
   };
 
   useEffect(() => {
-    loadBootstrapData();
+    loadBootstrapData(true);
   }, []);
 
   // Check if invoice number is duplicate whenever user edits it
@@ -418,13 +422,63 @@ export function InvoiceGeneratorView() {
         );
       }
 
-      // Refresh bootstrap data
-      loadBootstrapData();
+      // Preserve the exact invoice number of the invoice just saved for preview & print
+      if (data.invoiceNumber) {
+        setInvoiceNumber(data.invoiceNumber);
+      }
+
+      // Refresh bootstrap data (recent invoices, customers, products) WITHOUT changing active invoiceNumber
+      await loadBootstrapData(false);
       setActiveTab("preview");
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to save invoice");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Start a new blank invoice with the next number
+  const handleNewInvoice = async () => {
+    try {
+      let nextNum = nextAvailableNumber;
+      const res = await fetch("/api/invoices/generate");
+      const data = await res.json();
+      if (data.nextInvoiceNumber) {
+        nextNum = data.nextInvoiceNumber;
+        setNextAvailableNumber(nextNum);
+      }
+      if (nextNum) {
+        setInvoiceNumber(nextNum);
+      }
+      setSelectedCustomer(null);
+      setCustomerSearch("");
+      setCustomerName("");
+      setCustomerAddress("");
+      setCustomerGstin("");
+      setCustomerPhone("");
+      setDeliveryNote("");
+      setDestination("");
+      setOrderNo("");
+      setEwayBillNo("");
+      setLines([
+        {
+          id: "line-1",
+          product: "",
+          pack: "",
+          batch: "",
+          hsn: "",
+          qty: "",
+          rate: "",
+          discountPct: "0",
+          gstPct: "18",
+        },
+      ]);
+      setSuccessMessage(null);
+      setErrorMessage(null);
+      setIsInvoiceNumberTaken(false);
+      setActiveTab("form");
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -479,6 +533,14 @@ export function InvoiceGeneratorView() {
               <History className="w-3.5 h-3.5" /> Recent Invoices
             </button>
           </div>
+
+          <button
+            onClick={handleNewInvoice}
+            className="px-3 py-1.5 text-xs font-medium border border-border rounded bg-surface hover:bg-surface-2 transition flex items-center gap-1.5 text-ink"
+            title="Start a new blank invoice with the next sequence number"
+          >
+            <Plus className="w-3.5 h-3.5 text-primary" /> New Invoice
+          </button>
 
           <button
             onClick={handlePrint}
@@ -1024,6 +1086,12 @@ export function InvoiceGeneratorView() {
               Standard A4 Portrait PDF Preview (Pixel-identical Layout)
             </span>
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleNewInvoice}
+                className="px-3 py-1.5 text-xs font-medium border border-border rounded bg-surface hover:bg-surface-2 transition flex items-center gap-1.5 text-ink"
+              >
+                <Plus className="w-3.5 h-3.5 text-primary" /> New Invoice
+              </button>
               <button
                 onClick={handlePrint}
                 className="px-3 py-1.5 text-xs font-medium border border-border rounded bg-surface hover:bg-surface-2 transition flex items-center gap-1.5 text-ink"
