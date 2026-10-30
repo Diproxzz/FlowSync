@@ -8,7 +8,75 @@ function normalize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+async function cleanupDuplicateProducts(db: PrismaClient) {
+  try {
+    const canonicalRU = await db.product.findUnique({ where: { code: "RU" } });
+    if (canonicalRU) {
+      const duplicateRUs = await db.product.findMany({
+        where: {
+          id: { not: canonicalRU.id },
+          OR: [
+            { code: { in: ["RU ACTIPACT", "ACTIPACT RU"] } },
+            { name: { in: ["RU ACTIPACT", "ACTIPACT RU"] } },
+          ],
+        },
+      });
+      for (const dup of duplicateRUs) {
+        await db.$transaction(async (tx) => {
+          await tx.invoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalRU.id } });
+          await tx.purchaseInvoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalRU.id } });
+          await tx.informalInvoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalRU.id } });
+          await tx.stockMovement.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalRU.id } });
+          await tx.productAlias.deleteMany({ where: { product_id: dup.id } });
+          await tx.product.delete({ where: { id: dup.id } });
+        });
+      }
+    }
+
+    const canonicalSUL = await db.product.findUnique({ where: { code: "SUL" } });
+    if (canonicalSUL) {
+      if (canonicalSUL.name !== "SARCUROL SUL") {
+        await db.product.update({ where: { id: canonicalSUL.id }, data: { name: "SARCUROL SUL" } });
+      }
+      const duplicateSULs = await db.product.findMany({
+        where: {
+          id: { not: canonicalSUL.id },
+          OR: [
+            { code: { in: ["SARCULROL SUL", "SARCUROL SUL"] } },
+            { name: { in: ["SARCULROL SUL", "SARCUROL SUL"] } },
+          ],
+        },
+      });
+      for (const dup of duplicateSULs) {
+        await db.$transaction(async (tx) => {
+          await tx.invoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalSUL.id } });
+          await tx.purchaseInvoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalSUL.id } });
+          await tx.informalInvoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalSUL.id } });
+          await tx.stockMovement.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalSUL.id } });
+          await tx.productAlias.deleteMany({ where: { product_id: dup.id } });
+          await tx.product.delete({ where: { id: dup.id } });
+        });
+      }
+      await db.productAlias.deleteMany({
+        where: {
+          OR: [
+            { alias: { contains: "SARCULROL", mode: "insensitive" } },
+            { alias_norm: { contains: "sarculrol" } },
+          ],
+        },
+      });
+      await db.invoiceItem.updateMany({
+        where: { product_name_raw: { contains: "SARCULROL", mode: "insensitive" } },
+        data: { product_name_raw: "SARCUROL SUL" },
+      });
+    }
+  } catch (err) {
+    console.error("Cleanup error during sync:", err);
+  }
+}
+
 export async function syncProductMaster() {
+  await cleanupDuplicateProducts(prisma);
   const jsonPath = path.resolve(process.cwd(), "data/seed/products-master.json");
   if (!fs.existsSync(jsonPath)) {
     console.warn(`Product master JSON not found at ${jsonPath}, skipping sync.`);

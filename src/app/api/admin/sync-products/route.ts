@@ -6,6 +6,7 @@ import fs from "fs";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getSession } from "@/lib/auth/session";
+import { cleanupDuplicateProducts } from "@/lib/products/sync-master";
 
 function normalize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest) {
     if (!fs.existsSync(jsonPath)) {
       return NextResponse.json({ error: "Product master JSON not found" }, { status: 404 });
     }
+
+    await cleanupDuplicateProducts(prisma);
 
     const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as Array<{
       code: string;

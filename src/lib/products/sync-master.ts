@@ -3,12 +3,163 @@ import fs from "fs";
 import { prisma } from "@/lib/db";
 
 let lastSyncMtime = 0;
+let duplicatesCleaned = false;
 
 function normalize(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+export async function cleanupDuplicateProducts(db: typeof prisma) {
+  try {
+    // 1. Clean up duplicate RU ACTIPACT
+    const canonicalRU = await db.product.findUnique({
+      where: { code: "RU" },
+    });
+    if (canonicalRU) {
+      const duplicateRUs = await db.product.findMany({
+        where: {
+          id: { not: canonicalRU.id },
+          OR: [
+            { code: { in: ["RU ACTIPACT", "ACTIPACT RU"] } },
+            { name: { in: ["RU ACTIPACT", "ACTIPACT RU"] } },
+          ],
+        },
+      });
+
+      for (const dup of duplicateRUs) {
+        await db.$transaction(async (tx) => {
+          await tx.invoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalRU.id },
+          });
+          await tx.purchaseInvoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalRU.id },
+          });
+          await tx.informalInvoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalRU.id },
+          });
+          await tx.stockMovement.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalRU.id },
+          });
+          await tx.productAlias.deleteMany({
+            where: { product_id: dup.id },
+          });
+          await tx.product.delete({
+            where: { id: dup.id },
+          });
+        });
+      }
+
+      // Ensure aliases on canonicalRU
+      const ruAliases = ["RU ACTIPACT", "ACTIPACT RU"];
+      for (const aliasText of ruAliases) {
+        const aliasNorm = normalize(aliasText);
+        const existing = await db.productAlias.findUnique({ where: { alias_norm: aliasNorm } });
+        if (existing && existing.product_id !== canonicalRU.id) {
+          await db.productAlias.update({ where: { id: existing.id }, data: { product_id: canonicalRU.id } });
+        } else if (!existing) {
+          try {
+            await db.productAlias.create({
+              data: { product_id: canonicalRU.id, alias: aliasText, alias_norm: aliasNorm },
+            });
+          } catch {}
+        }
+      }
+    }
+
+    // 2. Clean up duplicate SUL / SARCULROL SUL
+    const canonicalSUL = await db.product.findUnique({
+      where: { code: "SUL" },
+    });
+    if (canonicalSUL) {
+      if (canonicalSUL.name !== "SARCUROL SUL") {
+        await db.product.update({
+          where: { id: canonicalSUL.id },
+          data: { name: "SARCUROL SUL" },
+        });
+      }
+
+      const duplicateSULs = await db.product.findMany({
+        where: {
+          id: { not: canonicalSUL.id },
+          OR: [
+            { code: { in: ["SARCULROL SUL", "SARCUROL SUL"] } },
+            { name: { in: ["SARCULROL SUL", "SARCUROL SUL"] } },
+          ],
+        },
+      });
+
+      for (const dup of duplicateSULs) {
+        await db.$transaction(async (tx) => {
+          await tx.invoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalSUL.id },
+          });
+          await tx.purchaseInvoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalSUL.id },
+          });
+          await tx.informalInvoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalSUL.id },
+          });
+          await tx.stockMovement.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalSUL.id },
+          });
+          await tx.productAlias.deleteMany({
+            where: { product_id: dup.id },
+          });
+          await tx.product.delete({
+            where: { id: dup.id },
+          });
+        });
+      }
+
+      // Purge misspelled aliases containing "SARCULROL"
+      await db.productAlias.deleteMany({
+        where: {
+          OR: [
+            { alias: { contains: "SARCULROL", mode: "insensitive" } },
+            { alias_norm: { contains: "sarculrol" } },
+          ],
+        },
+      });
+
+      // Correct historical raw invoice items
+      await db.invoiceItem.updateMany({
+        where: { product_name_raw: { contains: "SARCULROL", mode: "insensitive" } },
+        data: { product_name_raw: "SARCUROL SUL" },
+      });
+
+      // Ensure canonical alias
+      const sulNorm = normalize("SARCUROL SUL");
+      const existingSulAlias = await db.productAlias.findUnique({ where: { alias_norm: sulNorm } });
+      if (existingSulAlias && existingSulAlias.product_id !== canonicalSUL.id) {
+        await db.productAlias.update({ where: { id: existingSulAlias.id }, data: { product_id: canonicalSUL.id } });
+      } else if (!existingSulAlias) {
+        try {
+          await db.productAlias.create({
+            data: { product_id: canonicalSUL.id, alias: "SARCUROL SUL", alias_norm: sulNorm },
+          });
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.error("Cleanup duplicate products error:", err);
+  }
+}
+
 export async function ensureProductMasterSynced(force = false) {
+  // Always clean duplicate products if not yet done in this runtime instance or if forced
+  if (!duplicatesCleaned || force) {
+    await cleanupDuplicateProducts(prisma);
+    duplicatesCleaned = true;
+  }
+
   const jsonPath = path.resolve(process.cwd(), "data/seed/products-master.json");
   if (!fs.existsSync(jsonPath)) return;
 
