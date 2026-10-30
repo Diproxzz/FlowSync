@@ -194,13 +194,20 @@ export function InvoiceGeneratorView() {
   const filteredProducts = useMemo(() => {
     if (!productSearchQuery.trim()) return products.slice(0, 10);
     const q = productSearchQuery.toLowerCase();
-    return products
+    const matches = products.filter((p) => {
+      const commercial = (p.commercialName || "").toLowerCase();
+      const code = p.code.toLowerCase();
+      const name = p.name.toLowerCase();
+      const hasAliasMatch = p.aliases && p.aliases.some((a) => a.toLowerCase().includes(q));
+      return commercial.includes(q) || code.includes(q) || name.includes(q) || hasAliasMatch;
+    });
+
+    const seen = new Set<string>();
+    return matches
       .filter((p) => {
-        const commercial = (p.commercialName || "").toLowerCase();
-        const code = p.code.toLowerCase();
-        const name = p.name.toLowerCase();
-        const hasAliasMatch = p.aliases && p.aliases.some((a) => a.toLowerCase().includes(q));
-        return commercial.includes(q) || code.includes(q) || name.includes(q) || hasAliasMatch;
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
       })
       .slice(0, 12);
   }, [products, productSearchQuery]);

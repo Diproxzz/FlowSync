@@ -838,7 +838,8 @@
     "std_sale_rate": 198,
     "reorder_level_kg": null,
     "aliases": [
-      "RU ACTIPACT"
+      "RU ACTIPACT",
+      "ACTIPACT RU"
     ]
   },
   {
@@ -936,7 +937,6 @@
     "std_sale_rate": 185,
     "reorder_level_kg": null,
     "aliases": [
-      "SARCULROL SUL",
       "SARCUROL SUL"
     ]
   },

@@ -41,15 +41,15 @@ export function normalizeRawExtractedInvoice(raw: any): any {
     invoice = {
       number: raw.invoiceNumber || raw.invoice_number || raw.invoiceNo || raw.invoice_no,
       date: raw.invoiceDate || raw.invoice_date || raw.date,
-      deliveryNote: raw.deliveryNote || raw.delivery_note || null,
+      deliveryNote: raw.deliveryNote || raw.delivery_note || raw.deliveryNoteNo || raw.delivery_note_no || null,
       destination: raw.destination || null,
       ewayBillNo: raw.ewayBillNo || raw.eway_bill_no || null,
     };
   } else if (invoice) {
     invoice = {
-      number: invoice.number || invoice.invoiceNumber || invoice.invoice_number,
+      number: invoice.number || invoice.invoiceNumber || invoice.invoice_number || invoice.invoiceNo || invoice.invoice_no,
       date: invoice.date || invoice.invoiceDate || invoice.invoice_date,
-      deliveryNote: invoice.deliveryNote || invoice.delivery_note || raw.deliveryNote || raw.delivery_note || null,
+      deliveryNote: invoice.deliveryNote || invoice.delivery_note || invoice.deliveryNoteNo || invoice.delivery_note_no || raw.deliveryNote || raw.delivery_note || null,
       destination: invoice.destination || raw.destination || null,
       ewayBillNo: invoice.ewayBillNo || invoice.eway_bill_no || raw.ewayBillNo || raw.eway_bill_no || null,
     };
@@ -283,6 +283,9 @@ export const ExtractedInvoiceJsonSchema = {
       properties: {
         number: { type: "string" },
         date: { type: "string" },
+        deliveryNote: { type: "string", nullable: true },
+        destination: { type: "string", nullable: true },
+        ewayBillNo: { type: "string", nullable: true },
       },
       required: ["number", "date"],
     },

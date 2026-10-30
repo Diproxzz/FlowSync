@@ -14,6 +14,9 @@ import { ensureProductMasterSynced } from "@/lib/products/sync-master";
 
 // Helper to determine the commercial name of a product
 function getProductCommercialName(p: { code: string; name: string; aliases: { alias: string }[] }): string {
+  if (p.name && p.name.trim().toUpperCase() !== p.code.trim().toUpperCase()) {
+    return p.name.trim();
+  }
   if (p.aliases && p.aliases.length > 0) {
     // Prefer alias matching known commercial names or non-short code
     const goodAlias = p.aliases.find(

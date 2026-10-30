@@ -13,9 +13,12 @@ RULES:
 - The customer is in the party block on the left beneath the header (Company name, address, and "GSTIN :").
 - If the customer party block has no GSTIN or says "Unregistered", set customer.gstin to null.
 
-2. INVOICE NUMBER & DATE:
+2. INVOICE NUMBER, DATE & DISPATCH DETAILS:
 - "Invoice No." (format pattern: IB26-27/XXXX). Transcribe the exact invoice number printed on the invoice document without adding or removing characters. NEVER invent or assume an invoice number.
 - "Date" is printed as DD-MM-YYYY. Convert it to ISO YYYY-MM-DD. Transcribe the exact date printed on the document.
+- "Delivery Note": printed next to "Delivery Note" or transport/vehicle info (e.g. "CYCLE VAN", "WB03D0517", "WB11D3608"). If present, extract verbatim into invoice.deliveryNote, otherwise null.
+- "Destination": printed next to "Destination" (e.g. "KLC ZONE-1 PLOT-52/52A"). If present, extract verbatim into invoice.destination, otherwise null.
+- "e-Way Bill No." / "E-Way Bill": if printed, extract into invoice.ewayBillNo, otherwise null.
 
 3. ITEMS TABLE:
 - "Sl." = line number (1, 2, ...).
