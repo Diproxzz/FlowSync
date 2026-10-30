@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const financialYear = searchParams.get("financialYear")?.trim();
   const minAmount = searchParams.get("minAmount")?.trim();
   const maxAmount = searchParams.get("maxAmount")?.trim();
-  const sortBy = searchParams.get("sortBy")?.trim() || "date";
+  const sortBy = searchParams.get("sortBy")?.trim() || "number";
   const sortOrder = (searchParams.get("sortOrder")?.trim() || "desc").toLowerCase() === "asc" ? "asc" : "desc";
   const limit = parseInt(searchParams.get("limit") || "50", 10);
   const page = parseInt(searchParams.get("page") || "1", 10);

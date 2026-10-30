@@ -59,10 +59,10 @@ function InvoicesListContent() {
   const [page, setPage] = useState(1);
   const [allMissingNumbers, setAllMissingNumbers] = useState<string[]>([]);
 
-  // Search & Sorting - Default to Invoice No (A -> Z)
+  // Search & Sorting - Default to Invoice No (Descending: Latest / Highest first)
   const [search, setSearch] = useState(() => searchParams.get("search") || "");
   const [sortBy, setSortBy] = useState<"date" | "number" | "customer" | "taxable" | "amount">("number");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Filtering
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -167,7 +167,7 @@ function InvoicesListContent() {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortBy(column);
-      setSortOrder("asc");
+      setSortOrder("desc");
     }
     setPage(1);
   };
@@ -205,7 +205,7 @@ function InvoicesListContent() {
   };
 
   // Helper to detect missing sequence numbers between adjacent invoices
-  const getSequenceGap = (prevNumber: string, currNumber: string): string[] | null => {
+  const getSequenceGap = (prevNumber: string, currNumber: string, order: "asc" | "desc" = "desc"): string[] | null => {
     const prevMatch = prevNumber.match(/^(.*?)(\d+)$/);
     const currMatch = currNumber.match(/^(.*?)(\d+)$/);
     if (!prevMatch || !currMatch) return null;
@@ -213,14 +213,22 @@ function InvoicesListContent() {
 
     const prevNum = parseInt(prevMatch[2], 10);
     const currNum = parseInt(currMatch[2], 10);
-    const diff = currNum - prevNum;
-    if (diff <= 1) return null;
-
     const prefix = prevMatch[1];
     const pad = prevMatch[2].length;
     const missing: string[] = [];
-    for (let n = prevNum + 1; n < currNum; n++) {
-      missing.push(`${prefix}${String(n).padStart(pad, "0")}`);
+
+    if (order === "asc") {
+      const diff = currNum - prevNum;
+      if (diff <= 1) return null;
+      for (let n = prevNum + 1; n < currNum; n++) {
+        missing.push(`${prefix}${String(n).padStart(pad, "0")}`);
+      }
+    } else {
+      const diff = prevNum - currNum;
+      if (diff <= 1) return null;
+      for (let n = prevNum - 1; n > currNum; n--) {
+        missing.push(`${prefix}${String(n).padStart(pad, "0")}`);
+      }
     }
     return missing;
   };
@@ -308,10 +316,10 @@ function InvoicesListContent() {
               }}
               className="bg-bg border border-border rounded-sm px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-primary"
             >
+              <option value="number_desc">Invoice No (Highest first)</option>
+              <option value="number_asc">Invoice No (Lowest first)</option>
               <option value="date_desc">Date (Newest first)</option>
               <option value="date_asc">Date (Oldest first)</option>
-              <option value="number_asc">Invoice No (A → Z)</option>
-              <option value="number_desc">Invoice No (Z → A)</option>
               <option value="customer_asc">Customer (A → Z)</option>
               <option value="customer_desc">Customer (Z → A)</option>
               <option value="amount_desc">Total Amount (High → Low)</option>
@@ -590,8 +598,8 @@ function InvoicesListContent() {
                 invoices.map((inv, idx) => {
                   const prevInv = idx > 0 ? invoices[idx - 1] : null;
                   const gap =
-                    sortBy === "number" && sortOrder === "asc" && prevInv
-                      ? getSequenceGap(prevInv.invoice_number, inv.invoice_number)
+                    sortBy === "number" && prevInv
+                      ? getSequenceGap(prevInv.invoice_number, inv.invoice_number, sortOrder)
                       : null;
 
                   const hasOverallDisc = inv.discount_pct && Number(inv.discount_pct) > 0;
