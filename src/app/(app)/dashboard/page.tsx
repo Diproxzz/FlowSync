@@ -18,6 +18,8 @@ import {
   Calendar,
   Building2,
   Boxes,
+  Percent,
+  Receipt,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -336,115 +338,175 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* KPI Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* Total Taxable Revenue */}
             <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
               <div className="flex items-center justify-between text-xs text-ink-3">
                 <span className="font-medium">Taxable Revenue</span>
                 <IndianRupee className="w-3.5 h-3.5 text-primary" />
               </div>
-          <div>
-            <div className="text-xl font-bold font-mono text-ink tracking-tight">
-              {formatINR(kpis?.revenueTaxable || 0)}
+              <div>
+                <div className="text-xl font-bold font-mono text-ink tracking-tight">
+                  {formatINR(kpis?.revenueTaxable || 0)}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  {kpis?.revenueDeltaPct !== null && kpis?.revenueDeltaPct !== undefined ? (
+                    <span
+                      className={`inline-flex items-center gap-0.5 font-medium ${
+                        kpis.revenueDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {kpis.revenueDeltaPct >= 0 ? (
+                        <ArrowUpRight className="w-3 h-3" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3" />
+                      )}
+                      {Math.abs(kpis.revenueDeltaPct)}%
+                    </span>
+                  ) : null}
+                  <span className="text-ink-3 text-[11px]">vs prior period</span>
+                </div>
+              </div>
             </div>
-            <div className="mt-1 flex items-center gap-2 text-xs">
-              {kpis?.revenueDeltaPct !== null && kpis?.revenueDeltaPct !== undefined ? (
-                <span
-                  className={`inline-flex items-center gap-0.5 font-medium ${
-                    kpis.revenueDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
-                  }`}
-                >
-                  {kpis.revenueDeltaPct >= 0 ? (
-                    <ArrowUpRight className="w-3 h-3" />
-                  ) : (
-                    <ArrowDownRight className="w-3 h-3" />
-                  )}
-                  {Math.abs(kpis.revenueDeltaPct)}%
-                </span>
-              ) : null}
-              <span className="text-ink-3 text-[11px]">vs prior period</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Volume Sold (kg) */}
-        <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-ink-3">
-            <span className="font-medium">Volume Dispatched</span>
-            <Package className="w-3.5 h-3.5 text-accent" />
-          </div>
-          <div>
-            <div className="text-xl font-bold font-mono text-ink tracking-tight">
-              {formatKg(kpis?.volumeKg || 0)}
+            {/* Total GST Value */}
+            <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-ink-3">
+                <span className="font-medium">Total GST Value</span>
+                <Percent className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <div>
+                <div className="text-xl font-bold font-mono text-ink tracking-tight">
+                  {formatINR(kpis?.gstTotal || 0)}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  {kpis?.gstDeltaPct !== null && kpis?.gstDeltaPct !== undefined ? (
+                    <span
+                      className={`inline-flex items-center gap-0.5 font-medium ${
+                        kpis.gstDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {kpis.gstDeltaPct >= 0 ? (
+                        <ArrowUpRight className="w-3 h-3" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3" />
+                      )}
+                      {Math.abs(kpis.gstDeltaPct)}%
+                    </span>
+                  ) : null}
+                  <span className="text-ink-3 text-[11px]">vs prior period</span>
+                </div>
+              </div>
             </div>
-            <div className="mt-1 flex items-center gap-2 text-xs">
-              {kpis?.volumeDeltaPct !== null && kpis?.volumeDeltaPct !== undefined ? (
-                <span
-                  className={`inline-flex items-center gap-0.5 font-medium ${
-                    kpis.volumeDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
-                  }`}
-                >
-                  {kpis.volumeDeltaPct >= 0 ? (
-                    <ArrowUpRight className="w-3 h-3" />
-                  ) : (
-                    <ArrowDownRight className="w-3 h-3" />
-                  )}
-                  {Math.abs(kpis.volumeDeltaPct)}%
-                </span>
-              ) : null}
-              <span className="text-ink-3 text-[11px]">vs prior period</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Average Realization (₹/kg) */}
-        <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-ink-3">
-            <span className="font-medium">Avg Realization</span>
-            <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-          </div>
-          <div>
-            <div className="text-xl font-bold font-mono text-ink tracking-tight">
-              ₹{kpis?.avgRealizationPerKg ? kpis.avgRealizationPerKg.toFixed(2) : "0.00"}/kg
+            {/* Invoice Value */}
+            <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-ink-3">
+                <span className="font-medium">Invoice Value</span>
+                <Receipt className="w-3.5 h-3.5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-xl font-bold font-mono text-ink tracking-tight">
+                  {formatINR(kpis?.revenueGrand || 0)}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  {kpis?.grandDeltaPct !== null && kpis?.grandDeltaPct !== undefined ? (
+                    <span
+                      className={`inline-flex items-center gap-0.5 font-medium ${
+                        kpis.grandDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {kpis.grandDeltaPct >= 0 ? (
+                        <ArrowUpRight className="w-3 h-3" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3" />
+                      )}
+                      {Math.abs(kpis.grandDeltaPct)}%
+                    </span>
+                  ) : null}
+                  <span className="text-ink-3 text-[11px]">vs prior period</span>
+                </div>
+              </div>
             </div>
-            <div className="mt-1 flex items-center gap-2 text-xs">
-              {kpis?.realizationDeltaPct !== null && kpis?.realizationDeltaPct !== undefined ? (
-                <span
-                  className={`inline-flex items-center gap-0.5 font-medium ${
-                    kpis.realizationDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
-                  }`}
-                >
-                  {kpis.realizationDeltaPct >= 0 ? (
-                    <ArrowUpRight className="w-3 h-3" />
-                  ) : (
-                    <ArrowDownRight className="w-3 h-3" />
-                  )}
-                  {Math.abs(kpis.realizationDeltaPct)}%
-                </span>
-              ) : null}
-              <span className="text-ink-3 text-[11px]">taxable rate / kg</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Invoices & Customers */}
-        <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-ink-3">
-            <span className="font-medium">Activity & Reach</span>
-            <Users className="w-3.5 h-3.5 text-emerald-600" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <span className="text-[11px] text-ink-3">Invoices:</span>
-              <div className="text-lg font-bold font-mono text-ink">{kpis?.invoicesCount || 0}</div>
+            {/* Volume Sold (kg) */}
+            <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-ink-3">
+                <span className="font-medium">Volume Dispatched</span>
+                <Package className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <div>
+                <div className="text-xl font-bold font-mono text-ink tracking-tight">
+                  {formatKg(kpis?.volumeKg || 0)}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  {kpis?.volumeDeltaPct !== null && kpis?.volumeDeltaPct !== undefined ? (
+                    <span
+                      className={`inline-flex items-center gap-0.5 font-medium ${
+                        kpis.volumeDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {kpis.volumeDeltaPct >= 0 ? (
+                        <ArrowUpRight className="w-3 h-3" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3" />
+                      )}
+                      {Math.abs(kpis.volumeDeltaPct)}%
+                    </span>
+                  ) : null}
+                  <span className="text-ink-3 text-[11px]">vs prior period</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-[11px] text-ink-3">Active Buyers:</span>
-              <div className="text-lg font-bold font-mono text-ink">{kpis?.activeCustomersCount || 0}</div>
+
+            {/* Average Realization (₹/kg) */}
+            <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-ink-3">
+                <span className="font-medium">Avg Realization</span>
+                <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-xl font-bold font-mono text-ink tracking-tight">
+                  ₹{kpis?.avgRealizationPerKg ? kpis.avgRealizationPerKg.toFixed(2) : "0.00"}/kg
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  {kpis?.realizationDeltaPct !== null && kpis?.realizationDeltaPct !== undefined ? (
+                    <span
+                      className={`inline-flex items-center gap-0.5 font-medium ${
+                        kpis.realizationDeltaPct >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {kpis.realizationDeltaPct >= 0 ? (
+                        <ArrowUpRight className="w-3 h-3" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3" />
+                      )}
+                      {Math.abs(kpis.realizationDeltaPct)}%
+                    </span>
+                  ) : null}
+                  <span className="text-ink-3 text-[11px]">taxable rate / kg</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Invoices & Customers */}
+            <div className="bg-surface border border-border rounded-sm p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-ink-3">
+                <span className="font-medium">Activity & Reach</span>
+                <Users className="w-3.5 h-3.5 text-emerald-600" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[11px] text-ink-3">Invoices:</span>
+                  <div className="text-lg font-bold font-mono text-ink">{kpis?.invoicesCount || 0}</div>
+                </div>
+                <div>
+                  <span className="text-[11px] text-ink-3">Active Buyers:</span>
+                  <div className="text-lg font-bold font-mono text-ink">{kpis?.activeCustomersCount || 0}</div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
       {/* Tabs Navigation */}
       <div className="border-b border-border flex items-center gap-6 text-xs font-medium">

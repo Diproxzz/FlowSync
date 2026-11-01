@@ -13,14 +13,19 @@ export interface AnalyticsFilter {
 export interface KpiSummary {
   revenueTaxable: number;
   revenueGrand: number;
+  gstTotal: number;
   volumeKg: number;
   invoicesCount: number;
   activeCustomersCount: number;
   avgRealizationPerKg: number;
   prevRevenueTaxable: number;
+  prevRevenueGrand: number;
+  prevGstTotal: number;
   prevVolumeKg: number;
   prevAvgRealizationPerKg: number;
   revenueDeltaPct: number | null;
+  grandDeltaPct: number | null;
+  gstDeltaPct: number | null;
   volumeDeltaPct: number | null;
   realizationDeltaPct: number | null;
 }
@@ -179,6 +184,7 @@ export async function getDashboardAnalytics(filter: AnalyticsFilter = {}): Promi
   // 2. Compute Current KPIs
   let curTaxable = new Decimal(0);
   let curGrand = new Decimal(0);
+  let curGst = new Decimal(0);
   let curVolume = new Decimal(0);
   const customerSet = new Set<string>();
 
@@ -189,10 +195,18 @@ export async function getDashboardAnalytics(filter: AnalyticsFilter = {}): Promi
         curTaxable = curTaxable.plus(it.taxable_amount.toString());
         curGrand = curGrand.plus(it.line_total.toString());
         curVolume = curVolume.plus(it.qty_kg.toString());
+        const lineGst = new Decimal(it.cgst_amount?.toString() || "0")
+          .plus(it.sgst_amount?.toString() || "0")
+          .plus(it.igst_amount?.toString() || "0");
+        curGst = curGst.plus(lineGst);
       }
     } else {
       curTaxable = curTaxable.plus(inv.taxable_total.toString());
       curGrand = curGrand.plus(inv.grand_total.toString());
+      const invGst = new Decimal(inv.cgst_total?.toString() || "0")
+        .plus(inv.sgst_total?.toString() || "0")
+        .plus(inv.igst_total?.toString() || "0");
+      curGst = curGst.plus(invGst);
       for (const it of inv.items) {
         curVolume = curVolume.plus(it.qty_kg.toString());
       }
@@ -206,38 +220,57 @@ export async function getDashboardAnalytics(filter: AnalyticsFilter = {}): Promi
     // Estimate taxable if product std_sale_rate exists
     if (leg.product.std_sale_rate) {
       const legRev = new Decimal(leg.qty_kg.toString()).times(leg.product.std_sale_rate.toString());
+      const legGst = legRev.times(0.18);
       curTaxable = curTaxable.plus(legRev);
-      curGrand = curGrand.plus(legRev.times(1.18)); // 18% standard GST
+      curGst = curGst.plus(legGst);
+      curGrand = curGrand.plus(legRev.plus(legGst)); // 18% standard GST
     }
   }
 
   const curTaxableNum = curTaxable.toNumber();
   const curGrandNum = curGrand.toNumber();
+  const curGstNum = curGst.toNumber();
   const curVolumeNum = curVolume.toNumber();
   const curAvgRealization = curVolumeNum > 0 ? curTaxableNum / curVolumeNum : 0;
 
   // Compute Prior KPIs
   let prevTaxable = new Decimal(0);
+  let prevGrand = new Decimal(0);
+  let prevGst = new Decimal(0);
   let prevVolume = new Decimal(0);
   for (const inv of prevInvoices) {
     if (filter.productId) {
       for (const it of inv.items) {
         prevTaxable = prevTaxable.plus(it.taxable_amount.toString());
+        prevGrand = prevGrand.plus(it.line_total.toString());
         prevVolume = prevVolume.plus(it.qty_kg.toString());
+        const lineGst = new Decimal(it.cgst_amount?.toString() || "0")
+          .plus(it.sgst_amount?.toString() || "0")
+          .plus(it.igst_amount?.toString() || "0");
+        prevGst = prevGst.plus(lineGst);
       }
     } else {
       prevTaxable = prevTaxable.plus(inv.taxable_total.toString());
+      prevGrand = prevGrand.plus(inv.grand_total.toString());
+      const invGst = new Decimal(inv.cgst_total?.toString() || "0")
+        .plus(inv.sgst_total?.toString() || "0")
+        .plus(inv.igst_total?.toString() || "0");
+      prevGst = prevGst.plus(invGst);
       for (const it of inv.items) {
         prevVolume = prevVolume.plus(it.qty_kg.toString());
       }
     }
   }
   const prevTaxableNum = prevTaxable.toNumber();
+  const prevGrandNum = prevGrand.toNumber();
+  const prevGstNum = prevGst.toNumber();
   const prevVolumeNum = prevVolume.toNumber();
   const prevAvgRealization = prevVolumeNum > 0 ? prevTaxableNum / prevVolumeNum : 0;
 
   // Percentage Deltas
   const revenueDeltaPct = prevTaxableNum > 0 ? ((curTaxableNum - prevTaxableNum) / prevTaxableNum) * 100 : null;
+  const grandDeltaPct = prevGrandNum > 0 ? ((curGrandNum - prevGrandNum) / prevGrandNum) * 100 : null;
+  const gstDeltaPct = prevGstNum > 0 ? ((curGstNum - prevGstNum) / prevGstNum) * 100 : null;
   const volumeDeltaPct = prevVolumeNum > 0 ? ((curVolumeNum - prevVolumeNum) / prevVolumeNum) * 100 : null;
   const realizationDeltaPct =
     prevAvgRealization > 0 ? ((curAvgRealization - prevAvgRealization) / prevAvgRealization) * 100 : null;
@@ -245,14 +278,19 @@ export async function getDashboardAnalytics(filter: AnalyticsFilter = {}): Promi
   const kpis: KpiSummary = {
     revenueTaxable: Math.round(curTaxableNum * 100) / 100,
     revenueGrand: Math.round(curGrandNum * 100) / 100,
+    gstTotal: Math.round(curGstNum * 100) / 100,
     volumeKg: Math.round(curVolumeNum * 1000) / 1000,
     invoicesCount: currentInvoices.length,
     activeCustomersCount: customerSet.size,
     avgRealizationPerKg: Math.round(curAvgRealization * 100) / 100,
     prevRevenueTaxable: Math.round(prevTaxableNum * 100) / 100,
+    prevRevenueGrand: Math.round(prevGrandNum * 100) / 100,
+    prevGstTotal: Math.round(prevGstNum * 100) / 100,
     prevVolumeKg: Math.round(prevVolumeNum * 1000) / 1000,
     prevAvgRealizationPerKg: Math.round(prevAvgRealization * 100) / 100,
     revenueDeltaPct: revenueDeltaPct !== null ? Math.round(revenueDeltaPct * 10) / 10 : null,
+    grandDeltaPct: grandDeltaPct !== null ? Math.round(grandDeltaPct * 10) / 10 : null,
+    gstDeltaPct: gstDeltaPct !== null ? Math.round(gstDeltaPct * 10) / 10 : null,
     volumeDeltaPct: volumeDeltaPct !== null ? Math.round(volumeDeltaPct * 10) / 10 : null,
     realizationDeltaPct: realizationDeltaPct !== null ? Math.round(realizationDeltaPct * 10) / 10 : null,
   };
