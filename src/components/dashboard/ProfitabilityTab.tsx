@@ -82,6 +82,7 @@ export function ProfitabilityTab({
   const [sortField, setSortField] = useState<"totalProfit" | "marginPct" | "soldQtyKg" | "totalRevenue">("totalProfit");
   const [sortAsc, setSortAsc] = useState(false);
   const [subView, setSubView] = useState<"products" | "customers">("products");
+  const [taxRatePct, setTaxRatePct] = useState<number>(25);
 
   useEffect(() => {
     async function loadData() {
@@ -217,10 +218,13 @@ export function ProfitabilityTab({
       value: c.grossProfit,
     }));
 
+  const taxProvision = kpis.grossProfit > 0 ? (kpis.grossProfit * taxRatePct) / 100 : 0;
+  const profitAfterTax = kpis.grossProfit - taxProvision;
+
   return (
     <div className="space-y-6">
       {/* KPI Ribbon */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         <div className="bg-surface border border-border p-3.5 rounded-sm shadow-xs">
           <div className="flex items-center justify-between text-ink-3">
             <span className="text-[11px] font-medium uppercase tracking-wider">Gross Revenue</span>
@@ -246,6 +250,27 @@ export function ProfitabilityTab({
           </div>
           <p className="text-lg font-bold text-success num mt-1">{formatINR(kpis.grossProfit)}</p>
           <span className="text-[10px] text-success/80 block mt-0.5">Realized trading margin</span>
+        </div>
+
+        <div className="bg-surface border border-emerald-500/30 bg-emerald-500/5 p-3.5 rounded-sm shadow-xs">
+          <div className="flex items-center justify-between text-emerald-600">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Profit After Taxes</span>
+            <TrendingUp className="w-3.5 h-3.5" />
+          </div>
+          <p className="text-lg font-bold text-emerald-600 num mt-1">{formatINR(profitAfterTax)}</p>
+          <div className="flex items-center justify-between mt-0.5 text-[10px] text-ink-3">
+            <span>Tax ({taxRatePct}%): {formatINR(taxProvision)}</span>
+            <select
+              value={taxRatePct}
+              onChange={(e) => setTaxRatePct(Number(e.target.value))}
+              className="bg-bg border border-border rounded px-1 py-0 text-[10px] text-ink font-mono cursor-pointer hover:border-primary"
+              title="Select applicable tax rate"
+            >
+              <option value={25}>25% Corp</option>
+              <option value={22}>22% 115BAA</option>
+              <option value={30}>30% Firm</option>
+            </select>
+          </div>
         </div>
 
         <div className="bg-surface border border-border p-3.5 rounded-sm shadow-xs">
