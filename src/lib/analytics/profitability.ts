@@ -6,8 +6,6 @@ export interface ProfitabilityKpis {
   totalRevenue: number;
   totalCogs: number;
   grossProfit: number;
-  taxProvision?: number;
-  profitAfterTax?: number;
   blendedMarginPct: number;
   blendedMarkupPct: number;
   totalVolumeKg: number;
@@ -420,9 +418,6 @@ export async function getProfitabilityAnalytics(
   const totalRev = totalCompanyRevenue.toNumber();
   const totalCogs = totalCompanyCogs.toNumber();
   const grossProfit = totalRev - totalCogs;
-  const taxRate = 0.25; // Standard 25% corporate tax rate
-  const taxProvision = grossProfit > 0 ? grossProfit * taxRate : 0;
-  const profitAfterTax = grossProfit - taxProvision;
   const blendedMarginPct = totalRev > 0 ? (grossProfit / totalRev) * 100 : 0;
   const blendedMarkupPct = totalCogs > 0 ? (grossProfit / totalCogs) * 100 : 0;
   const totalVol = totalSoldVolume.toNumber();
@@ -448,8 +443,6 @@ export async function getProfitabilityAnalytics(
       totalRevenue: Math.round(totalRev * 100) / 100,
       totalCogs: Math.round(totalCogs * 100) / 100,
       grossProfit: Math.round(grossProfit * 100) / 100,
-      taxProvision: Math.round(taxProvision * 100) / 100,
-      profitAfterTax: Math.round(profitAfterTax * 100) / 100,
       blendedMarginPct: Math.round(blendedMarginPct * 10) / 10,
       blendedMarkupPct: Math.round(blendedMarkupPct * 10) / 10,
       totalVolumeKg: Math.round(totalVol * 10) / 10,
