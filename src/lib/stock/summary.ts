@@ -87,7 +87,7 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
     const salesValue = saleRate ? sales.times(saleRate).toNumber() : 0;
 
     const reorderLevel = p.reorder_level_kg ? new Decimal(p.reorder_level_kg.toString()) : null;
-    const isLowStock = reorderLevel && !reorderLevel.isZero() && closing.lessThanOrEqualTo(reorderLevel);
+    const isLowStock = reorderLevel && !reorderLevel.isZero() && closing.lessThan(reorderLevel);
 
     // Last purchase details
     const lastPurchase = p.purchase_items?.[0] || null;

@@ -53,6 +53,7 @@ export default function StockPage() {
 
   // Inline editing state
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [focusField, setFocusField] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     name: string;
     opening: string;
@@ -60,6 +61,7 @@ export default function StockPage() {
     purchaseRate: string;
     landingCost: string;
     saleRate: string;
+    reorderLevelKg: string;
   }>({
     name: "",
     opening: "",
@@ -67,6 +69,7 @@ export default function StockPage() {
     purchaseRate: "",
     landingCost: "",
     saleRate: "",
+    reorderLevelKg: "",
   });
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -100,8 +103,9 @@ export default function StockPage() {
     loadStock();
   }, []);
 
-  const handleStartEdit = (r: StockRow) => {
+  const handleStartEdit = (r: StockRow, fieldToFocus?: string) => {
     setEditingId(r.productId);
+    setFocusField(fieldToFocus || null);
     setEditForm({
       name: r.name,
       opening: r.opening !== null && r.opening !== undefined ? String(r.opening) : "",
@@ -109,12 +113,14 @@ export default function StockPage() {
       purchaseRate: r.purchaseRate !== null && r.purchaseRate !== undefined ? String(r.purchaseRate) : "",
       landingCost: r.landingCost !== null && r.landingCost !== undefined ? String(r.landingCost) : "",
       saleRate: r.saleRate !== null && r.saleRate !== undefined ? String(r.saleRate) : "",
+      reorderLevelKg: r.reorderLevelKg !== null && r.reorderLevelKg !== undefined ? String(r.reorderLevelKg) : "",
     });
     setSaveError(null);
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
+    setFocusField(null);
     setSaveError(null);
   };
 
@@ -149,6 +155,7 @@ export default function StockPage() {
           std_purchase_rate: editForm.purchaseRate !== "" ? Number(editForm.purchaseRate) : null,
           landing_cost: editForm.landingCost !== "" ? Number(editForm.landingCost) : null,
           std_sale_rate: editForm.saleRate !== "" ? Number(editForm.saleRate) : null,
+          reorder_level_kg: editForm.reorderLevelKg !== "" ? Number(editForm.reorderLevelKg) : null,
         }),
       });
 
@@ -252,7 +259,7 @@ export default function StockPage() {
       "Std Sale Rate (INR)",
       "Stock Valuation (INR)",
       "Sales Value (INR)",
-      "Reorder Suggestion (kg)",
+      "Min. Stock (kg)",
       "Status",
     ];
 
@@ -280,8 +287,8 @@ export default function StockPage() {
           r.saleRate ?? "",
           r.stockValue,
           r.salesValue,
-          r.reorderSuggestionKg,
-          r.status,
+          r.reorderLevelKg ?? "",
+          r.status === "LOW STOCK" ? "Low" : "OK",
         ].join(",")
       ),
     ];
@@ -419,7 +426,7 @@ export default function StockPage() {
                 <th className="py-2.5 px-3 text-right">Last Purchase</th>
                 <th className="py-2.5 px-3 text-right">Sale Rate</th>
                 <th className="py-2.5 px-3 text-right font-medium text-ink">Stock Value</th>
-                <th className="py-2.5 px-3 text-right font-medium text-amber-800">Reorder Suggestion</th>
+                <th className="py-2.5 px-3 text-right font-medium text-ink-2">Min. Stock</th>
                 <th className="py-2.5 px-3 text-center">Status</th>
                 <th className="py-2.5 px-3 text-center">Actions</th>
               </tr>
@@ -457,6 +464,10 @@ export default function StockPage() {
                     const effRate = parsedLanding || parsedPurchase || 0;
                     const previewStockValue =
                       previewClosing > 0 && effRate > 0 ? previewClosing * effRate : 0;
+                    const parsedMinStock =
+                      editForm.reorderLevelKg !== "" ? Number(editForm.reorderLevelKg) : null;
+                    const isPreviewLow =
+                      parsedMinStock !== null && parsedMinStock > 0 && previewClosing < parsedMinStock;
 
                     const handleKeyDown = (e: React.KeyboardEvent) => {
                       if (e.key === "Enter") {
@@ -548,7 +559,7 @@ export default function StockPage() {
                             value={editForm.landingCost}
                             onChange={(e) => setEditForm({ ...editForm, landingCost: e.target.value })}
                             onKeyDown={handleKeyDown}
-                            autoFocus
+                            autoFocus={focusField === "landingCost" || (!focusField && focusField !== "minStock")}
                             className="w-20 text-right text-xs bg-bg border border-primary rounded px-1.5 py-0.5 text-primary font-medium num focus:outline-none ring-1 ring-primary/40"
                             placeholder="Landing"
                           />
@@ -577,20 +588,35 @@ export default function StockPage() {
                           {formatINR(previewStockValue)}
                         </td>
 
-                        {/* Reorder Suggestion */}
-                        <td className="py-2 px-3 text-right num text-ink-3">
-                          {r.reorderSuggestionKg > 0 ? `${formatKg(r.reorderSuggestionKg)}` : "—"}
+                        {/* Min. Stock (editable input) */}
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            step="any"
+                            value={editForm.reorderLevelKg}
+                            onChange={(e) => setEditForm({ ...editForm, reorderLevelKg: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            autoFocus={focusField === "minStock"}
+                            className={`w-20 text-right text-xs bg-bg border rounded px-1.5 py-0.5 text-ink num focus:outline-none ${
+                              focusField === "minStock"
+                                ? "border-primary ring-1 ring-primary/40 font-medium"
+                                : "border-border focus:ring-1 focus:ring-primary"
+                            }`}
+                            placeholder="Min. Stock"
+                          />
                         </td>
 
                         {/* Status */}
                         <td className="py-2 px-3 text-center">
-                          {r.status === "LOW STOCK" ? (
+                          {isPreviewLow ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold bg-danger-bg text-danger border border-danger/30">
-                              LOW
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>Low</span>
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-medium bg-success-bg text-success border border-success/30">
-                              OK
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>OK</span>
                             </span>
                           )}
                         </td>
@@ -713,27 +739,23 @@ export default function StockPage() {
                       <td className="py-2.5 px-3 text-right num font-medium text-ink">
                         {formatINR(r.stockValue)}
                       </td>
-                      <td className="py-2.5 px-3 text-right num">
-                        {r.reorderSuggestionKg > 0 ? (
-                          <div>
-                            <span className="font-semibold text-amber-700">
-                              {formatKg(r.reorderSuggestionKg)}
-                            </span>
-                            {r.reorderSuggestionDrums > 0 && (
-                              <span className="text-[10px] text-ink-3 block">
-                                ({r.reorderSuggestionDrums} dr)
-                              </span>
-                            )}
-                          </div>
+                      {/* Min. Stock (editable on click) */}
+                      <td
+                        onClick={() => handleStartEdit(r, "minStock")}
+                        className="py-2.5 px-3 text-right num text-ink-2 hover:text-primary hover:underline decoration-dotted cursor-pointer"
+                        title="Click to edit Min. Stock"
+                      >
+                        {r.reorderLevelKg !== null && r.reorderLevelKg !== undefined && r.reorderLevelKg > 0 ? (
+                          <span className="font-medium text-ink">{r.reorderLevelKg}</span>
                         ) : (
-                          <span className="text-ink-4">—</span>
+                          <span className="text-ink-4 text-[11px]">—</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-center">
                         {r.status === "LOW STOCK" ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-semibold bg-danger-bg text-danger border border-danger/30">
                             <AlertTriangle className="w-3 h-3" />
-                            <span>LOW STOCK</span>
+                            <span>Low</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium bg-success-bg text-success border border-success/30">
