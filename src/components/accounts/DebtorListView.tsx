@@ -1019,8 +1019,12 @@ export function DebtorListView({
           <table className="w-full text-left text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm border-b border-border text-foreground uppercase tracking-wider text-[11px] font-semibold print:bg-slate-100 print:text-black print:border-b-2 print:border-black">
               <tr>
-                <th className="py-2.5 px-3 text-center w-10">#</th>
-                <th className="py-2.5 px-3 min-w-[220px]">Debtor Name</th>
+                <th className="sticky top-0 left-0 z-20 w-16 min-w-[64px] max-w-[64px] py-2.5 px-2 text-center bg-muted text-foreground border-b border-border">
+                  #
+                </th>
+                <th className="sticky top-0 left-16 z-20 min-w-[220px] py-2.5 px-3 text-left bg-muted text-foreground border-b border-r border-border">
+                  Debtor Name
+                </th>
                 <th className="py-2.5 px-3 text-right font-mono min-w-[130px] text-foreground">
                   Total Outstanding
                 </th>
@@ -1100,12 +1104,12 @@ export function DebtorListView({
                       className="hover:bg-muted/40 transition group print:break-inside-avoid"
                     >
                       {/* S.No */}
-                      <td className="py-2.5 px-3 text-center text-muted-foreground font-mono text-[11px]">
+                      <td className="sticky left-0 z-[2] w-16 min-w-[64px] max-w-[64px] py-2.5 px-2 text-center text-muted-foreground font-mono text-[11px] bg-card group-hover:bg-muted transition-colors">
                         {idx + 1}
                       </td>
 
                       {/* Debtor Name */}
-                      <td className="py-2.5 px-3">
+                      <td className="sticky left-16 z-[2] min-w-[220px] py-2.5 px-3 bg-card group-hover:bg-muted border-r border-border transition-colors">
                         <div className="font-semibold text-foreground group-hover:text-primary transition flex flex-col">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {d.accountId ? (
@@ -1342,8 +1346,10 @@ export function DebtorListView({
             {/* Footer Totals Row */}
             <tfoot className="sticky bottom-0 z-10 bg-muted/95 backdrop-blur-sm border-t-2 border-border font-bold text-xs uppercase tracking-wide print:bg-slate-100 print:text-black print:border-t-2 print:border-b-2 print:border-black">
               <tr>
-                <td className="py-3 px-3 text-center print:py-2">TOTAL</td>
-                <td className="py-3 px-3 normal-case text-muted-foreground print:text-black print:py-2">
+                <td className="sticky bottom-0 left-0 z-20 w-16 min-w-[64px] max-w-[64px] py-3 px-2 text-center bg-muted border-t-2 border-border print:py-2">
+                  TOTAL
+                </td>
+                <td className="sticky bottom-0 left-16 z-20 min-w-[220px] py-3 px-3 normal-case text-muted-foreground bg-muted border-t-2 border-r border-border print:text-black print:py-2">
                   {filteredDebtors.length} debtor{filteredDebtors.length === 1 ? "" : "s"}
                 </td>
                 <td className="py-3 px-3 text-right font-mono text-sm text-foreground print:text-black print:py-2">
