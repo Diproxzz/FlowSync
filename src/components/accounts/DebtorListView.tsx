@@ -165,13 +165,13 @@ export function DebtorListView({
   };
 
   const getBasePriorPool = (d: DebtorItem): number => {
-    const priorKey = activeMonths[0]?.key || "2025-11";
-    const initialPrior = d.monthlyAmounts[priorKey] || 0;
-    const initialEditableSum = EDITABLE_BREAKDOWN_MONTHS.reduce(
-      (sum, k) => sum + (d.monthlyAmounts[k] || 0),
-      0
-    );
-    return Math.round((initialPrior + initialEditableSum) * 100) / 100;
+    // The prior pool is totalOutstanding (the ledger Total Due) minus all non-editable, non-prior months
+    const nonEditableNonPriorSum = activeMonths.reduce((sum, m, idx) => {
+      if (idx === 0) return sum; // column 0 is the prior column
+      if (isMonthEditable(m.key, idx)) return sum; // editable month
+      return sum + (d.monthlyAmounts[m.key] || 0);
+    }, 0);
+    return Math.round((d.totalOutstanding - nonEditableNonPriorSum) * 100) / 100;
   };
 
   const getPriorMonthValue = (d: DebtorItem): number => {
@@ -181,7 +181,7 @@ export function DebtorListView({
       const val = debtorEdits[k] !== undefined ? debtorEdits[k] : (d.monthlyAmounts[k] || 0);
       return sum + (Number(val) || 0);
     }, 0);
-    return Math.round((pool - currentEditableSum) * 100) / 100;
+    return Math.max(0, Math.round((pool - currentEditableSum) * 100) / 100);
   };
 
   const getDebtorMonthly = (d: DebtorItem): Record<string, number> => {
@@ -197,8 +197,8 @@ export function DebtorListView({
   };
 
   const getDebtorTotal = (d: DebtorItem): number => {
-    const amounts = getDebtorMonthly(d);
-    return Math.round(activeMonths.reduce((sum, m) => sum + (amounts[m.key] || 0), 0) * 100) / 100;
+    // Total Outstanding must always match the ledger Total Due
+    return d.totalOutstanding;
   };
 
   const handleCellChange = (debtorId: string, partyName: string, monthKey: string, val: number) => {
@@ -306,14 +306,10 @@ export function DebtorListView({
             ...pendingEdits[d.id],
             [priorKey]: priorVal,
           };
-          const updatedTotal = Math.round(
-            activeMonths.reduce((sum, m) => sum + (updatedMonthly[m.key] || 0), 0) * 100
-          ) / 100;
-
           return {
             ...d,
             monthlyAmounts: updatedMonthly,
-            totalOutstanding: updatedTotal,
+            totalOutstanding: d.totalOutstanding,
             hasManualOverride: true,
           };
         })

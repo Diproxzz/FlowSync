@@ -287,9 +287,21 @@ export async function GET(request: NextRequest) {
           }
         }
         if (hasManualOverride) {
-          totalOutstanding = Math.round(
-            periodInfo.monthColumns.reduce((sum, col) => sum + (mergedMonthly[col.key] || 0), 0) * 100
-          ) / 100;
+          // Total Outstanding MUST ALWAYS reflect the ledger Total Due
+          totalOutstanding = Math.round(((reg?.totalOutstanding || 0) + (inf?.totalOutstanding || 0)) * 100) / 100;
+
+          // Reconcile the monthly breakdown so the columns sum up to the true Total Due:
+          // The base/prior column (column 0) absorbs any difference
+          const priorColKey = periodInfo.monthColumns[0]?.key;
+          if (priorColKey) {
+            const subsequentSum = periodInfo.monthColumns
+              .slice(1)
+              .reduce((sum, col) => sum + (mergedMonthly[col.key] || 0), 0);
+            mergedMonthly[priorColKey] = Math.max(
+              0,
+              Math.round((totalOutstanding - subsequentSum) * 100) / 100
+            );
+          }
         }
       }
 

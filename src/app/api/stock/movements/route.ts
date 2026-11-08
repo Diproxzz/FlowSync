@@ -72,11 +72,19 @@ export async function POST(request: NextRequest) {
       numericQty = -Math.abs(numericQty);
     } else if (type === "ADJUSTMENT_POS") {
       actualType = MovementType.ADJUSTMENT;
-      numericQty = Math.abs(numericQty);
+      // Apart from XAC, make all the other Adjustments negative
+      if (product.code === "XAC") {
+        numericQty = Math.abs(numericQty);
+      } else {
+        numericQty = -Math.abs(numericQty);
+      }
     } else if (type === "PURCHASE") {
       actualType = MovementType.PURCHASE;
     } else {
       actualType = MovementType.ADJUSTMENT;
+      if (product.code !== "XAC") {
+        numericQty = -Math.abs(numericQty);
+      }
     }
 
     const qty = new Prisma.Decimal(numericQty);

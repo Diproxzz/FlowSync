@@ -44,10 +44,15 @@ interface StockRow {
   status: "LOW STOCK" | "OK";
 }
 
+const PRODUCT_TYPES = ["Fat Liquor", "Imported", "Special", "Lazy", "Shame"] as const;
+
 export default function StockPage() {
   const [rows, setRows] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [isManualMovementOpen, setIsManualMovementOpen] = useState(false);
 
@@ -56,6 +61,7 @@ export default function StockPage() {
   const [focusField, setFocusField] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     name: string;
+    category: string;
     opening: string;
     packSizeKg: string;
     purchaseRate: string;
@@ -64,6 +70,7 @@ export default function StockPage() {
     reorderLevelKg: string;
   }>({
     name: "",
+    category: "",
     opening: "",
     packSizeKg: "",
     purchaseRate: "",
@@ -75,16 +82,51 @@ export default function StockPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
-  // Manual movement form
+  // Manual movement form - default to ADJUSTMENT_NEG for all products (apart from XAC)
   const [movementForm, setMovementForm] = useState({
     productId: "",
-    type: "ADJUSTMENT_POS" as "ADJUSTMENT_POS" | "ADJUSTMENT_NEG",
+    type: "ADJUSTMENT_NEG" as "ADJUSTMENT_POS" | "ADJUSTMENT_NEG",
     qtyKg: "",
     movementDate: new Date().toISOString().split("T")[0],
     partyText: "",
     note: "",
   });
   const [movementMessage, setMovementMessage] = useState<string | null>(null);
+
+  const handleUpdateType = async (productId: string, newType: string) => {
+    const val = newType === "" ? null : newType;
+    setRows((prev) =>
+      prev.map((r) => (r.productId === productId ? { ...r, category: val } : r))
+    );
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: val }),
+      });
+      if (!res.ok) {
+        await loadStock();
+      } else {
+        setSaveSuccess("Product type updated successfully");
+        setTimeout(() => setSaveSuccess(null), 2500);
+      }
+    } catch {
+      await loadStock();
+    }
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      if (sortDir === "asc") setSortDir("desc");
+      else {
+        setSortField(null);
+        setSortDir("asc");
+      }
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
 
   const loadStock = async () => {
     try {
@@ -108,6 +150,7 @@ export default function StockPage() {
     setFocusField(fieldToFocus || null);
     setEditForm({
       name: r.name,
+      category: r.category || "",
       opening: r.opening !== null && r.opening !== undefined ? String(r.opening) : "",
       packSizeKg: r.packSizeKg !== null && r.packSizeKg !== undefined ? String(r.packSizeKg) : "",
       purchaseRate: r.purchaseRate !== null && r.purchaseRate !== undefined ? String(r.purchaseRate) : "",
@@ -150,6 +193,7 @@ export default function StockPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editForm.name,
+          category: editForm.category !== "" ? editForm.category : null,
           opening: editForm.opening !== "" ? Number(editForm.opening) : 0,
           pack_size_kg: editForm.packSizeKg !== "" ? Number(editForm.packSizeKg) : null,
           std_purchase_rate: editForm.purchaseRate !== "" ? Number(editForm.purchaseRate) : null,
@@ -186,9 +230,12 @@ export default function StockPage() {
     }
 
     try {
+      const selectedProduct = rows.find((r) => r.productId === movementForm.productId);
+      const isXac = selectedProduct?.code === "XAC";
       const numericQty = Number(movementForm.qtyKg);
+      // Apart from XAC, make all the other Adjustments negative
       const finalQty =
-        movementForm.type === "ADJUSTMENT_NEG"
+        !isXac || movementForm.type === "ADJUSTMENT_NEG"
           ? -Math.abs(numericQty)
           : Math.abs(numericQty);
 
@@ -197,7 +244,7 @@ export default function StockPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: movementForm.productId,
-          type: movementForm.type,
+          type: !isXac ? "ADJUSTMENT_NEG" : movementForm.type,
           qtyKg: finalQty,
           movementDate: movementForm.movementDate,
           partyText: movementForm.partyText || null,
@@ -214,7 +261,7 @@ export default function StockPage() {
       setIsManualMovementOpen(false);
       setMovementForm({
         productId: "",
-        type: "ADJUSTMENT_POS",
+        type: "ADJUSTMENT_NEG",
         qtyKg: "",
         movementDate: new Date().toISOString().split("T")[0],
         partyText: "",
@@ -226,13 +273,31 @@ export default function StockPage() {
     }
   };
 
-  const filteredRows = rows.filter((r) => {
-    const matchesSearch =
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      r.name.toLowerCase().includes(search.toLowerCase());
-    const matchesLowStock = !lowStockOnly || r.status === "LOW STOCK";
-    return matchesSearch && matchesLowStock;
-  });
+  const filteredRows = rows
+    .filter((r) => {
+      const matchesSearch =
+        r.code.toLowerCase().includes(search.toLowerCase()) ||
+        r.name.toLowerCase().includes(search.toLowerCase());
+      const matchesLowStock = !lowStockOnly || r.status === "LOW STOCK";
+      const matchesType =
+        typeFilter === "ALL"
+          ? true
+          : typeFilter === "UNASSIGNED"
+          ? !r.category
+          : r.category === typeFilter;
+      return matchesSearch && matchesLowStock && matchesType;
+    })
+    .sort((a, b) => {
+      if (!sortField) return 0;
+      if (sortField === "type") {
+        const valA = (a.category || "").toLowerCase();
+        const valB = (b.category || "").toLowerCase();
+        if (valA < valB) return sortDir === "asc" ? -1 : 1;
+        if (valA > valB) return sortDir === "asc" ? 1 : -1;
+        return a.code.localeCompare(b.code);
+      }
+      return 0;
+    });
 
   const totalOpening = filteredRows.reduce((sum, r) => sum + r.opening, 0);
   const totalPurchases = filteredRows.reduce((sum, r) => sum + r.purchases, 0);
@@ -365,7 +430,25 @@ export default function StockPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Type Filter */}
+          <div className="flex items-center gap-1.5 bg-surface-2 border border-border rounded-sm px-2.5 py-1 text-xs">
+            <span className="text-[11px] text-ink-3">Type:</span>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="bg-transparent text-xs text-ink focus:outline-none cursor-pointer font-medium"
+            >
+              <option value="ALL">All Types</option>
+              {PRODUCT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+              <option value="UNASSIGNED">Unassigned</option>
+            </select>
+          </div>
+
           <button
             onClick={() => setLowStockOnly(!lowStockOnly)}
             className={`px-3 py-1.5 rounded-sm text-xs font-medium border transition flex items-center gap-1.5 ${
@@ -429,7 +512,16 @@ export default function StockPage() {
                 <th className="py-2.5 px-3 text-right">Drums</th>
                 <th className="py-2.5 px-3 text-right">Std Pur.</th>
                 <th className="py-2.5 px-3 text-right font-semibold text-primary">Landing Cost</th>
-                <th className="py-2.5 px-3 text-right">Last Purchase</th>
+                <th
+                  onClick={() => handleSort("type")}
+                  className="py-2.5 px-3 text-left cursor-pointer hover:text-ink select-none font-medium"
+                  title="Click to sort by Product Type"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Type</span>
+                    <ArrowUpDown className="w-3 h-3 text-ink-3" />
+                  </div>
+                </th>
                 <th className="py-2.5 px-3 text-right">Sale Rate</th>
                 <th className="py-2.5 px-3 text-right font-medium text-ink">Stock Value</th>
                 <th className="py-2.5 px-3 text-right font-medium text-ink-2">Min. Stock</th>
@@ -571,9 +663,20 @@ export default function StockPage() {
                           />
                         </td>
 
-                        {/* Last Purchase (read-only) */}
-                        <td className="py-2 px-3 text-right num text-ink-3">
-                          {r.lastPurchaseRate ? `₹${r.lastPurchaseRate.toFixed(2)}` : "—"}
+                        {/* Type (editable) */}
+                        <td className="py-2 px-3 text-left">
+                          <select
+                            value={editForm.category}
+                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                            className="w-28 text-xs bg-bg border border-border rounded px-1.5 py-1 text-ink focus:outline-none focus:border-primary"
+                          >
+                            <option value="">— Select Type —</option>
+                            {PRODUCT_TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
                         </td>
 
                         {/* Std Sale Rate */}
@@ -717,23 +820,24 @@ export default function StockPage() {
                           <span className="text-ink-4 hover:text-primary text-[11px]">+ Add</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-right num text-ink-2">
-                        {r.lastPurchaseRate ? (
-                          <div>
-                            <span className="font-medium">₹{r.lastPurchaseRate.toFixed(2)}</span>
-                            {r.lastPurchaseDate && (
-                              <span className="text-[10px] text-ink-3 block" title={r.lastPurchaseSupplier || ""}>
-                                {new Date(r.lastPurchaseDate).toLocaleDateString("en-IN", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "2-digit",
-                                })}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-ink-4">—</span>
-                        )}
+                      {/* Type (inline selectable) */}
+                      <td className="py-2.5 px-3 text-left">
+                        <select
+                          value={r.category || ""}
+                          onChange={(e) => handleUpdateType(r.productId, e.target.value)}
+                          className={`text-xs rounded border px-2 py-1 cursor-pointer transition focus:outline-none focus:border-primary ${
+                            r.category
+                              ? "bg-surface-2 text-ink border-border font-medium"
+                              : "bg-surface text-ink-4 border-dashed border-border hover:text-ink-2"
+                          }`}
+                        >
+                          <option value="">— Select Type —</option>
+                          {PRODUCT_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td
                         onClick={() => handleStartEdit(r)}
@@ -816,7 +920,16 @@ export default function StockPage() {
                 <label className="block text-[11px] font-medium text-ink-2 mb-1">Product *</label>
                 <select
                   value={movementForm.productId}
-                  onChange={(e) => setMovementForm({ ...movementForm, productId: e.target.value })}
+                  onChange={(e) => {
+                    const selId = e.target.value;
+                    const selProd = rows.find((r) => r.productId === selId);
+                    const isXac = selProd?.code === "XAC";
+                    setMovementForm({
+                      ...movementForm,
+                      productId: selId,
+                      type: isXac ? "ADJUSTMENT_POS" : "ADJUSTMENT_NEG",
+                    });
+                  }}
                   className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                   required
                 >
@@ -839,8 +952,14 @@ export default function StockPage() {
                     }
                     className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
                   >
-                    <option value="ADJUSTMENT_POS">Positive Adjustment (+)</option>
-                    <option value="ADJUSTMENT_NEG">Negative Adjustment (-)</option>
+                    {rows.find((r) => r.productId === movementForm.productId)?.code === "XAC" ? (
+                      <>
+                        <option value="ADJUSTMENT_POS">Positive Adjustment (+)</option>
+                        <option value="ADJUSTMENT_NEG">Negative Adjustment (-)</option>
+                      </>
+                    ) : (
+                      <option value="ADJUSTMENT_NEG">Negative Adjustment (-)</option>
+                    )}
                   </select>
                 </div>
                 <div>

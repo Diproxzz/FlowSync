@@ -617,7 +617,7 @@ export default function DashboardPage() {
                     <th className="py-2 px-3">Code / Product</th>
                     <th className="py-2 px-3 text-right">Volume</th>
                     <th className="py-2 px-3 text-right">Avg Rate</th>
-                    <th className="py-2 px-3 text-right">Margin / kg</th>
+                    <th className="py-2 px-3 text-right">Markup / kg</th>
                     <th className="py-2 px-3 text-right font-semibold text-ink">Taxable Total</th>
                   </tr>
                 </thead>
