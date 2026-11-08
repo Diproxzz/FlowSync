@@ -78,7 +78,7 @@ export default function StockPage() {
   // Manual movement form
   const [movementForm, setMovementForm] = useState({
     productId: "",
-    type: "PURCHASE" as "PURCHASE" | "ADJUSTMENT",
+    type: "ADJUSTMENT_POS" as "ADJUSTMENT_POS" | "ADJUSTMENT_NEG",
     qtyKg: "",
     movementDate: new Date().toISOString().split("T")[0],
     partyText: "",
@@ -186,13 +186,19 @@ export default function StockPage() {
     }
 
     try {
+      const numericQty = Number(movementForm.qtyKg);
+      const finalQty =
+        movementForm.type === "ADJUSTMENT_NEG"
+          ? -Math.abs(numericQty)
+          : Math.abs(numericQty);
+
       const res = await fetch("/api/stock/movements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: movementForm.productId,
           type: movementForm.type,
-          qtyKg: Number(movementForm.qtyKg),
+          qtyKg: finalQty,
           movementDate: movementForm.movementDate,
           partyText: movementForm.partyText || null,
           note: movementForm.note || null,
@@ -208,7 +214,7 @@ export default function StockPage() {
       setIsManualMovementOpen(false);
       setMovementForm({
         productId: "",
-        type: "PURCHASE",
+        type: "ADJUSTMENT_POS",
         qtyKg: "",
         movementDate: new Date().toISOString().split("T")[0],
         partyText: "",
@@ -829,12 +835,12 @@ export default function StockPage() {
                   <select
                     value={movementForm.type}
                     onChange={(e) =>
-                      setMovementForm({ ...movementForm, type: e.target.value as "PURCHASE" | "ADJUSTMENT" })
+                      setMovementForm({ ...movementForm, type: e.target.value as "ADJUSTMENT_POS" | "ADJUSTMENT_NEG" })
                     }
                     className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
                   >
-                    <option value="PURCHASE">Purchase (Stock In)</option>
-                    <option value="ADJUSTMENT">Adjustment</option>
+                    <option value="ADJUSTMENT_POS">Positive Adjustment (+)</option>
+                    <option value="ADJUSTMENT_NEG">Negative Adjustment (-)</option>
                   </select>
                 </div>
                 <div>

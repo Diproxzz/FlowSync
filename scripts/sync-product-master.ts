@@ -119,6 +119,20 @@ async function cleanupDuplicateProducts(db: PrismaClient) {
         }
       }
     }
+
+    const xac = await db.product.findUnique({ where: { code: "XAC" } });
+    if (xac) {
+      await db.stockMovement.deleteMany({
+        where: {
+          product_id: xac.id,
+          type: "PURCHASE",
+          OR: [
+            { source: { not: "PURCHASE_INVOICE" } },
+            { qty_kg: 431 },
+          ],
+        },
+      });
+    }
   } catch (err) {
     console.error("Cleanup error during sync:", err);
   }

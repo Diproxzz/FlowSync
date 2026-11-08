@@ -73,7 +73,7 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
       else if (sm.type === "ADJUSTMENT") adjustments = adjustments.plus(q);
     }
 
-    const closing = opening.plus(purchases).minus(sales).minus(adjustments);
+    const closing = opening.plus(purchases).minus(sales).plus(adjustments);
 
     const packSize = p.pack_size_kg ? new Decimal(p.pack_size_kg.toString()) : null;
     const drums = packSize && !packSize.isZero() ? closing.dividedBy(packSize).toNumber() : 0;

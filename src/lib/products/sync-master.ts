@@ -221,6 +221,21 @@ export async function cleanupDuplicateProducts(db: typeof prisma) {
         }
       }
     }
+
+    // 4. Remove legacy purchase movement on XAC (e.g. 431 kg entry)
+    const xac = await db.product.findUnique({ where: { code: "XAC" } });
+    if (xac) {
+      await db.stockMovement.deleteMany({
+        where: {
+          product_id: xac.id,
+          type: "PURCHASE",
+          OR: [
+            { source: { not: "PURCHASE_INVOICE" } },
+            { qty_kg: 431 },
+          ],
+        },
+      });
+    }
   } catch (err) {
     console.error("Cleanup duplicate products error:", err);
   }

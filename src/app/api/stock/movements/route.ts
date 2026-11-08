@@ -49,9 +49,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["PURCHASE", "ADJUSTMENT"].includes(type)) {
+    if (!["PURCHASE", "ADJUSTMENT", "ADJUSTMENT_POS", "ADJUSTMENT_NEG"].includes(type)) {
       return NextResponse.json(
-        { error: { code: "VALIDATION_ERROR", message: "Manual type must be PURCHASE or ADJUSTMENT" } },
+        { error: { code: "VALIDATION_ERROR", message: "Manual type must be ADJUSTMENT" } },
         { status: 400 }
       );
     }
@@ -64,13 +64,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const qty = new Prisma.Decimal(qtyKg);
+    let actualType: MovementType = MovementType.ADJUSTMENT;
+    let numericQty = Number(qtyKg);
+
+    if (type === "ADJUSTMENT_NEG") {
+      actualType = MovementType.ADJUSTMENT;
+      numericQty = -Math.abs(numericQty);
+    } else if (type === "ADJUSTMENT_POS") {
+      actualType = MovementType.ADJUSTMENT;
+      numericQty = Math.abs(numericQty);
+    } else if (type === "PURCHASE") {
+      actualType = MovementType.PURCHASE;
+    } else {
+      actualType = MovementType.ADJUSTMENT;
+    }
+
+    const qty = new Prisma.Decimal(numericQty);
     const date = movementDate ? new Date(movementDate) : new Date();
 
     const movement = await prisma.stockMovement.create({
       data: {
         product_id: productId,
-        type: type as MovementType,
+        type: actualType,
         source: "MANUAL",
         qty_kg: qty,
         movement_date: date,
