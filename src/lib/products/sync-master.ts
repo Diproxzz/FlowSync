@@ -148,6 +148,79 @@ export async function cleanupDuplicateProducts(db: typeof prisma) {
         } catch {}
       }
     }
+
+    // 3. Clean up duplicate SNA / SNA ACTOIL
+    const canonicalSNA = await db.product.findUnique({
+      where: { code: "SNA" },
+    });
+    if (canonicalSNA) {
+      const duplicateSNAs = await db.product.findMany({
+        where: {
+          id: { not: canonicalSNA.id },
+          OR: [
+            { code: { in: ["SNA ACTOIL", "ACTOIL SNA"] } },
+            { name: { in: ["SNA ACTOIL", "ACTOIL SNA"] } },
+            { code: { contains: "SNA ACTOIL", mode: "insensitive" } },
+            { name: { equals: "SNA ACTOIL", mode: "insensitive" } },
+          ],
+        },
+      });
+
+      for (const dup of duplicateSNAs) {
+        await db.$transaction(async (tx) => {
+          await tx.invoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalSNA.id },
+          });
+          await tx.purchaseInvoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalSNA.id },
+          });
+          await tx.informalInvoiceItem.updateMany({
+            where: { product_id: dup.id },
+            data: { product_id: canonicalSNA.id },
+          });
+          const movements = await tx.stockMovement.findMany({
+            where: { product_id: dup.id },
+          });
+          for (const sm of movements) {
+            await tx.stockMovement.update({
+              where: { id: sm.id },
+              data: {
+                product_id: canonicalSNA.id,
+                qty_kg: Math.abs(Number(sm.qty_kg)),
+              },
+            });
+          }
+          await tx.productAlias.deleteMany({
+            where: { product_id: dup.id },
+          });
+          await tx.product.delete({
+            where: { id: dup.id },
+          });
+        });
+      }
+
+      // Ensure aliases on canonicalSNA
+      const snaAliases = ["SNA ACTOIL", "ACTOIL SNA"];
+      for (const aliasText of snaAliases) {
+        const normWithSpace = aliasText.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        const normWithoutSpace = aliasText.toLowerCase().replace(/[^a-z0-9]/g, "");
+        for (const norm of [normWithSpace, normWithoutSpace]) {
+          if (!norm) continue;
+          const existing = await db.productAlias.findUnique({ where: { alias_norm: norm } });
+          if (existing && existing.product_id !== canonicalSNA.id) {
+            await db.productAlias.update({ where: { id: existing.id }, data: { product_id: canonicalSNA.id } });
+          } else if (!existing) {
+            try {
+              await db.productAlias.create({
+                data: { product_id: canonicalSNA.id, alias: aliasText, alias_norm: norm },
+              });
+            } catch {}
+          }
+        }
+      }
+    }
   } catch (err) {
     console.error("Cleanup duplicate products error:", err);
   }
