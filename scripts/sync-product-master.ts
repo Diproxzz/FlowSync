@@ -120,6 +120,54 @@ async function cleanupDuplicateProducts(db: PrismaClient) {
       }
     }
 
+    const canonicalOIT = await db.product.findUnique({
+      where: { code: "OIT 9" },
+    });
+    if (canonicalOIT) {
+      const duplicateOITs = await db.product.findMany({
+        where: {
+          id: { not: canonicalOIT.id },
+          OR: [
+            { code: { in: ["OIT 9 BIOCIDE", "OIT9 BIOCIDE"] } },
+            { name: { in: ["OIT 9 BIOCIDE", "OIT9 BIOCIDE", "oit 9 biocide"] } },
+            { code: { contains: "OIT 9 BIOCIDE", mode: "insensitive" } },
+            { name: { equals: "oit 9 biocide", mode: "insensitive" } },
+            { name: { equals: "OIT 9 BIOCIDE", mode: "insensitive" } },
+          ],
+        },
+      });
+
+      for (const dup of duplicateOITs) {
+        await db.$transaction(async (tx) => {
+          await tx.invoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalOIT.id } });
+          await tx.purchaseInvoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalOIT.id } });
+          await tx.informalInvoiceItem.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalOIT.id } });
+          await tx.stockMovement.updateMany({ where: { product_id: dup.id }, data: { product_id: canonicalOIT.id } });
+          await tx.productAlias.deleteMany({ where: { product_id: dup.id } });
+          await tx.product.delete({ where: { id: dup.id } });
+        });
+      }
+
+      const oitAliases = ["OIT 9 ACTISOLV", "OIT 9 BIOCIDE", "OIT9 BIOCIDE", "OIT9 ACTISOLV"];
+      for (const aliasText of oitAliases) {
+        const normWithSpace = aliasText.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        const normWithoutSpace = aliasText.toLowerCase().replace(/[^a-z0-9]/g, "");
+        for (const norm of [normWithSpace, normWithoutSpace]) {
+          if (!norm) continue;
+          const existing = await db.productAlias.findUnique({ where: { alias_norm: norm } });
+          if (existing && existing.product_id !== canonicalOIT.id) {
+            await db.productAlias.update({ where: { id: existing.id }, data: { product_id: canonicalOIT.id } });
+          } else if (!existing) {
+            try {
+              await db.productAlias.create({
+                data: { product_id: canonicalOIT.id, alias: aliasText, alias_norm: norm },
+              });
+            } catch {}
+          }
+        }
+      }
+    }
+
     const xac = await db.product.findUnique({ where: { code: "XAC" } });
     if (xac) {
       await db.stockMovement.deleteMany({
