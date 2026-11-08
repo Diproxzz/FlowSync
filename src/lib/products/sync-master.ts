@@ -236,21 +236,6 @@ export async function cleanupDuplicateProducts(db: typeof prisma) {
         },
       });
     }
-
-    // 5. Ensure all adjustments apart from XAC are negative
-    const nonXacPositiveAdjustments = await db.stockMovement.findMany({
-      where: {
-        type: "ADJUSTMENT",
-        product: { code: { not: "XAC" } },
-        qty_kg: { gt: 0 },
-      },
-    });
-    for (const sm of nonXacPositiveAdjustments) {
-      await db.stockMovement.update({
-        where: { id: sm.id },
-        data: { qty_kg: -Math.abs(Number(sm.qty_kg)) },
-      });
-    }
   } catch (err) {
     console.error("Cleanup duplicate products error:", err);
   }

@@ -82,10 +82,10 @@ export default function StockPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
-  // Manual movement form - default to ADJUSTMENT_NEG for all products (apart from XAC)
+  // Manual movement form
   const [movementForm, setMovementForm] = useState({
     productId: "",
-    type: "ADJUSTMENT_NEG" as "ADJUSTMENT_POS" | "ADJUSTMENT_NEG",
+    type: "ADJUSTMENT_POS" as "ADJUSTMENT_POS" | "ADJUSTMENT_NEG",
     qtyKg: "",
     movementDate: new Date().toISOString().split("T")[0],
     partyText: "",
@@ -230,12 +230,9 @@ export default function StockPage() {
     }
 
     try {
-      const selectedProduct = rows.find((r) => r.productId === movementForm.productId);
-      const isXac = selectedProduct?.code === "XAC";
       const numericQty = Number(movementForm.qtyKg);
-      // Apart from XAC, make all the other Adjustments negative
       const finalQty =
-        !isXac || movementForm.type === "ADJUSTMENT_NEG"
+        movementForm.type === "ADJUSTMENT_NEG"
           ? -Math.abs(numericQty)
           : Math.abs(numericQty);
 
@@ -244,7 +241,7 @@ export default function StockPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: movementForm.productId,
-          type: !isXac ? "ADJUSTMENT_NEG" : movementForm.type,
+          type: movementForm.type,
           qtyKg: finalQty,
           movementDate: movementForm.movementDate,
           partyText: movementForm.partyText || null,
@@ -261,7 +258,7 @@ export default function StockPage() {
       setIsManualMovementOpen(false);
       setMovementForm({
         productId: "",
-        type: "ADJUSTMENT_NEG",
+        type: "ADJUSTMENT_POS",
         qtyKg: "",
         movementDate: new Date().toISOString().split("T")[0],
         partyText: "",
@@ -920,16 +917,7 @@ export default function StockPage() {
                 <label className="block text-[11px] font-medium text-ink-2 mb-1">Product *</label>
                 <select
                   value={movementForm.productId}
-                  onChange={(e) => {
-                    const selId = e.target.value;
-                    const selProd = rows.find((r) => r.productId === selId);
-                    const isXac = selProd?.code === "XAC";
-                    setMovementForm({
-                      ...movementForm,
-                      productId: selId,
-                      type: isXac ? "ADJUSTMENT_POS" : "ADJUSTMENT_NEG",
-                    });
-                  }}
+                  onChange={(e) => setMovementForm({ ...movementForm, productId: e.target.value })}
                   className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                   required
                 >
@@ -952,14 +940,8 @@ export default function StockPage() {
                     }
                     className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
                   >
-                    {rows.find((r) => r.productId === movementForm.productId)?.code === "XAC" ? (
-                      <>
-                        <option value="ADJUSTMENT_POS">Positive Adjustment (+)</option>
-                        <option value="ADJUSTMENT_NEG">Negative Adjustment (-)</option>
-                      </>
-                    ) : (
-                      <option value="ADJUSTMENT_NEG">Negative Adjustment (-)</option>
-                    )}
+                    <option value="ADJUSTMENT_POS">Positive Adjustment (+)</option>
+                    <option value="ADJUSTMENT_NEG">Negative Adjustment (-)</option>
                   </select>
                 </div>
                 <div>
