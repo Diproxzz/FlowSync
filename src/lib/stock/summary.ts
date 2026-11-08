@@ -18,6 +18,7 @@ export interface StockSummaryRow {
   purchaseRate: number | null;
   landingCost: number | null;
   saleRate: number | null;
+  wasp: number | null;
   lastPurchaseRate: number | null;
   lastPurchaseDate: string | null;
   lastPurchaseSupplier: string | null;
@@ -30,26 +31,44 @@ export interface StockSummaryRow {
 }
 
 export async function getStockSummary(): Promise<StockSummaryRow[]> {
-  const products = await prisma.product.findMany({
-    where: { is_active: true },
-    include: {
-      stock_movements: true,
-      purchase_items: {
-        include: {
-          purchase_invoice: {
-            select: {
-              invoice_date: true,
-              supplier_invoice_number: true,
-              supplier: { select: { name: true } },
+  const [products, salesAgg] = await Promise.all([
+    prisma.product.findMany({
+      where: { is_active: true },
+      include: {
+        stock_movements: true,
+        purchase_items: {
+          include: {
+            purchase_invoice: {
+              select: {
+                invoice_date: true,
+                supplier_invoice_number: true,
+                supplier: { select: { name: true } },
+              },
             },
           },
+          orderBy: { purchase_invoice: { invoice_date: "desc" } },
+          take: 1,
         },
-        orderBy: { purchase_invoice: { invoice_date: "desc" } },
-        take: 1,
       },
-    },
-    orderBy: { code: "asc" },
-  });
+      orderBy: { code: "asc" },
+    }),
+    prisma.invoiceItem.groupBy({
+      by: ["product_id"],
+      _sum: {
+        qty_kg: true,
+        taxable_amount: true,
+      },
+    }),
+  ]);
+
+  const waspMap = new Map<string, number>();
+  for (const item of salesAgg) {
+    const qty = item._sum.qty_kg ? new Decimal(item._sum.qty_kg.toString()) : new Decimal(0);
+    const rev = item._sum.taxable_amount ? new Decimal(item._sum.taxable_amount.toString()) : new Decimal(0);
+    if (qty.greaterThan(0)) {
+      waspMap.set(item.product_id, Math.round(rev.dividedBy(qty).toNumber() * 100) / 100);
+    }
+  }
 
   return products.map((p) => {
     let opening = new Decimal(0);
@@ -129,6 +148,7 @@ export async function getStockSummary(): Promise<StockSummaryRow[]> {
       purchaseRate: purchaseRate ? purchaseRate.toNumber() : null,
       landingCost: landingCost ? landingCost.toNumber() : null,
       saleRate: saleRate ? saleRate.toNumber() : null,
+      wasp: waspMap.get(p.id) ?? null,
       lastPurchaseRate,
       lastPurchaseDate,
       lastPurchaseSupplier,

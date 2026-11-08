@@ -33,6 +33,7 @@ interface StockRow {
   purchaseRate: number | null;
   landingCost: number | null;
   saleRate: number | null;
+  wasp: number | null;
   lastPurchaseRate: number | null;
   lastPurchaseDate: string | null;
   lastPurchaseSupplier: string | null;
@@ -324,7 +325,7 @@ export default function StockPage() {
       "Last Purchase Rate (INR/kg)",
       "Last Purchase Date",
       "Last Purchase Supplier",
-      "Std Sale Rate (INR)",
+      "WASP (INR)",
       "Stock Valuation (INR)",
       "Sales Value (INR)",
       "Min. Stock (kg)",
@@ -352,7 +353,7 @@ export default function StockPage() {
           r.lastPurchaseRate ?? "",
           r.lastPurchaseDate ?? "",
           `"${(r.lastPurchaseSupplier || "").replace(/"/g, '""')}"`,
-          r.saleRate ?? "",
+          (r.wasp && r.wasp > 0 ? r.wasp : r.saleRate) ?? "",
           r.stockValue,
           r.salesValue,
           r.reorderLevelKg ?? "",
@@ -519,7 +520,7 @@ export default function StockPage() {
                     <ArrowUpDown className="w-3 h-3 text-ink-3" />
                   </div>
                 </th>
-                <th className="py-2.5 px-3 text-right">Sale Rate</th>
+                <th className="py-2.5 px-3 text-right" title="Weighted Average Selling Price">WASP</th>
                 <th className="py-2.5 px-3 text-right font-medium text-ink">Stock Value</th>
                 <th className="py-2.5 px-3 text-right font-medium text-ink-2">Min. Stock</th>
                 <th className="py-2.5 px-3 text-center">Status</th>
@@ -685,7 +686,7 @@ export default function StockPage() {
                             onChange={(e) => setEditForm({ ...editForm, saleRate: e.target.value })}
                             onKeyDown={handleKeyDown}
                             className="w-20 text-right text-xs bg-bg border border-border rounded px-1.5 py-0.5 text-ink num focus:outline-none focus:ring-1 focus:ring-primary"
-                            placeholder="Sale Rate"
+                            placeholder={r.wasp && r.wasp > 0 ? `WASP: ₹${r.wasp}` : "Sale Rate"}
                           />
                         </td>
 
@@ -839,9 +840,17 @@ export default function StockPage() {
                       <td
                         onClick={() => handleStartEdit(r)}
                         className="py-2.5 px-3 text-right num text-ink-2 hover:text-primary hover:underline decoration-dotted"
-                        title="Click to edit standard sale rate"
+                        title={
+                          r.wasp && r.wasp > 0
+                            ? "WASP (Weighted Average Selling Price) • Click to edit standard sale rate"
+                            : "Click to edit standard sale rate"
+                        }
                       >
-                        {r.saleRate ? formatINR(r.saleRate) : "—"}
+                        {r.wasp && r.wasp > 0
+                          ? formatINR(r.wasp)
+                          : r.saleRate
+                          ? formatINR(r.saleRate)
+                          : "—"}
                       </td>
                       <td className="py-2.5 px-3 text-right num font-medium text-ink">
                         {formatINR(r.stockValue)}
