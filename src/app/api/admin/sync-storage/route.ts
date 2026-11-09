@@ -25,23 +25,29 @@ export async function POST(request: NextRequest) {
     const storageDir = path.resolve(process.cwd(), env.STORAGE_LOCAL_DIR || "./storage");
     await fs.mkdir(storageDir, { recursive: true });
 
-    const filename = file.name || "temp_bundle.tar.gz";
-    const archivePath = path.join(storageDir, filename);
+    const safeBasename = path.basename(file.name || "temp_bundle.tar.gz").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const archivePath = path.join(storageDir, safeBasename);
     const arrayBuffer = await file.arrayBuffer();
     await fs.writeFile(archivePath, Buffer.from(arrayBuffer));
 
-    if (filename.endsWith(".tar.gz") || filename.endsWith(".tgz")) {
+    if (safeBasename.endsWith(".tar.gz") || safeBasename.endsWith(".tgz")) {
       await execFileAsync("tar", ["-xzf", archivePath, "-C", storageDir]);
-    } else if (filename.endsWith(".tar")) {
+    } else if (safeBasename.endsWith(".tar")) {
       await execFileAsync("tar", ["-xf", archivePath, "-C", storageDir]);
     } else {
       const pythonScript = `
-import zipfile
-with zipfile.ZipFile(r"${archivePath.replace(/\\/g, "/")}", 'r') as z:
-    z.extractall(r"${storageDir.replace(/\\/g, "/")}")
+import sys, os, zipfile
+archive, target = sys.argv[1], sys.argv[2]
+target_real = os.path.realpath(target)
+with zipfile.ZipFile(archive, 'r') as z:
+    for member in z.namelist():
+        member_path = os.path.realpath(os.path.join(target, member))
+        if not member_path.startswith(target_real + os.sep) and member_path != target_real:
+            raise Exception("Unsafe zip entry detected: " + member)
+    z.extractall(target)
 `;
       const pythonBin = process.platform === "win32" ? "python" : "python3";
-      await execFileAsync(pythonBin, ["-c", pythonScript]);
+      await execFileAsync(pythonBin, ["-c", pythonScript, archivePath, storageDir]);
     }
     await fs.unlink(archivePath).catch(() => {});
 

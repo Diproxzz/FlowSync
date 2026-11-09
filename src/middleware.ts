@@ -14,6 +14,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/auth/login" ||
     pathname === "/api/admin/sync-storage" ||
     pathname === "/api/admin/sync-products" ||
+    (pathname === "/api/admin/backup" && !!request.headers.get("authorization")) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname === "/favicon.ico" ||
@@ -88,9 +89,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Admin route protection: only users with role === 'ADMIN' can access /admin
+  // Admin route protection: only users with role === 'ADMIN' can access /admin UI
   if (pathname.startsWith("/admin") && sessionPayload?.role !== "ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Admin API protection: backup is accessible to ADMIN and founding workspace (Indobest); others strictly require ADMIN
+  if (pathname.startsWith("/api/admin/")) {
+    const isFoundingOrAdmin =
+      sessionPayload?.role === "ADMIN" ||
+      sessionPayload?.clientId?.toLowerCase() === "indobest" ||
+      sessionPayload?.username?.toLowerCase() === "indobest";
+
+    const isAllowed = pathname.startsWith("/api/admin/backup")
+      ? isFoundingOrAdmin
+      : sessionPayload?.role === "ADMIN";
+
+    if (!isAllowed) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Administrator access required" } },
+        { status: 403 }
+      );
+    }
   }
 
   // Enforce Administrator Read-Only Mode in client workspaces

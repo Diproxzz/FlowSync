@@ -66,7 +66,11 @@ export default function SettingsPage() {
         setBackupMessage("Backup successfully completed!");
         await fetchBackupInfo();
       } else {
-        setBackupMessage(`Backup failed: ${data.error || "Unknown error"}`);
+        const errorMsg =
+          typeof data.error === "object"
+            ? data.error?.message || JSON.stringify(data.error)
+            : data.error;
+        setBackupMessage(`Backup failed: ${errorMsg || "Unknown error"}`);
       }
     } catch (e: any) {
       setBackupMessage(`Backup failed: ${e.message || "Network error"}`);
@@ -95,7 +99,11 @@ export default function SettingsPage() {
         setBackupMessage("Production changes & backup restored successfully into database!");
         await fetchBackupInfo();
       } else {
-        setBackupMessage(`Restore failed: ${result.error || "Unknown error"}`);
+        const errorMsg =
+          typeof result.error === "object"
+            ? result.error?.message || JSON.stringify(result.error)
+            : result.error;
+        setBackupMessage(`Restore failed: ${errorMsg || "Unknown error"}`);
       }
     } catch (err: any) {
       setBackupMessage(`Restore error: ${err.message}`);

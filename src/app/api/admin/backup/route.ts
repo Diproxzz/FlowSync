@@ -4,9 +4,29 @@ import fs from "fs";
 import path from "path";
 import { runDailyBackup } from "@/../scripts/daily-backup";
 import { restoreFromJsonData } from "@/../scripts/restore-backup";
+import { getSession } from "@/lib/auth/session";
+
+async function isAuthorizedBackupUser(request: NextRequest): Promise<boolean> {
+  const authHeader = request.headers.get("authorization");
+  const secret = process.env.SESSION_SECRET;
+  if (authHeader && secret && authHeader === `Bearer ${secret}`) {
+    return true;
+  }
+  const session = await getSession();
+  if (!session) return false;
+  return (
+    session.role === "ADMIN" ||
+    session.clientId?.toLowerCase() === "indobest" ||
+    session.username?.toLowerCase() === "indobest"
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const isAuthorized = await isAuthorizedBackupUser(request);
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Administrator access required" }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
     const baseDir = path.resolve(process.cwd(), "backups", "daily");
@@ -75,6 +95,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const isAuthorized = await isAuthorizedBackupUser(request);
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Administrator access required" }, { status: 403 });
+    }
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const body = await request.json().catch(() => null);

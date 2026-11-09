@@ -70,12 +70,20 @@ class LocalStorageAdapter implements StorageAdapter {
   }
 
   async getFile(key: string): Promise<Buffer> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = path.resolve(this.baseDir, key);
+    const resolvedBase = path.resolve(this.baseDir);
+    if (!filePath.startsWith(resolvedBase + path.sep) && filePath !== resolvedBase) {
+      throw new Error("Invalid storage key: directory traversal attempt");
+    }
     return await fs.readFile(filePath);
   }
 
   async deleteFile(key: string): Promise<void> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = path.resolve(this.baseDir, key);
+    const resolvedBase = path.resolve(this.baseDir);
+    if (!filePath.startsWith(resolvedBase + path.sep) && filePath !== resolvedBase) {
+      return;
+    }
     await fs.unlink(filePath).catch(() => {});
   }
 }

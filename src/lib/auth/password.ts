@@ -27,7 +27,12 @@ export async function verifyCredentials(
 
   // 1. Admin Profile Authentication
   if (lowerUser === "admin") {
-    if (password === "admin123") {
+    const adminHash = process.env.ADMIN_PASSWORD_HASH;
+    const isMatch = adminHash
+      ? await bcrypt.compare(password, adminHash.replace(/\\/g, ""))
+      : (process.env.NODE_ENV !== "production" && password === (process.env.ADMIN_PASSWORD || "admin123"));
+
+    if (isMatch) {
       return {
         valid: true,
         role: "ADMIN",
