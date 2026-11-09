@@ -36,15 +36,28 @@ class LocalStorageAdapter implements StorageAdapter {
   }
 
   async getTemp(token: string): Promise<{ buffer: Buffer; filename: string }> {
-    const tempPath = path.join(this.tempDir, token);
+    const tempPath = path.resolve(this.tempDir, token);
+    const resolvedTemp = path.resolve(this.tempDir);
+    if (!tempPath.startsWith(resolvedTemp + path.sep) && tempPath !== resolvedTemp) {
+      throw new Error("Invalid storage token: directory traversal attempt");
+    }
     const buffer = await fs.readFile(tempPath);
     return { buffer, filename: token };
   }
 
   async persist(token: string, finalKey: string): Promise<string> {
     await this.ensureDirs();
-    const tempPath = path.join(this.tempDir, token);
-    const finalPath = path.join(this.baseDir, finalKey);
+    const tempPath = path.resolve(this.tempDir, token);
+    const resolvedTemp = path.resolve(this.tempDir);
+    if (!tempPath.startsWith(resolvedTemp + path.sep) && tempPath !== resolvedTemp) {
+      throw new Error("Invalid temp token: directory traversal attempt");
+    }
+
+    const finalPath = path.resolve(this.baseDir, finalKey);
+    const resolvedBase = path.resolve(this.baseDir);
+    if (!finalPath.startsWith(resolvedBase + path.sep) && finalPath !== resolvedBase) {
+      throw new Error("Invalid storage key: directory traversal attempt");
+    }
     await fs.mkdir(path.dirname(finalPath), { recursive: true });
 
     const isPdf =
