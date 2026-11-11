@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -83,7 +83,7 @@ export default function SuppliersPage() {
     address: "",
   });
 
-  const loadSuppliers = async () => {
+  const loadSuppliers = useCallback(async () => {
     try {
       setLoading(true);
       const url = search ? `/api/suppliers?search=${encodeURIComponent(search)}` : "/api/suppliers";
@@ -95,11 +95,11 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
   useEffect(() => {
     loadSuppliers();
-  }, [search]);
+  }, [loadSuppliers]);
 
   const handleOpenAdd = () => {
     setFormData({ name: "", gstin: "", address: "" });

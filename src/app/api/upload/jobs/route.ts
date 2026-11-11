@@ -4,8 +4,20 @@ import crypto from "crypto";
 import { prisma } from "@/lib/db";
 import { storage } from "@/lib/storage/adapter";
 import { processNextQueuedJobs } from "@/lib/upload/processor";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({ jobs: [] });
+  }
+
   try {
     // Pick up any pending queued jobs on polling
     processNextQueuedJobs().catch(console.error);
@@ -39,6 +51,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -89,6 +104,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get("scope"); // 'completed' or 'all'

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { confirmInvoice } from "@/lib/invoices/confirm";
 import { Prisma } from "@prisma/client";
-import { getActiveClientContext } from "@/lib/auth/session";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -21,10 +21,18 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1", 10);
 
   const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
   if (!ctx.isFoundingClient) {
     return NextResponse.json({
       invoices: [],
-      pagination: { total: 0, page: 1, limit, totalPages: 0 },
+      missingInvoices: [],
+      allMissingNumbers: [],
+      pagination: { total: 0, page: 1, limit, pages: 0, totalPages: 0 },
       summary: { totalCount: 0, totalAmount: "0.00", totalTaxable: "0.00" },
     });
   }
@@ -176,6 +184,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const body = await request.json();
     const result = await confirmInvoice(body);
 

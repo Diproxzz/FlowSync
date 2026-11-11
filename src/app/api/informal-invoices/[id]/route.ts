@@ -2,11 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { deleteInformalInvoice } from "@/lib/informal-invoices/service";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   try {
     const { id } = params;
     const invoice = await prisma.informalInvoice.findUnique({
@@ -59,6 +63,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     await deleteInformalInvoice(id);

@@ -16,12 +16,19 @@ export interface CustomerResolution {
   offerAddGstin?: boolean;
 }
 
-export function calculateSimilarity(s1: string, s2: string): number {
+export function calculateSimilarity(s1: string, s2: string, minThreshold = 0): number {
   if (!s1 || !s2) return 0;
   if (s1 === s2) return 1;
 
   const maxLen = Math.max(s1.length, s2.length);
   if (maxLen === 0) return 1;
+
+  if (minThreshold > 0) {
+    const minLen = Math.min(s1.length, s2.length);
+    if (minLen / maxLen < minThreshold) {
+      return 0;
+    }
+  }
 
   const dist = distance(s1, s2);
   return 1 - dist / maxLen;
@@ -97,7 +104,7 @@ export async function resolveCustomer(
   const suggestions: Array<{ id: string; name: string; gstin: string | null; score: number }> = [];
 
   for (const c of allCustomers) {
-    const score = calculateSimilarity(nameNorm, c.name_norm);
+    const score = calculateSimilarity(nameNorm, c.name_norm, fuzzyThreshold);
     if (score >= fuzzyThreshold) {
       suggestions.push({
         id: c.id,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -169,6 +169,7 @@ export function PreviewForm({
   const [productsList, setProductsList] = useState<ProductOption[]>([]);
   const [customersList, setCustomersList] = useState<CustomerOption[]>([]);
   const [liveDuplicate, setLiveDuplicate] = useState<any>(null);
+  const initialCustomerGstinRef = useRef(draft.customer.gstin);
 
   // Load products and customers for selection dropdowns
   useEffect(() => {
@@ -180,7 +181,7 @@ export function PreviewForm({
         if (pData.products) setProductsList(pData.products);
         if (cData.customers) {
           setCustomersList(cData.customers);
-          const cleanG = draft.customer.gstin ? draft.customer.gstin.trim().toUpperCase() : null;
+          const cleanG = initialCustomerGstinRef.current ? initialCustomerGstinRef.current.trim().toUpperCase() : null;
           if (cleanG) {
             const matched = cData.customers.find(
               (c: CustomerOption) => c.gstin && c.gstin.trim().toUpperCase() === cleanG

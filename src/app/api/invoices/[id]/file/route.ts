@@ -5,11 +5,24 @@ import { storage } from "@/lib/storage/adapter";
 import { calculateInvoice, InvoiceLineItemInput } from "@/lib/invoices/calculations";
 import { renderInvoiceToHtml } from "@/lib/invoices/renderHtml";
 import { CustomerInvoiceMeta, InvoiceHeaderMeta } from "@/components/invoices/PrintableInvoice";
+import { requireFoundingReadResponse } from "@/lib/auth/session";
+
+function escapeHtml(str: string): string {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { id } = params;
   const invoice = await prisma.invoice.findUnique({
     where: { id },
@@ -53,6 +66,11 @@ export async function GET(
         ? (invoice.warnings as Record<string, any>)
         : {};
 
+    const isInterState =
+      Boolean(metaObj.isInterState) ||
+      Number(invoice.igst_total || 0) > 0 ||
+      invoice.items.some((it) => Number(it.igst_pct || 0) > 0);
+
     const lines: InvoiceLineItemInput[] = invoice.items.map((it, idx) => ({
       sl: it.line_no || idx + 1,
       qty: Number(it.qty_kg),
@@ -62,12 +80,16 @@ export async function GET(
       hsn: it.hsn || it.product.default_hsn || "",
       rate: Number(it.rate),
       discountPct: Number(it.discount_pct || 0),
-      gstPct: Number(it.cgst_pct || 0) + Number(it.sgst_pct || 0),
+      gstPct:
+        Number(it.igst_pct || 0) > 0
+          ? Number(it.igst_pct)
+          : Number(it.cgst_pct || 0) + Number(it.sgst_pct || 0),
     }));
 
     const calculation = calculateInvoice(
       lines,
-      invoice.discount_pct ? Number(invoice.discount_pct) : 0
+      invoice.discount_pct ? Number(invoice.discount_pct) : 0,
+      { isInterState }
     );
 
     const invDateObj = new Date(invoice.invoice_date);
@@ -106,7 +128,7 @@ export async function GET(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tax Invoice - ${invoice.invoice_number}</title>
+  <title>Tax Invoice - ${escapeHtml(invoice.invoice_number)}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @page {
@@ -139,9 +161,9 @@ export async function GET(
 <body>
   <div class="no-print bg-[#323639] text-white px-4 py-2 flex items-center justify-between border-b border-[#212529] shadow-md sticky top-0 z-50">
     <div class="flex items-center gap-3">
-      <span class="font-mono text-xs font-semibold tracking-wide">${invoice.invoice_number}</span>
+      <span class="font-mono text-xs font-semibold tracking-wide">${escapeHtml(invoice.invoice_number)}</span>
       <span class="text-xs text-gray-300">|</span>
-      <span class="text-xs text-gray-300 font-medium">${customerMeta.name}</span>
+      <span class="text-xs text-gray-300 font-medium">${escapeHtml(customerMeta.name)}</span>
     </div>
     <div class="flex items-center gap-2">
       <button onclick="window.print()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition flex items-center gap-1.5 shadow-sm cursor-pointer">

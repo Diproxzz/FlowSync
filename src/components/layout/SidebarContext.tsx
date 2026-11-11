@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 
 interface SidebarContextType {
   isOpen: boolean;
@@ -61,7 +61,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     }, 180);
   };
 
-  const closeSidebar = () => {
+  const closeSidebar = useCallback(() => {
     if (leaveTimerRef.current) {
       clearTimeout(leaveTimerRef.current);
       leaveTimerRef.current = null;
@@ -69,7 +69,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     if (!isPinned) {
       setIsOpen(false);
     }
-  };
+  }, [isPinned]);
 
   // Close unpinned sidebar on Escape key
   useEffect(() => {
@@ -80,7 +80,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isPinned]);
+  }, [isOpen, isPinned, closeSidebar]);
 
   return (
     <SidebarContext.Provider

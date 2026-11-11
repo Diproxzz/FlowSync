@@ -1,8 +1,20 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({ suggestions: [] });
+  }
+
   try {
     const { searchParams } = request.nextUrl;
     const type = searchParams.get("type"); // "customer" | "product"

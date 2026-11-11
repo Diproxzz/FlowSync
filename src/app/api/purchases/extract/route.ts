@@ -12,11 +12,14 @@ import { resolveProduct } from "@/lib/matching/product";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
 import { normalizeUnit } from "@/lib/units/convert";
 import { storage } from "@/lib/storage/adapter";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export const maxDuration = 180;
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
 
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
     const ext = path.extname(file.name).toLowerCase();
 
     if (ext === ".pdf") {
-      const tempPdfPath = path.resolve(process.cwd(), "storage/temp", fileToken);
+      const tempPdfPath = storage.getTempPath(fileToken);
       const pdfInspection = await inspectAndRasterizePdf(tempPdfPath);
       pages = pdfInspection.pages;
       extractedText = pdfInspection.extractedText || "";

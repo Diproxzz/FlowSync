@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getClientsWithStats, createClient } from "@/lib/clients/store";
+import { getProfileRecoveryInfo } from "@/lib/auth/recovery";
 import { z } from "zod";
 
 const createClientSchema = z.object({
@@ -9,11 +10,17 @@ const createClientSchema = z.object({
   username: z
     .string()
     .min(3, "Username must be at least 3 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain alphanumeric characters, underscores and hyphens"),
-  password: z.string().min(4, "Password must be at least 4 characters"),
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      "Username can only contain alphanumeric characters, underscores and hyphens"
+    ),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  recoveryEmail: z
+    .string()
+    .trim()
+    .email("A valid recovery email ID is required for password reset"),
   gstin: z.string().optional(),
   tradeName: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
   address: z.string().optional(),
   state: z.string().optional(),
@@ -29,12 +36,27 @@ export async function GET() {
       );
     }
 
-    const clients = await getClientsWithStats();
-    return NextResponse.json({ success: true, data: clients });
+    const [clients, adminRecovery] = await Promise.all([
+      getClientsWithStats(),
+      getProfileRecoveryInfo("admin"),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: clients,
+      meta: {
+        adminRecoveryEmailMasked: adminRecovery?.maskedEmail || null,
+      },
+    });
   } catch (error: any) {
     console.error("Fetch clients error:", error);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: error?.message || "Failed to fetch clients" } },
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: error?.message || "Failed to fetch clients",
+        },
+      },
       { status: 500 }
     );
   }
@@ -53,11 +75,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parseRes = createClientSchema.safeParse(body);
     if (!parseRes.success) {
+      const firstIssue =
+        parseRes.error.issues[0]?.message || "Validation failed";
       return NextResponse.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: "Validation failed",
+            message: firstIssue,
             details: parseRes.error.format(),
           },
         },
@@ -74,7 +98,12 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Create client error:", error);
     return NextResponse.json(
-      { error: { code: "BAD_REQUEST", message: error?.message || "Failed to create client" } },
+      {
+        error: {
+          code: "BAD_REQUEST",
+          message: error?.message || "Failed to create client",
+        },
+      },
       { status: 400 }
     );
   }

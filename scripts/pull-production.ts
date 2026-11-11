@@ -48,7 +48,10 @@ async function main() {
     console.log(`[Sync Production] Step 2/2: Pulling live snapshot from production: ${downloadEndpoint}...`);
 
     try {
-      const res = await fetch(downloadEndpoint);
+      const authToken = process.env.PRODUCTION_ADMIN_SECRET || process.env.SESSION_SECRET;
+      const res = await fetch(downloadEndpoint, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+      });
       if (!res.ok) {
         throw new Error(`Production server returned HTTP ${res.status}: ${res.statusText}`);
       }

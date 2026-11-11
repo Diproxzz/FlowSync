@@ -305,10 +305,10 @@ export function InvoiceGeneratorView() {
       hsn: l.hsn,
       rate: parseFloat(l.rate) || 0,
       discountPct: parseFloat(l.discountPct) || 0,
-      gstPct: parseFloat(l.gstPct) || 18,
+      gstPct: Number.isFinite(parseFloat(l.gstPct)) ? parseFloat(l.gstPct) : 18,
     }));
-    return calculateInvoice(calcInput, 0);
-  }, [lines]);
+    return calculateInvoice(calcInput, 0, { isInterState: isNonWestBengal });
+  }, [lines, isNonWestBengal]);
 
   // Customer & Header Meta for Printable Invoice
   const customerMeta: CustomerInvoiceMeta = useMemo(
@@ -386,6 +386,7 @@ export function InvoiceGeneratorView() {
         orderNo: orderNo.trim(),
         ewayBillNo: ewayBillNo.trim(),
         discountPct: 0,
+        isInterState: isNonWestBengal,
         lines: lines.map((l) => ({
           productId: l.productId,
           productName: l.product.trim(),
@@ -396,7 +397,7 @@ export function InvoiceGeneratorView() {
           qty: parseFloat(l.qty) || 0,
           rate: parseFloat(l.rate) || 0,
           discountPct: parseFloat(l.discountPct) || 0,
-          gstPct: parseFloat(l.gstPct) || 18,
+          gstPct: Number.isFinite(parseFloat(l.gstPct)) ? parseFloat(l.gstPct) : 18,
         })),
       };
 
@@ -589,7 +590,7 @@ export function InvoiceGeneratorView() {
               </h2>
               {isNonWestBengal && (
                 <span className="text-[11px] font-medium text-amber-600 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> State Code is not 19 (West Bengal)
+                  <AlertTriangle className="w-3 h-3" /> Inter-State GSTIN (IGST Applied)
                 </span>
               )}
             </div>
@@ -1042,15 +1043,24 @@ export function InvoiceGeneratorView() {
                   </span>
                 </div>
 
-                <div className="flex justify-between py-1 text-ink-2">
-                  <span>SGST {calculation.sgstRatePct}:</span>
-                  <span className="font-mono">₹{calculation.sgstTotal}</span>
-                </div>
+                {calculation.isInterState ? (
+                  <div className="flex justify-between py-1 text-ink-2">
+                    <span>IGST {calculation.igstRatePct}:</span>
+                    <span className="font-mono">₹{calculation.igstTotal}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between py-1 text-ink-2">
+                      <span>SGST {calculation.sgstRatePct}:</span>
+                      <span className="font-mono">₹{calculation.sgstTotal}</span>
+                    </div>
 
-                <div className="flex justify-between py-1 text-ink-2">
-                  <span>CGST {calculation.cgstRatePct}:</span>
-                  <span className="font-mono">₹{calculation.cgstTotal}</span>
-                </div>
+                    <div className="flex justify-between py-1 text-ink-2">
+                      <span>CGST {calculation.cgstRatePct}:</span>
+                      <span className="font-mono">₹{calculation.cgstTotal}</span>
+                    </div>
+                  </>
+                )}
 
                 {/* Roundoff row just below CGST %, matching Image 3 */}
                 <div className="flex justify-between py-1 text-ink-2">
@@ -1167,7 +1177,7 @@ export function InvoiceGeneratorView() {
                               );
                               setCustomerName(d.customer_name_snapshot);
                               setCustomerAddress(d.customer?.address || "");
-                              setCustomerGstin(d.customer_gstin_snapshot || "");
+                              setCustomerGstin(d.customer_gstin_snapshot || d.customer?.gstin || "");
                               const meta = (d.warnings as any) || {};
                               setDeliveryNote(meta.deliveryNote || "");
                               setDestination(meta.destination || "");
@@ -1186,9 +1196,7 @@ export function InvoiceGeneratorView() {
                                     qty: String(it.qty_kg),
                                     rate: String(it.rate),
                                     discountPct: String(it.discount_pct || "0"),
-                                    gstPct: String(
-                                      (Number(it.cgst_pct) || 0) + (Number(it.sgst_pct) || 0) || 18
-                                    ),
+                                    gstPct: String(it.igst_pct != null && Number(it.igst_pct) > 0 ? Number(it.igst_pct) : (it.cgst_pct != null || it.sgst_pct != null) ? (Number(it.cgst_pct) || 0) + (Number(it.sgst_pct) || 0) : 18),
                                   }))
                                 );
                               }

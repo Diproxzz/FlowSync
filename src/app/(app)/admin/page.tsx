@@ -1,22 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShieldAlert,
   Building2,
   Plus,
-  Users,
   Eye,
   Lock,
   CheckCircle2,
   Sliders,
   RefreshCw,
-  ExternalLink,
-  Receipt,
-  Package,
   Layers,
-  ArrowRight,
+  Mail,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -28,7 +24,7 @@ interface ClientRecord {
   username: string;
   gstin?: string;
   tradeName?: string;
-  email?: string;
+  recoveryEmailMasked?: string;
   phone?: string;
   address?: string;
   state?: string;
@@ -48,9 +44,14 @@ interface ClientRecord {
 export default function AdminPortalPage() {
   const router = useRouter();
   const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [adminRecoveryMasked, setAdminRecoveryMasked] = useState<string | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [switchingClientId, setSwitchingClientId] = useState<string | null>(null);
+  const [switchingClientId, setSwitchingClientId] = useState<string | null>(
+    null
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -59,13 +60,13 @@ export default function AdminPortalPage() {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [gstin, setGstin] = useState("");
   const [tradeName, setTradeName] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [state, setState] = useState("West Bengal");
 
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/admin/clients");
@@ -80,23 +81,30 @@ export default function AdminPortalPage() {
       if (data.data) {
         setClients(data.data);
       }
+      setAdminRecoveryMasked(data.meta?.adminRecoveryEmailMasked || null);
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "Failed to load clients");
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     loadClients();
-  }, []);
+  }, [loadClients]);
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setError("Please enter client/company name");
     if (!username.trim()) return setError("Please enter login username");
-    if (!password.trim()) return setError("Please enter login password");
+    if (!password.trim() || password.trim().length < 8) {
+      return setError("Please enter a login password (at least 8 characters)");
+    }
+    const cleanEmail = recoveryEmail.trim();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return setError("Please enter a valid recovery email ID");
+    }
 
     setSubmitting(true);
     setError(null);
@@ -109,9 +117,9 @@ export default function AdminPortalPage() {
           name: name.trim(),
           username: username.trim(),
           password: password.trim(),
+          recoveryEmail: cleanEmail,
           gstin: gstin.trim() || undefined,
           tradeName: tradeName.trim() || undefined,
-          email: email.trim() || undefined,
           phone: phone.trim() || undefined,
           state: state.trim() || undefined,
         }),
@@ -127,9 +135,9 @@ export default function AdminPortalPage() {
       setName("");
       setUsername("");
       setPassword("");
+      setRecoveryEmail("");
       setGstin("");
       setTradeName("");
-      setEmail("");
       setPhone("");
       await loadClients();
       setTimeout(() => setSuccessMsg(null), 5000);
@@ -172,10 +180,16 @@ export default function AdminPortalPage() {
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl font-bold text-foreground tracking-tight">
                 Administrator Portal
               </h1>
+              {adminRecoveryMasked && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono bg-muted border border-border text-muted-foreground">
+                  <Mail className="w-3 h-3 text-primary" />
+                  <span>Admin Recovery: {adminRecoveryMasked}</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Multi-tenant client workspace management & privacy isolation control center.
@@ -271,7 +285,9 @@ export default function AdminPortalPage() {
       <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/30">
           <div>
-            <h2 className="text-sm font-bold text-foreground">Client Workspaces</h2>
+            <h2 className="text-sm font-bold text-foreground">
+              Client Workspaces
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Select a client to inspect their invoices, stock inventory, and party ledgers in read-only mode.
             </p>
@@ -324,9 +340,30 @@ export default function AdminPortalPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1.5 flex-wrap">
-                        <span>Username: <strong className="text-foreground font-mono">{client.username}</strong></span>
+                        <span>
+                          Username:{" "}
+                          <strong className="text-foreground font-mono">
+                            {client.username}
+                          </strong>
+                        </span>
                         <span>•</span>
-                        <span>GSTIN: <span className="font-mono text-foreground font-medium">{client.gstin || "Not provided"}</span></span>
+                        <span>
+                          GSTIN:{" "}
+                          <span className="font-mono text-foreground font-medium">
+                            {client.gstin || "Not provided"}
+                          </span>
+                        </span>
+                        {client.recoveryEmailMasked && (
+                          <>
+                            <span>•</span>
+                            <span>
+                              Recovery:{" "}
+                              <span className="font-mono text-foreground font-medium">
+                                {client.recoveryEmailMasked}
+                              </span>
+                            </span>
+                          </>
+                        )}
                         {client.state && (
                           <>
                             <span>•</span>
@@ -341,16 +378,28 @@ export default function AdminPortalPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 lg:gap-6 shrink-0">
                     <div className="grid grid-cols-3 gap-3 text-center py-2 px-3.5 bg-muted/40 rounded-xl border border-border/60">
                       <div>
-                        <span className="block text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Invoices</span>
-                        <span className="text-xs font-bold text-foreground">{client.stats.totalInvoices}</span>
+                        <span className="block text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                          Invoices
+                        </span>
+                        <span className="text-xs font-bold text-foreground">
+                          {client.stats.totalInvoices}
+                        </span>
                       </div>
                       <div>
-                        <span className="block text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Customers</span>
-                        <span className="text-xs font-bold text-foreground">{client.stats.totalCustomers}</span>
+                        <span className="block text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                          Customers
+                        </span>
+                        <span className="text-xs font-bold text-foreground">
+                          {client.stats.totalCustomers}
+                        </span>
                       </div>
                       <div>
-                        <span className="block text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Products</span>
-                        <span className="text-xs font-bold text-foreground">{client.stats.totalProducts}</span>
+                        <span className="block text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                          Products
+                        </span>
+                        <span className="text-xs font-bold text-foreground">
+                          {client.stats.totalProducts}
+                        </span>
                       </div>
                     </div>
 
@@ -382,7 +431,9 @@ export default function AdminPortalPage() {
             <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/40">
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-sm text-foreground">Add New Client Profile</h3>
+                <h3 className="font-bold text-sm text-foreground">
+                  Add New Client Profile
+                </h3>
               </div>
               <button
                 type="button"
@@ -440,10 +491,28 @@ export default function AdminPortalPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 4 characters"
+                    placeholder="At least 8 characters"
+                    minLength={8}
                     required
                     className="w-full px-3 py-2 text-xs bg-muted/50 border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:bg-background"
                   />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-foreground mb-1">
+                    Recovery Email ID *
+                  </label>
+                  <input
+                    type="email"
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    placeholder="recovery@company.com"
+                    required
+                    className="w-full px-3 py-2 text-xs bg-muted/50 border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:bg-background"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                    Required for password reset links. Stored encrypted and displayed masked.
+                  </span>
                 </div>
 
                 <div>
@@ -473,20 +542,7 @@ export default function AdminPortalPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
-                    Contact Email (Optional)
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="client@example.com"
-                    className="w-full px-3 py-2 text-xs bg-muted/50 border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:bg-background"
-                  />
-                </div>
-
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-foreground mb-1">
                     Contact Phone (Optional)
                   </label>

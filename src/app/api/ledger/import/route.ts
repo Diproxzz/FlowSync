@@ -4,8 +4,11 @@ import { prisma } from "@/lib/db";
 import { normalizeCustomerName, normalizeInvoiceNumber } from "@/lib/matching/normalize";
 import { ExtractedStatementSchema } from "@/lib/ledger/parse/schema";
 import { validateStatement } from "@/lib/ledger/parse/validate";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json();
     const { draft, statement, partyMatch, fileHash, fileName } = body;

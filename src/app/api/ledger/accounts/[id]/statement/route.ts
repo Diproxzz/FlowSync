@@ -5,6 +5,7 @@ import { calculateStatementTotals, calculatePeriodOpening, computeRunningBalance
 import { calculateOpenItems } from "@/lib/ledger/openItems";
 import { formatParticularsText } from "@/lib/ledger/particulars";
 import { normalizePartyName } from "@/lib/matching/party";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
@@ -13,6 +14,8 @@ export async function GET(
   try {
     const { id } = params;
     const { searchParams } = request.nextUrl;
+    const denied = await requireFoundingReadResponse();
+    if (denied) return denied;
     const fromParam = searchParams.get("from");
     const toParam = searchParams.get("to");
 
@@ -285,6 +288,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = params;
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
     const body = await request.json();
     const { openingBalance, openingSide, openingDate, statementThroughDate, creditDays, accountType } = body;
 
@@ -408,6 +413,8 @@ export async function DELETE(
   try {
     const { id } = params;
     const { searchParams } = request.nextUrl;
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
     const mode = searchParams.get("mode") || "all_imported"; // 'all_imported' | 'all_entries' | 'batch'
     const batchId = searchParams.get("batchId");
 

@@ -3,8 +3,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeSupplierName } from "@/lib/matching/normalize";
 import { Prisma } from "@prisma/client";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({ suppliers: [] });
+  }
+
   const { searchParams } = request.nextUrl;
   const search = searchParams.get("search")?.trim() || "";
 
@@ -54,6 +66,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { name, gstin, address } = body;

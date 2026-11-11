@@ -5,27 +5,43 @@ import path from "path";
 import { runDailyBackup } from "@/../scripts/daily-backup";
 import { restoreFromJsonData } from "@/../scripts/restore-backup";
 import { getSession } from "@/lib/auth/session";
+import { env, isStrongSessionSecret } from "@/lib/env";
+import { timingSafeEqualStrings } from "@/lib/auth/crypto";
 
-async function isAuthorizedBackupUser(request: NextRequest): Promise<boolean> {
-  const authHeader = request.headers.get("authorization");
-  const secret = process.env.SESSION_SECRET;
-  if (authHeader && secret && authHeader === `Bearer ${secret}`) {
-    return true;
+async function checkBackupAuthorization(
+  request: NextRequest,
+  requireWrite = false
+): Promise<{ status: 200 | 401 | 403; error?: string }> {
+  const authHeader = request.headers.get("authorization") || "";
+  const secret = process.env.SESSION_SECRET || env.SESSION_SECRET;
+  if (authHeader && isStrongSessionSecret(secret) && timingSafeEqualStrings(authHeader, `Bearer ${secret}`)) {
+    return { status: 200 };
   }
+
   const session = await getSession();
-  if (!session) return false;
-  return (
+  if (!session || !session.authenticated) {
+    return { status: 401, error: "Authentication required" };
+  }
+
+  const hasRole =
     session.role === "ADMIN" ||
-    session.clientId?.toLowerCase() === "indobest" ||
-    session.username?.toLowerCase() === "indobest"
-  );
+    session.clientId?.toLowerCase() === "indobest";
+  if (!hasRole) {
+    return { status: 403, error: "Administrator access required" };
+  }
+
+  if (requireWrite && session.isReadOnly) {
+    return { status: 403, error: "Read-only session cannot perform backup or restore mutations" };
+  }
+
+  return { status: 200 };
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const isAuthorized = await isAuthorizedBackupUser(request);
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Administrator access required" }, { status: 403 });
+    const auth = await checkBackupAuthorization(request, false);
+    if (auth.status !== 200) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
@@ -95,9 +111,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const isAuthorized = await isAuthorizedBackupUser(request);
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Administrator access required" }, { status: 403 });
+    const auth = await checkBackupAuthorization(request, true);
+    if (auth.status !== 200) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {

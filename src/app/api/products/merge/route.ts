@@ -2,9 +2,13 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalize } from "@/lib/matching/normalize";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const body = await request.json();
     const { sourceProductId, targetProductId } = body;
 
@@ -58,12 +62,15 @@ export async function POST(request: NextRequest) {
         where: { product_id: sourceProductId },
       });
       for (const sm of stockMovements) {
-        const positiveQty = Math.abs(Number(sm.qty_kg));
+        const nextQty =
+          sm.type === "SALE" || sm.type === "PURCHASE"
+            ? Math.abs(Number(sm.qty_kg))
+            : Number(sm.qty_kg);
         await tx.stockMovement.update({
           where: { id: sm.id },
           data: {
             product_id: targetProductId,
-            qty_kg: positiveQty,
+            qty_kg: nextQty,
           },
         });
       }

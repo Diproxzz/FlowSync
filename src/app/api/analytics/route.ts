@@ -7,6 +7,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const ctx = await getActiveClientContext();
+    if (!ctx.clientId) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+        { status: 401 }
+      );
+    }
     if (!ctx.isFoundingClient) {
       return NextResponse.json({
         periodLabel: "FY 2026-27",

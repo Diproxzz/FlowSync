@@ -3,11 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { storage } from "@/lib/storage/adapter";
 import { getStockSummary } from "@/lib/stock/summary";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { id } = params;
   const purchase = await prisma.purchaseInvoice.findUnique({
     where: { id },
@@ -48,6 +52,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     const { searchParams } = request.nextUrl;
@@ -132,7 +139,7 @@ export async function DELETE(
     // Execute deletion in transaction
     await prisma.$transaction(async (tx) => {
       // Unlink or remove ledger entry if FEATURE_LEDGER is enabled
-      if (process.env.FEATURE_LEDGER === "true") {
+      if (process.env.FEATURE_LEDGER !== "false" && process.env.FEATURE_LEDGER !== "0") {
         const { removePurchaseInvoiceFromLedger } = await import("@/lib/ledger/posting");
         await removePurchaseInvoiceFromLedger(tx, id);
       }

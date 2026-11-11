@@ -8,6 +8,12 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 
+const PROTECTED_SETTING_KEYS = new Set([
+  "auth_override_admin",
+  "auth_override_indobest",
+  "flowsync_clients_registry",
+]);
+
 async function restoreModel(modelName: string, items: any[], uniqueKey = "id"): Promise<number> {
   if (!Array.isArray(items) || items.length === 0) return 0;
   const delegate = (prisma as any)[modelName];
@@ -19,7 +25,12 @@ async function restoreModel(modelName: string, items: any[], uniqueKey = "id"): 
       const data = { ...item };
       const where: any = {};
       if (uniqueKey === "code" && data.code) where.code = data.code;
-      else if (uniqueKey === "key" && data.key) where.key = data.key;
+      else if (uniqueKey === "key" && data.key) {
+        if (modelName === "setting" && PROTECTED_SETTING_KEYS.has(String(data.key))) {
+          continue;
+        }
+        where.key = data.key;
+      }
       else if (uniqueKey === "alias_norm" && data.alias_norm) where.alias_norm = data.alias_norm;
       else if (data.id) where.id = data.id;
       else continue;

@@ -2,11 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalize } from "@/lib/matching/normalize";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { id } = params;
   const aliases = await prisma.productAlias.findMany({
     where: { product_id: id },
@@ -20,6 +24,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const { id } = params;
     const body = await request.json();
     const alias = String(body.alias || "").trim();

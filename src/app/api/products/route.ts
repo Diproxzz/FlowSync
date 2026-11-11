@@ -2,13 +2,19 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
-import { getActiveClientContext } from "@/lib/auth/session";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 import { ensureProductMasterSynced } from "@/lib/products/sync-master";
 
 export async function GET(request: NextRequest) {
   await ensureProductMasterSynced();
 
   const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
   if (!ctx.isFoundingClient) {
     return NextResponse.json({ products: [] });
   }
@@ -48,6 +54,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const body = await request.json();
     const {
       code,

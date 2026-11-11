@@ -2,9 +2,24 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getGroqKeys } from "@/lib/llm/providers/groq";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await getActiveClientContext();
+    if (!ctx.clientId) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+        { status: 401 }
+      );
+    }
+    if (ctx.isReadOnly || (!ctx.isFoundingClient && !ctx.isAdmin)) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only founding or admin sessions can test LLM providers" } },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { providerId } = body;
 
@@ -25,10 +40,13 @@ export async function POST(request: NextRequest) {
 
       // Quick test call to Google AI Studio Gemini API
       const model = env.GEMINI_MODEL || "gemini-1.5-flash";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": env.GEMINI_API_KEY,
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: "ping" }] }],
         }),

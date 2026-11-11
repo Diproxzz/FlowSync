@@ -247,8 +247,8 @@ export async function resolveProduct(
   const suggestions: Array<{ id: string; code: string; name: string; score: number }> = [];
 
   for (const p of products) {
-    const codeScore = calculateSimilarity(norm, normalize(p.code));
-    const nameScore = calculateSimilarity(norm, normalize(p.name));
+    const codeScore = calculateSimilarity(norm, normalize(p.code), fuzzyThreshold);
+    const nameScore = calculateSimilarity(norm, normalize(p.name), fuzzyThreshold);
     const bestScore = Math.max(codeScore, nameScore);
 
     if (bestScore >= fuzzyThreshold) {

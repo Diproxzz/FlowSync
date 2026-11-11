@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -106,7 +106,7 @@ export default function InvoiceDetailPage({
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const loadInvoice = async () => {
+  const loadInvoice = useCallback(async () => {
     try {
       const res = await fetch(`/api/invoices/${id}`);
       if (!res.ok) {
@@ -117,7 +117,7 @@ export default function InvoiceDetailPage({
     } catch (err: any) {
       setError(err.message || "Error loading invoice");
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     async function initialLoad() {
@@ -126,7 +126,7 @@ export default function InvoiceDetailPage({
       setLoading(false);
     }
     initialLoad();
-  }, [id]);
+  }, [loadInvoice]);
 
   const buildInitialDraft = (inv: InvoiceDetail): ExtractedInvoice => {
     const meta =

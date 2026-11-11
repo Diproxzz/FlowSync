@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -27,7 +27,7 @@ export default function SupplierDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"invoices" | "products">("invoices");
 
-  const loadSupplier = async () => {
+  const loadSupplier = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/suppliers/${id}`);
@@ -39,11 +39,11 @@ export default function SupplierDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (id) loadSupplier();
-  }, [id]);
+  }, [id, loadSupplier]);
 
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground">Loading supplier profile...</div>;

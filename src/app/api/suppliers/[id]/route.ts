@@ -4,11 +4,15 @@ import { prisma } from "@/lib/db";
 import { normalizeSupplierName } from "@/lib/matching/normalize";
 import { getOrCreateSupplierLedgerAccount, calculateAccountTotalDue } from "@/lib/ledger/account-utils";
 import { allocateBillwiseOutstanding } from "@/lib/ledger/billAllocation";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { id } = params;
   const supplier = await prisma.supplier.findUnique({
     where: { id },
@@ -149,6 +153,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     const body = await request.json();
@@ -210,6 +217,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     const count = await prisma.purchaseInvoice.count({ where: { supplier_id: id } });

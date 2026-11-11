@@ -23,6 +23,7 @@ export function StatementHeader({ account, period }: StatementHeaderProps) {
   const isCustomer = account.accountType === "CUSTOMER";
   const todayStr = new Date().toISOString().slice(0, 10);
   const safeTo = period.to > todayStr ? todayStr : period.to;
+  const companyEmail = (process.env.NEXT_PUBLIC_COMPANY_EMAIL || "").trim();
 
   return (
     <div className="bg-card border border-border rounded-xl p-5 shadow-xs space-y-4 print:p-4 print:space-y-3 print:border-black print:rounded-none print:shadow-none print:break-inside-avoid">
@@ -35,8 +36,13 @@ export function StatementHeader({ account, period }: StatementHeaderProps) {
           19/10/2, GOBINDA KHATICK ROAD, KOLKATA-700046
         </p>
         <p className="text-[11px] text-muted-foreground print:text-[10px] print:text-black">
-          Phone: <span className="font-mono text-foreground print:text-black font-semibold">8240892993</span> &nbsp;|&nbsp; E-Mail:{" "}
-          <span className="font-mono text-foreground print:text-black font-semibold">indobest@gmail.com</span>
+          Phone: <span className="font-mono text-foreground print:text-black font-semibold">8240892993</span>
+          {companyEmail && (
+            <>
+              {" "}&nbsp;|&nbsp; E-Mail:{" "}
+              <span className="font-mono text-foreground print:text-black font-semibold">{companyEmail}</span>
+            </>
+          )}
         </p>
       </div>
 

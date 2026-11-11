@@ -45,9 +45,37 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
 
   // If discount of all products is set to 0, then the Discount column does not appear
   const hasDiscount = calculation.hasDiscount;
+  const isInterState = calculation.isInterState;
+  const companyEmail = (process.env.NEXT_PUBLIC_COMPANY_EMAIL || "").trim();
 
-  // 12 columns if hasDiscount, 11 columns if no discount
-  const colWidths = hasDiscount
+  const colWidths = isInterState
+    ? hasDiscount
+      ? [
+          "4.0%",  // Sl
+          "8.5%",  // Qnty
+          "5.5%",  // Pack
+          "25.5%", // Product
+          "6.5%",  // Batch
+          "8.5%",  // HSN
+          "7.0%",  // Rate
+          "6.0%",  // Disc %
+          "9.5%",  // TAXABLE
+          "9.0%",  // IGST
+          "10.0%", // Amount
+        ]
+      : [
+          "4.5%",  // Sl
+          "9.5%",  // Qnty
+          "6.0%",  // Pack
+          "28.5%", // Product
+          "7.5%",  // Batch
+          "8.5%",  // HSN
+          "7.5%",  // Rate
+          "9.5%",  // TAXABLE
+          "9.0%",  // IGST
+          "9.5%",  // Amount
+        ]
+    : hasDiscount
     ? [
         "4.0%",  // Sl
         "8.5%",  // Qnty
@@ -75,6 +103,8 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
         "4.5%",  // CGST
         "9.5%",  // Amount
       ];
+
+  const taxableColIdx = hasDiscount ? 8 : 7;
 
   return (
     <div
@@ -122,9 +152,11 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
           <div className="text-[11.5px] font-normal leading-[1.3] mt-0.5">
             Phone : 8240892993
           </div>
-          <div className="text-[11.5px] font-normal leading-[1.3]">
-            E-Mail : indobest@gmail.com
-          </div>
+          {companyEmail && (
+            <div className="text-[11.5px] font-normal leading-[1.3]">
+              E-Mail : {companyEmail}
+            </div>
+          )}
           <div
             className="text-[15.5px] font-black tracking-wide leading-tight mt-1"
             style={{ fontFamily: "Arial, sans-serif" }}
@@ -249,10 +281,19 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
             {hasDiscount && (
               <div style={{ width: colWidths[7] }} className="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">Disc %</div>
             )}
-            <div style={{ width: hasDiscount ? colWidths[8] : colWidths[7] }} className="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">TAXABLE</div>
-            <div style={{ width: hasDiscount ? colWidths[9] : colWidths[8] }} className="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">SGST</div>
-            <div style={{ width: hasDiscount ? colWidths[10] : colWidths[9] }} className="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">CGST</div>
-            <div style={{ width: hasDiscount ? colWidths[11] : colWidths[10] }} className="p-0.5 text-right pr-1.5 flex items-center justify-end">Amount</div>
+            <div style={{ width: colWidths[taxableColIdx] }} className="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">TAXABLE</div>
+            {isInterState ? (
+              <>
+                <div style={{ width: colWidths[taxableColIdx + 1] }} className="p-0.5 text-right pr-1 text-[10px] border-r border-black flex items-center justify-end">IGST</div>
+                <div style={{ width: colWidths[taxableColIdx + 2] }} className="p-0.5 text-right pr-1.5 flex items-center justify-end">Amount</div>
+              </>
+            ) : (
+              <>
+                <div style={{ width: colWidths[taxableColIdx + 1] }} className="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">SGST</div>
+                <div style={{ width: colWidths[taxableColIdx + 2] }} className="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">CGST</div>
+                <div style={{ width: colWidths[taxableColIdx + 3] }} className="p-0.5 text-right pr-1.5 flex items-center justify-end">Amount</div>
+              </>
+            )}
           </div>
 
           {/* Data Rows with comfortably increased font sizes (13px) */}
@@ -289,18 +330,31 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
                     {item.discountPct && Number(item.discountPct) > 0 ? `${item.discountPct}%` : "0%"}
                   </div>
                 )}
-                <div style={{ width: hasDiscount ? colWidths[8] : colWidths[7] }} className="text-right pr-1 font-bold font-mono text-[12px]">
+                <div style={{ width: colWidths[taxableColIdx] }} className="text-right pr-1 font-bold font-mono text-[12px]">
                   {item.taxable}
                 </div>
-                <div style={{ width: hasDiscount ? colWidths[9] : colWidths[8] }} className="text-right pr-0.5 font-mono text-[11.5px]">
-                  {item.sgstPct}
-                </div>
-                <div style={{ width: hasDiscount ? colWidths[10] : colWidths[9] }} className="text-right pr-0.5 font-mono text-[11.5px]">
-                  {item.cgstPct}
-                </div>
-                <div style={{ width: hasDiscount ? colWidths[11] : colWidths[10] }} className="text-right pr-1.5 font-bold font-mono text-[12.5px]">
-                  {item.amount}
-                </div>
+                {isInterState ? (
+                  <>
+                    <div style={{ width: colWidths[taxableColIdx + 1] }} className="text-right pr-1 font-mono text-[11.5px]">
+                      {item.igstPct}
+                    </div>
+                    <div style={{ width: colWidths[taxableColIdx + 2] }} className="text-right pr-1.5 font-bold font-mono text-[12.5px]">
+                      {item.amount}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ width: colWidths[taxableColIdx + 1] }} className="text-right pr-0.5 font-mono text-[11.5px]">
+                      {item.sgstPct}
+                    </div>
+                    <div style={{ width: colWidths[taxableColIdx + 2] }} className="text-right pr-0.5 font-mono text-[11.5px]">
+                      {item.cgstPct}
+                    </div>
+                    <div style={{ width: colWidths[taxableColIdx + 3] }} className="text-right pr-1.5 font-bold font-mono text-[12.5px]">
+                      {item.amount}
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -341,19 +395,26 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
               </div>
             )}
 
-            {/* SGST % */}
-            <div className="flex justify-between items-center text-black whitespace-nowrap">
-              <span>SGST {calculation.sgstRatePct}</span>
-              <span className="text-right font-semibold">{calculation.sgstTotal}</span>
-            </div>
+            {isInterState ? (
+              <div className="flex justify-between items-center text-black whitespace-nowrap">
+                <span>IGST {calculation.igstRatePct}</span>
+                <span className="text-right font-semibold">{calculation.igstTotal}</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center text-black whitespace-nowrap">
+                  <span>SGST {calculation.sgstRatePct}</span>
+                  <span className="text-right font-semibold">{calculation.sgstTotal}</span>
+                </div>
 
-            {/* CGST % */}
-            <div className="flex justify-between items-center text-black whitespace-nowrap">
-              <span>CGST {calculation.cgstRatePct}</span>
-              <span className="text-right font-semibold">{calculation.cgstTotal}</span>
-            </div>
+                <div className="flex justify-between items-center text-black whitespace-nowrap">
+                  <span>CGST {calculation.cgstRatePct}</span>
+                  <span className="text-right font-semibold">{calculation.cgstTotal}</span>
+                </div>
+              </>
+            )}
 
-            {/* Roundoff: Positioned directly below CGST %, matching Image 3 */}
+            {/* Roundoff */}
             <div className="flex justify-between items-center text-black whitespace-nowrap">
               <span>Roundoff</span>
               <span className="text-right font-semibold">{calculation.roundOff}</span>

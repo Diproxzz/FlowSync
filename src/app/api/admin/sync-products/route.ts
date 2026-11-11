@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import { prisma } from "@/lib/db";
-import { env } from "@/lib/env";
+import { env, isStrongSessionSecret } from "@/lib/env";
 import { getSession } from "@/lib/auth/session";
+import { timingSafeEqualStrings } from "@/lib/auth/crypto";
 import { cleanupDuplicateProducts } from "@/lib/products/sync-master";
 
 function normalize(str: string): string {
@@ -14,11 +15,15 @@ function normalize(str: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
+    const authHeader = request.headers.get("authorization") || "";
     const session = await getSession();
 
-    const isBearerAuthorized = authHeader === `Bearer ${env.SESSION_SECRET}`;
-    const isAdminAuthorized = session?.authenticated && (session?.role === "ADMIN" || session?.username?.toLowerCase() === "admin");
+    const isBearerAuthorized =
+      isStrongSessionSecret(env.SESSION_SECRET) &&
+      timingSafeEqualStrings(authHeader, `Bearer ${env.SESSION_SECRET}`);
+    const isAdminAuthorized = Boolean(
+      session?.authenticated && session?.role === "ADMIN" && !session?.isReadOnly
+    );
 
     if (!isBearerAuthorized && !isAdminAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -2,8 +2,12 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
+import { requireFoundingReadResponse } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { searchParams } = request.nextUrl;
   const number = searchParams.get("number")?.trim();
 

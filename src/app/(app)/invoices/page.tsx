@@ -74,23 +74,24 @@ function InvoicesListContent() {
   const [maxAmount, setMaxAmount] = useState("");
 
   // Sync state if searchParams change in URL
+  const urlCustomerId = searchParams.get("customerId");
+  const urlSearch = searchParams.get("search");
+  const urlFy = searchParams.get("financialYear");
+
   useEffect(() => {
-    const qCustomerId = searchParams.get("customerId");
-    if (qCustomerId !== null && qCustomerId !== customerId) {
-      setCustomerId(qCustomerId);
+    if (urlCustomerId !== null) {
+      setCustomerId(urlCustomerId);
       setPage(1);
     }
-    const qSearch = searchParams.get("search");
-    if (qSearch !== null && qSearch !== search) {
-      setSearch(qSearch);
+    if (urlSearch !== null) {
+      setSearch(urlSearch);
       setPage(1);
     }
-    const qFy = searchParams.get("financialYear");
-    if (qFy !== null && qFy !== financialYear) {
-      setFinancialYear(qFy);
+    if (urlFy !== null) {
+      setFinancialYear(urlFy);
       setPage(1);
     }
-  }, [searchParams]);
+  }, [urlCustomerId, urlSearch, urlFy]);
 
   // Customers for filter dropdown
   const [customers, setCustomers] = useState<CustomerOption[]>([]);

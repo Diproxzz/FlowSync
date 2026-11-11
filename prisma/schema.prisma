@@ -582,3 +582,29 @@ model InformalInvoiceItem {
   @@map("informal_invoice_items")
 }
 
+// ==========================================
+// AUTHENTICATION SECURITY & PASSWORD RESET
+// ==========================================
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  username   String
+  token_hash String    @unique
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+
+  @@index([username])
+  @@map("password_reset_tokens")
+}
+
+model RateLimit {
+  key        String   @id
+  attempts   Int      @default(0)
+  reset_at   DateTime
+  updated_at DateTime @updatedAt
+
+  @@map("rate_limits")
+}
+
+

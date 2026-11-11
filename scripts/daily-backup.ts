@@ -73,7 +73,17 @@ export async function runDailyBackup(): Promise<{
     prisma.ledgerAudit.findMany(),
     prisma.informalInvoice.findMany(),
     prisma.informalInvoiceItem.findMany(),
-    prisma.setting.findMany(),
+    prisma.setting.findMany({
+      where: {
+        key: {
+          notIn: [
+            "auth_override_admin",
+            "auth_override_indobest",
+            "flowsync_clients_registry",
+          ],
+        },
+      },
+    }),
     prisma.statementImport.findMany(),
     prisma.uploadJob.findMany(),
     prisma.extractionLog.findMany(),

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { ProductDetailView } from "@/components/products/ProductDetailView";
 
 export default function ProductDetailPage({
@@ -16,7 +16,7 @@ export default function ProductDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProduct = async () => {
+  const loadProduct = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/products/${id}`);
@@ -31,11 +31,11 @@ export default function ProductDetailPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     loadProduct();
-  }, [id]);
+  }, [loadProduct]);
 
   if (loading) {
     return (

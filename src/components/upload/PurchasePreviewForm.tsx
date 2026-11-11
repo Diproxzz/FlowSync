@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -160,6 +160,7 @@ export function PurchasePreviewForm({
   const [productsList, setProductsList] = useState<ProductOption[]>([]);
   const [updateStdRates, setUpdateStdRates] = useState<Record<string, boolean>>({});
   const [liveDuplicate, setLiveDuplicate] = useState<any>(null);
+  const initialSupplierGstinRef = useRef(draft.supplier.gstin);
 
   // Load existing suppliers, customers & products
   useEffect(() => {
@@ -173,7 +174,7 @@ export function PurchasePreviewForm({
         if (cData.customers) setCustomersList(cData.customers);
         if (pData.products) setProductsList(pData.products);
 
-        const cleanG = draft.supplier.gstin ? draft.supplier.gstin.trim().toUpperCase() : null;
+        const cleanG = initialSupplierGstinRef.current ? initialSupplierGstinRef.current.trim().toUpperCase() : null;
         if (cleanG) {
           const matchedSup = sData.suppliers?.find(
             (s: SupplierOption) => s.gstin && s.gstin.trim().toUpperCase() === cleanG

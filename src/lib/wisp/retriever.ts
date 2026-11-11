@@ -472,7 +472,10 @@ export async function evaluateAdHocFilter(query: string): Promise<AdHocFilterSum
   return undefined;
 }
 
-export async function retrieveContextForQuery(query: string): Promise<RetrievedContext> {
+export async function retrieveContextForQuery(
+  query: string,
+  options?: { skipLiveDb?: boolean }
+): Promise<RetrievedContext> {
   const cleanQuery = query.trim();
   const qLower = cleanQuery.toLowerCase();
   const searchCandidates = extractCandidateSearchTerms(cleanQuery);
@@ -483,6 +486,17 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
   const matchedGuides = findMatchingGuides(cleanQuery);
   for (const g of matchedGuides.slice(0, 2)) {
     sources.push({ title: g.title, url: g.route });
+  }
+
+  if (options?.skipLiveDb) {
+    return {
+      guides: matchedGuides,
+      invoices: [],
+      purchaseInvoices: [],
+      partySummaries: [],
+      productSummaries: [],
+      sources,
+    };
   }
 
   // Time boundaries
@@ -708,10 +722,12 @@ export async function retrieveContextForQuery(query: string): Promise<RetrievedC
       let totalStock = 0;
       for (const m of prod.stock_movements) {
         const qty = Number(m.qty_kg);
-        if (m.type === "OPENING" || m.type === "PURCHASE") {
+        if (m.type === "OPENING") {
           totalStock += qty;
+        } else if (m.type === "PURCHASE") {
+          totalStock += Math.abs(qty);
         } else if (m.type === "SALE") {
-          totalStock -= qty;
+          totalStock -= Math.abs(qty);
         } else if (m.type === "ADJUSTMENT") {
           totalStock += qty;
         }
@@ -1394,7 +1410,9 @@ export async function computeBusinessAnalytics(): Promise<BusinessAnalyticsSumma
     for (const m of p.stock_movements) {
       const q = Number(m.qty_kg);
       if (m.type === "SALE") {
-        sKg -= q;
+        sKg -= Math.abs(q);
+      } else if (m.type === "PURCHASE") {
+        sKg += Math.abs(q);
       } else {
         sKg += q;
       }

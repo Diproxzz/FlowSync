@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { askWisp } from "@/lib/wisp/agent";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 const chatSchema = z
   .object({
@@ -23,6 +24,14 @@ const chatSchema = z
 
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await getActiveClientContext();
+    if (!ctx.clientId) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+        { status: 401 }
+      );
+    }
+
     const json = await req.json();
     const parseRes = chatSchema.safeParse(json);
 
@@ -40,7 +49,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { message, history, image } = parseRes.data;
-    const response = await askWisp(message || "", history, image);
+    const response = await askWisp(message || "", history, image, {
+      skipLiveDb: !ctx.isFoundingClient,
+    });
 
     return NextResponse.json({
       success: true,

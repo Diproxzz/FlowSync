@@ -2,11 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { storage } from "@/lib/storage/adapter";
+import { requireFoundingReadResponse } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { id } = params;
   const purchase = await prisma.purchaseInvoice.findUnique({
     where: { id },

@@ -10,6 +10,7 @@ describe("Phase 5: Purchase Analytics Engine & Stock Summary Metrics", () => {
   let purchaseInvoiceId: string;
   const testGstin = "19AAACR6862N1ZP";
   const testInvNum = "PUR-TEST-ANALYTICS-01";
+  const testProdCode = "TEST_PUR_ANA_01";
 
   beforeAll(async () => {
     // 1. Ensure supplier
@@ -28,16 +29,18 @@ describe("Phase 5: Purchase Analytics Engine & Stock Summary Metrics", () => {
     }
     supplierId = supplier.id;
 
-    // 2. Ensure product
-    let prod = await prisma.product.findUnique({ where: { code: "KG" } });
+    // 2. Create/ensure isolated synthetic product so live KG invoices do not distort test assertions
+    let prod = await prisma.product.findUnique({ where: { code: testProdCode } });
     if (!prod) {
       prod = await prisma.product.create({
         data: {
-          code: "KG",
-          name: "Test KG Chemical",
+          code: testProdCode,
+          name: "Synthetic Purchase Analytics Chemical",
           reorder_level_kg: 500,
           pack_size_kg: 200,
           std_purchase_rate: 60,
+          source: "MANUAL",
+          is_active: true,
         },
       });
     }
@@ -77,7 +80,7 @@ describe("Phase 5: Purchase Analytics Engine & Stock Summary Metrics", () => {
             {
               line_no: 1,
               product_id: productId,
-              product_name_raw: "RAW SILICONE EMULSION",
+              product_name_raw: "RAW SILICONE EMULSION TEST",
               qty_printed: 1000,
               unit_printed: "KG",
               qty_kg: 1000,
@@ -115,6 +118,11 @@ describe("Phase 5: Purchase Analytics Engine & Stock Summary Metrics", () => {
         where: { id: purchaseInvoiceId },
       });
     }
+    if (productId) {
+      await prisma.product.deleteMany({
+        where: { id: productId },
+      });
+    }
     if (supplierId) {
       await prisma.supplier.deleteMany({
         where: { id: supplierId },
@@ -134,28 +142,25 @@ describe("Phase 5: Purchase Analytics Engine & Stock Summary Metrics", () => {
   });
 
   it("populates top products and price trends in purchase analytics", async () => {
-    const analytics = await getPurchaseAnalytics({ period: "all" });
+    const analytics = await getPurchaseAnalytics({ period: "all", productId });
 
-    const kgProduct = analytics.topProducts.find((p) => p.code === "KG");
-    expect(kgProduct).toBeDefined();
-    if (kgProduct) {
-      expect(kgProduct.volumeKg).toBeGreaterThanOrEqual(1000);
-      expect(kgProduct.avgRatePerKg).toBeGreaterThan(0);
-    }
+    const testProduct = analytics.topProducts.find((p) => p.code === testProdCode);
+    expect(testProduct).toBeDefined();
+    expect(testProduct?.volumeKg).toBe(1000);
+    expect(testProduct?.avgRatePerKg).toBe(100);
 
-    expect(analytics.gstInput.cgstTotal).toBeGreaterThanOrEqual(9000);
-    expect(analytics.gstInput.sgstTotal).toBeGreaterThanOrEqual(9000);
+    expect(analytics.gstInput.cgstTotal).toBe(9000);
+    expect(analytics.gstInput.sgstTotal).toBe(9000);
   });
 
   it("calculates last purchase details and reorder suggestions in stock summary", async () => {
     const summary = await getStockSummary();
-    const kgRow = summary.find((r) => r.code === "KG");
+    const row = summary.find((r) => r.code === testProdCode);
 
-    expect(kgRow).toBeDefined();
-    if (kgRow) {
-      expect(kgRow.lastPurchaseRate).toBe(100);
-      expect(kgRow.lastPurchaseDate).toBe("2026-10-10");
-      expect(kgRow.purchasesFromInvoices).toBeGreaterThanOrEqual(1000);
-    }
+    expect(row).toBeDefined();
+    expect(row?.lastPurchaseRate).toBe(100);
+    expect(row?.lastPurchaseDate).toBe("2026-10-10");
+    expect(row?.purchasesFromInvoices).toBe(1000);
+    expect(row?.closing).toBe(1000);
   });
 });

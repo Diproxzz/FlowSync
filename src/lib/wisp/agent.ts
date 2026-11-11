@@ -62,7 +62,8 @@ YOUR COMPREHENSIVE INTELLIGENCE & CAPABILITIES:
 export async function askWisp(
   userQuery: string,
   history: ChatMessage[] = [],
-  image?: string
+  image?: string,
+  options?: { skipLiveDb?: boolean }
 ): Promise<WispResponse> {
   const query = userQuery.trim();
 
@@ -76,7 +77,9 @@ export async function askWisp(
   }
 
   // 2. Retrieve RAG Context
-  const context = await retrieveContextForQuery(query || "application overview");
+  const context = await retrieveContextForQuery(query || "application overview", {
+    skipLiveDb: options?.skipLiveDb,
+  });
 
   // 3. Format Context for LLM
   const contextPayload = buildContextString(context);
@@ -317,6 +320,10 @@ async function callGroqOrGemini(
   messages: Array<{ role: string; content: any }>,
   image?: string
 ): Promise<string> {
+  if (process.env.NODE_ENV === "test" && process.env.RUN_LIVE_LLM_TESTS !== "true") {
+    throw new Error("Skipping live LLM calls in automated test environment");
+  }
+
   // If an image is provided, route directly to Gemini Multimodal Vision
   if (image && env.GEMINI_API_KEY && env.GEMINI_API_KEY.trim()) {
     let mimeType = "image/png";
@@ -333,7 +340,7 @@ async function callGroqOrGemini(
 
     for (const model of geminiVisionModels) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         const parts: any[] = [
           { text: `${sysMsg}\n\nUser Question:\n${userMsg}` },
           {
@@ -346,7 +353,10 @@ async function callGroqOrGemini(
 
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": env.GEMINI_API_KEY,
+          },
           body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
@@ -413,7 +423,7 @@ async function callGroqOrGemini(
     const geminiModels = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-3.7-flash"];
     for (const model of geminiModels) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         const parts: any[] = [];
 
         // Combine system prompt and user query
@@ -424,7 +434,10 @@ async function callGroqOrGemini(
 
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": env.GEMINI_API_KEY,
+          },
           body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
@@ -477,8 +490,15 @@ function generateFallbackReply(query: string, context: RetrievedContext, hasImag
     );
   }
 
-  // Guide fallback (e.g. "How do you calculate stock value", "Purchases vs sales chart")
-  if (context.guides.length > 0) {
+  // Explicit how-to / formula / chart guide fallback
+  const isExplicitGuideQuestion =
+    /\b(how\s+to|how\s+do\s+i|how\s+do\s+you|tutorial|steps|formula|explain\s+the\s+chart)\b/i.test(query);
+  if (
+    isExplicitGuideQuestion &&
+    context.guides.length > 0 &&
+    !context.filterSummary &&
+    (!context.partyProductTransactions || context.partyProductTransactions.length === 0)
+  ) {
     const g = context.guides[0];
     return (
       `### ${g.title}\n\n` +

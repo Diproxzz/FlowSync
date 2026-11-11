@@ -3,12 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { computeRunningBalances, calculatePeriodOpening } from "@/lib/ledger/balances";
 import { formatParticularsText } from "@/lib/ledger/particulars";
+import { requireFoundingReadResponse } from "@/lib/auth/session";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { accountId: string } }
 ) {
   try {
+    const denied = await requireFoundingReadResponse();
+    if (denied) return denied;
     const { accountId } = params;
     const { searchParams } = new URL(req.url);
     const fromParam = searchParams.get("from");

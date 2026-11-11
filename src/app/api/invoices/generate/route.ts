@@ -4,6 +4,8 @@ import { calculateInvoice } from "@/lib/invoices/calculations";
 import {
   peekNextInvoiceNumber,
   commitNextInvoiceNumber,
+  advanceInvoiceSequence,
+  formatInvoiceNumber,
   getFinancialYearCode,
 } from "@/lib/invoices/generator-sequence";
 import { normalizeInvoiceNumber, normalizeCustomerName } from "@/lib/matching/normalize";
@@ -11,6 +13,8 @@ import { postSalesInvoiceToLedger } from "@/lib/ledger/posting";
 import { MovementType, MovementSource } from "@prisma/client";
 import Decimal from "decimal.js";
 import { ensureProductMasterSynced } from "@/lib/products/sync-master";
+import { env } from "@/lib/env";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 // Helper to determine the commercial name of a product
 function getProductCommercialName(p: { code: string; name: string; aliases: { alias: string }[] }): string {
@@ -30,13 +34,49 @@ function getProductCommercialName(p: { code: string; name: string; aliases: { al
 
 // GET: Bootstrap data & checks
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
+
   try {
-    await ensureProductMasterSynced();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
     const invoiceId = searchParams.get("id");
     const dateParam = searchParams.get("date");
     const numberParam = searchParams.get("number");
+
+    if (!ctx.isFoundingClient) {
+      const fy = getFinancialYearCode(dateParam);
+      if (action === "check_number") {
+        return NextResponse.json({ exists: false, invoiceNumber: null });
+      }
+      if (invoiceId) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN_TENANT_ISOLATION", message: "Workspace isolation: access denied." } },
+          { status: 403 }
+        );
+      }
+      if (action === "peek_number") {
+        return NextResponse.json({
+          invoiceNumber: formatInvoiceNumber(fy, 1),
+          financialYear: fy,
+          sequence: 1,
+        });
+      }
+      return NextResponse.json({
+        nextInvoiceNumber: formatInvoiceNumber(fy, 1),
+        financialYear: fy,
+        customers: [],
+        products: [],
+        recentInvoices: [],
+      });
+    }
+
+    await ensureProductMasterSynced();
 
     // Check if an invoice number exists
     if (action === "check_number" && numberParam) {
@@ -159,8 +199,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
+class DuplicateInvoiceNumberError extends Error {}
+
 // POST: Save and commit generated invoice
 export async function POST(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const {
@@ -178,6 +223,7 @@ export async function POST(request: NextRequest) {
       copyType = "ORIGINAL",
       hasWatermark = true,
       discountPct = 0,
+      isInterState: requestedInterState,
       lines,
     } = body;
 
@@ -208,77 +254,75 @@ export async function POST(request: NextRequest) {
       invoiceDate = new Date();
     }
 
-    // Determine final invoice number
-    let invoiceNumberToUse = (requestedInvoiceNumber || "").trim();
-    if (!invoiceNumberToUse) {
-      const peeked = await peekNextInvoiceNumber(invoiceDate);
-      invoiceNumberToUse = peeked.invoiceNumber;
-    }
+    const homeStateCode = (env.COMPANY_GSTIN || "19AVZPC2361G1ZA").trim().substring(0, 2) || "19";
 
-    const numberNorm = normalizeInvoiceNumber(invoiceNumberToUse);
-
-    // CRITICAL VALIDATION: It should not allow to save if invoice number matches with an existing invoice
-    const existing = await prisma.invoice.findUnique({
-      where: { invoice_number_norm: numberNorm },
-      select: { id: true, invoice_number: true },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        {
-          error: `Invoice number '${invoiceNumberToUse}' already exists in database. Please enter a unique invoice number.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Run decimal calculation with per-line discount support
-    const calc = calculateInvoice(lines, discountPct);
-
-    // Save inside transaction
+    // Save inside atomic transaction with row-level FOR UPDATE lock on sequence
     const result = await prisma.$transaction(async (tx) => {
       const fy = getFinancialYearCode(invoiceDate);
 
-      // Advance sequence setting if user consumed or incremented the standard sequence
-      const seqMatch = invoiceNumberToUse.match(new RegExp(`^IB${fy}/(\\d+)`));
-      if (seqMatch) {
-        const seqVal = parseInt(seqMatch[1], 10);
-        if (!isNaN(seqVal)) {
-          const settingKey = `invoice_generator_seq_${fy}`;
-          const currentSetting = await tx.setting.findUnique({ where: { key: settingKey } });
-          const currentLast = (currentSetting?.value as any)?.last_sequence || 0;
-          if (seqVal >= currentLast) {
-            await tx.setting.upsert({
-              where: { key: settingKey },
-              create: {
-                key: settingKey,
-                value: { last_sequence: seqVal, updated_at: new Date().toISOString() },
-              },
-              update: {
-                value: { last_sequence: seqVal, updated_at: new Date().toISOString() },
-              },
-            });
+      let invoiceNumberToUse = (requestedInvoiceNumber || "").trim();
+      if (!invoiceNumberToUse) {
+        const committed = await commitNextInvoiceNumber(invoiceDate, tx);
+        invoiceNumberToUse = committed.invoiceNumber;
+      } else {
+        const numberNorm = normalizeInvoiceNumber(invoiceNumberToUse);
+        const existing = await tx.invoice.findUnique({
+          where: { invoice_number_norm: numberNorm },
+          select: { id: true, invoice_number: true },
+        });
+        if (existing) {
+          throw new DuplicateInvoiceNumberError(
+            `Invoice number '${invoiceNumberToUse}' already exists in database. Please enter a unique invoice number.`
+          );
+        }
+
+        const seqMatch = invoiceNumberToUse.match(new RegExp(`^IB${fy}/(\\d+)`));
+        if (seqMatch) {
+          const seqVal = parseInt(seqMatch[1], 10);
+          if (!isNaN(seqVal)) {
+            await advanceInvoiceSequence(tx, fy, seqVal);
           }
         }
       }
 
-      // 2. Resolve Customer
+      const numberNorm = normalizeInvoiceNumber(invoiceNumberToUse);
+
+      // 2. Resolve Customer while preserving existing address/gstin/state_code if blank
       let resolvedCustomerId = customerId;
       const cleanGstin = (customerGstin || "").trim().toUpperCase() || null;
       const cleanName = customerName.trim();
       const cleanAddress = (customerAddress || "").trim() || null;
       const cleanDestination = (destination || "").trim();
 
+      let effectiveGstin = cleanGstin;
+      let effectiveStateCode =
+        cleanGstin && /^\d{2}/.test(cleanGstin) ? cleanGstin.substring(0, 2) : null;
+
       if (resolvedCustomerId) {
-        await tx.customer.update({
+        const existingCust = await tx.customer.findUnique({
           where: { id: resolvedCustomerId },
-          data: {
-            address: cleanAddress,
-            gstin: cleanGstin,
-            state_code: cleanGstin ? cleanGstin.substring(0, 2) : "19",
-          },
         });
-      } else {
+        if (existingCust) {
+          effectiveGstin = cleanGstin || existingCust.gstin;
+          effectiveStateCode =
+            (cleanGstin && /^\d{2}/.test(cleanGstin) ? cleanGstin.substring(0, 2) : null) ||
+            existingCust.state_code ||
+            (effectiveGstin && /^\d{2}/.test(effectiveGstin) ? effectiveGstin.substring(0, 2) : homeStateCode);
+
+          await tx.customer.update({
+            where: { id: resolvedCustomerId },
+            data: {
+              address: cleanAddress || existingCust.address,
+              gstin: effectiveGstin,
+              state_code: effectiveStateCode,
+            },
+          });
+        } else {
+          resolvedCustomerId = undefined;
+        }
+      }
+
+      if (!resolvedCustomerId) {
         let cust = cleanGstin
           ? await tx.customer.findUnique({ where: { gstin: cleanGstin } })
           : null;
@@ -292,27 +336,43 @@ export async function POST(request: NextRequest) {
 
         if (cust) {
           resolvedCustomerId = cust.id;
+          effectiveGstin = cleanGstin || cust.gstin;
+          effectiveStateCode =
+            (cleanGstin && /^\d{2}/.test(cleanGstin) ? cleanGstin.substring(0, 2) : null) ||
+            cust.state_code ||
+            (effectiveGstin && /^\d{2}/.test(effectiveGstin) ? effectiveGstin.substring(0, 2) : homeStateCode);
+
           await tx.customer.update({
             where: { id: cust.id },
             data: {
               address: cleanAddress || cust.address,
-              gstin: cleanGstin || cust.gstin,
-              state_code: cleanGstin ? cleanGstin.substring(0, 2) : cust.state_code || "19",
+              gstin: effectiveGstin,
+              state_code: effectiveStateCode,
             },
           });
         } else {
+          effectiveStateCode =
+            cleanGstin && /^\d{2}/.test(cleanGstin) ? cleanGstin.substring(0, 2) : homeStateCode;
           const newCust = await tx.customer.create({
             data: {
               name: cleanName,
               name_norm: normalizeCustomerName(cleanName),
               address: cleanAddress,
               gstin: cleanGstin,
-              state_code: cleanGstin ? cleanGstin.substring(0, 2) : "19",
+              state_code: effectiveStateCode,
             },
           });
           resolvedCustomerId = newCust.id;
         }
       }
+
+      const isInterState =
+        typeof requestedInterState === "boolean"
+          ? requestedInterState
+          : Boolean(effectiveStateCode && effectiveStateCode !== homeStateCode);
+
+      // Run decimal calculation with per-line discount & IGST support
+      const calc = calculateInvoice(lines, discountPct, { isInterState });
 
       // 3. Persist customer destination & metadata for next time (always updated on save)
       if (resolvedCustomerId) {
@@ -347,6 +407,7 @@ export async function POST(request: NextRequest) {
         phone: customerPhone || "",
         copyType,
         hasWatermark,
+        isInterState: calc.isInterState,
         discountPct: Number(discountPct || 0),
         gstSummaryLine: calc.gstSummaryLine,
         amountInWords: calc.amountInWords,
@@ -361,13 +422,13 @@ export async function POST(request: NextRequest) {
           financial_year: fy,
           customer_id: resolvedCustomerId,
           customer_name_snapshot: cleanName,
-          customer_gstin_snapshot: cleanGstin,
+          customer_gstin_snapshot: effectiveGstin,
           taxable_total: new Decimal(calc.taxableTotal),
           discount_total: new Decimal(calc.discountAmount),
           discount_pct: new Decimal(calc.discountPct),
           cgst_total: new Decimal(calc.cgstTotal),
           sgst_total: new Decimal(calc.sgstTotal),
-          igst_total: new Decimal(0),
+          igst_total: new Decimal(calc.igstTotal),
           round_off: new Decimal(calc.roundOffRaw),
           grand_total: new Decimal(calc.grandTotal),
           source_file_hash: "generator",
@@ -449,8 +510,10 @@ export async function POST(request: NextRequest) {
             taxable_amount: new Decimal(item.taxable),
             cgst_pct: new Decimal(item.cgstPct),
             sgst_pct: new Decimal(item.sgstPct),
+            igst_pct: new Decimal(item.igstPct),
             cgst_amount: new Decimal(item.cgstAmount),
             sgst_amount: new Decimal(item.sgstAmount),
+            igst_amount: new Decimal(item.igstAmount),
             line_total: new Decimal(item.amount),
           },
         });
@@ -470,13 +533,15 @@ export async function POST(request: NextRequest) {
       }
 
       // 6. Post Sales Invoice to Customer Ledger Account
-      await postSalesInvoiceToLedger(tx, {
-        id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        invoice_date: invoiceDate,
-        customer_id: resolvedCustomerId,
-        grand_total: calc.grandTotal,
-      });
+      if (process.env.FEATURE_LEDGER !== "false" && process.env.FEATURE_LEDGER !== "0") {
+        await postSalesInvoiceToLedger(tx, {
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          invoice_date: invoiceDate,
+          customer_id: resolvedCustomerId,
+          grand_total: calc.grandTotal,
+        });
+      }
 
       return {
         invoiceId: invoice.id,
@@ -491,6 +556,9 @@ export async function POST(request: NextRequest) {
       ...result,
     });
   } catch (error: any) {
+    if (error instanceof DuplicateInvoiceNumberError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error("Error in POST /api/invoices/generate:", error);
     return NextResponse.json({ error: error.message || "Failed to generate invoice" }, { status: 500 });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatementHeader } from "@/components/accounts/StatementHeader";
@@ -52,14 +52,7 @@ export default function AccountStatementPage() {
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [selectedEntryForEdit, setSelectedEntryForEdit] = useState<any | null>(null);
 
-  useEffect(() => {
-    if (accountId) {
-      loadStatement();
-      loadOpenItems();
-    }
-  }, [accountId, fromDate, toDate]);
-
-  const loadStatement = async () => {
+  const loadStatement = useCallback(async () => {
     setLoading(true);
     try {
       const url = `/api/ledger/accounts/${accountId}/statement?from=${fromDate}&to=${toDate}`;
@@ -74,9 +67,9 @@ export default function AccountStatementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accountId, fromDate, toDate]);
 
-  const loadOpenItems = async () => {
+  const loadOpenItems = useCallback(async () => {
     try {
       const url = `/api/ledger/accounts/${accountId}/open-items?asOf=${toDate}`;
       const res = await fetch(url);
@@ -88,7 +81,14 @@ export default function AccountStatementPage() {
     } catch (err) {
       console.error("Failed to load open items:", err);
     }
-  };
+  }, [accountId, toDate]);
+
+  useEffect(() => {
+    if (accountId) {
+      loadStatement();
+      loadOpenItems();
+    }
+  }, [accountId, loadStatement, loadOpenItems]);
 
   const handlePeriodChange = (preset: string) => {
     setPeriodPreset(preset);

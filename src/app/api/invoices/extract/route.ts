@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import path from "path";
-import fs from "fs/promises";
 import { prisma } from "@/lib/db";
 import { inspectAndRasterizePdf } from "@/lib/pdf/detectText";
 import { extractInvoiceData, ExtractionError } from "@/lib/llm/extract";
@@ -11,11 +10,14 @@ import { resolveCustomer } from "@/lib/matching/customer";
 import { resolveProduct } from "@/lib/matching/product";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
 import { storage } from "@/lib/storage/adapter";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export const maxDuration = 180; // 180s max execution for extraction (supports local OCR fallback)
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
 
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (ext === ".pdf") {
       // Write temp file for python rasterizer
-      const tempPdfPath = path.resolve(process.cwd(), "storage/temp", fileToken);
+      const tempPdfPath = storage.getTempPath(fileToken);
       const pdfInspection = await inspectAndRasterizePdf(tempPdfPath);
       pages = pdfInspection.pages;
       extractedText = pdfInspection.extractedText || "";

@@ -3,8 +3,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { calculateStatementTotals, computeRunningBalances } from "@/lib/ledger/balances";
 import { calculateOpenItems } from "@/lib/ledger/openItems";
+import { getActiveClientContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
+  if (!ctx.isFoundingClient) {
+    const emptySummary = {
+      totalReceivable: 0,
+      totalPayable: 0,
+      grandOverdue: 0,
+      totalOverdue: 0,
+      accountsWithDuesCount: 0,
+      totalAccounts: 0,
+    };
+    return NextResponse.json({
+      success: true,
+      data: { accounts: [], summary: emptySummary },
+      accounts: [],
+      summary: emptySummary,
+    });
+  }
   try {
     const { searchParams } = request.nextUrl;
     const search = searchParams.get("search")?.trim().toLowerCase() || "";

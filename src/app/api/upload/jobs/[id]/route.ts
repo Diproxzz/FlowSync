@@ -1,12 +1,15 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const denied = await requireFoundingReadResponse();
+    if (denied) return denied;
     const job = await prisma.uploadJob.findUnique({
       where: { id: params.id },
     });
@@ -33,6 +36,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
     await prisma.uploadJob.delete({
       where: { id: params.id },
     });

@@ -3,8 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createInformalInvoice } from "@/lib/informal-invoices/service";
 import { Prisma } from "@prisma/client";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({
+      invoices: [],
+      pagination: { page: 1, limit: 25, total: 0, totalPages: 1 },
+      summary: { totalInvoices: 0, totalValue: 0 },
+    });
+  }
+
   try {
     const { searchParams } = request.nextUrl;
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
@@ -90,6 +106,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const invoice = await createInformalInvoice(body);

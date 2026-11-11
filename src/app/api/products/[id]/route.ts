@@ -2,11 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { id } = params;
   const product = await prisma.product.findUnique({
     where: { id },
@@ -98,7 +102,7 @@ export async function GET(
     else if (sm.type === "ADJUSTMENT") adjustmentsQty += q;
   }
 
-  const currentStock = openingStock + purchasesQty - salesQty - adjustmentsQty;
+  const currentStock = openingStock + purchasesQty - salesQty + adjustmentsQty;
 
   // Purchase stats
   let totalPurchaseValue = 0;
@@ -196,6 +200,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     const body = await request.json();
@@ -268,6 +275,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     // Check if product is referenced in invoice items

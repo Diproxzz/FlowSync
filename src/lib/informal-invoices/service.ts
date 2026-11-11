@@ -25,13 +25,26 @@ export function getFinancialYear(date: Date): string {
   return `${fyStart}-${fyEnd < 10 ? "0" + fyEnd : fyEnd}`;
 }
 
-export async function getNextInformalInvoiceNumber(): Promise<string> {
-  const currentFy = getFinancialYear(new Date());
-  const count = await prisma.informalInvoice.count({
+export async function getNextInformalInvoiceNumber(
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+  dateInput: Date = new Date()
+): Promise<string> {
+  const currentFy = getFinancialYear(dateInput);
+  const existing = await db.informalInvoice.findMany({
     where: { financial_year: currentFy },
+    select: { invoice_number: true },
   });
-  const seq = count + 1;
-  return `INF-${String(seq).padStart(4, "0")}`;
+  let maxSeq = 0;
+  for (const inv of existing) {
+    const m = inv.invoice_number.match(/^INF-(\d+)/i);
+    if (m) {
+      const seq = parseInt(m[1], 10);
+      if (!isNaN(seq) && seq > maxSeq) {
+        maxSeq = seq;
+      }
+    }
+  }
+  return `INF-${String(maxSeq + 1).padStart(4, "0")}`;
 }
 
 /**
@@ -130,21 +143,6 @@ export async function createInformalInvoice(input: CreateInformalInvoiceInput) {
 
   const financialYear = getFinancialYear(invDate);
 
-  // Determine invoice number
-  let invNumber = input.invoice_number?.trim();
-  if (!invNumber) {
-    invNumber = await getNextInformalInvoiceNumber();
-  }
-  const invNumberNorm = invNumber.toUpperCase();
-
-  // Check unique invoice number
-  const existing = await prisma.informalInvoice.findUnique({
-    where: { invoice_number_norm: invNumberNorm },
-  });
-  if (existing) {
-    throw new Error(`Informal invoice number '${invNumber}' already exists.`);
-  }
-
   // Validate items and calculate amounts (strictly non-GST: line total = qty * rate)
   const processedItems = items.map((it, idx) => {
     const q = Number(it.qty_kg);
@@ -171,6 +169,22 @@ export async function createInformalInvoice(input: CreateInformalInvoiceInput) {
 
   // Execute atomic creation across Invoice, Items, Stock Movements, Customer, and Ledger
   return await prisma.$transaction(async (tx) => {
+    const lockKey = `inf_seq_${financialYear}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+
+    let invNumber = input.invoice_number?.trim();
+    if (!invNumber) {
+      invNumber = await getNextInformalInvoiceNumber(tx, invDate);
+    }
+    const invNumberNorm = invNumber.toUpperCase();
+
+    const existing = await tx.informalInvoice.findUnique({
+      where: { invoice_number_norm: invNumberNorm },
+    });
+    if (existing) {
+      throw new Error(`Informal invoice number '${invNumber}' already exists.`);
+    }
+
     // 1. Resolve Customer by name
     const customer = await resolveCustomerByName(customer_name, tx);
 

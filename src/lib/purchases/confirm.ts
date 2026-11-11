@@ -469,7 +469,7 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
     }
 
     // Automatic posting to Ledger if FEATURE_LEDGER is enabled
-    if (process.env.FEATURE_LEDGER === "true") {
+    if (process.env.FEATURE_LEDGER !== "false" && process.env.FEATURE_LEDGER !== "0") {
       await postPurchaseInvoiceToLedger(tx, {
         id: savedPurchase.id,
         supplier_invoice_number: savedPurchase.supplier_invoice_number,

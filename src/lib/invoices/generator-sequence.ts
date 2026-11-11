@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 
 /**
@@ -42,9 +43,37 @@ export function formatInvoiceNumber(fy: string, seq: number): string {
   return `IB${fy}/${paddedSeq}`;
 }
 
+async function getMaxInvoiceSequence(
+  db: Prisma.TransactionClient | typeof prisma,
+  fy: string
+): Promise<number> {
+  const prefix = `IB${fy}/`;
+  const invoices = await db.invoice.findMany({
+    where: {
+      invoice_number: {
+        startsWith: prefix,
+      },
+    },
+    select: { invoice_number: true },
+  });
+
+  let maxSeq = 0;
+  const regex = new RegExp(`^IB${fy}/(\\d+)`);
+  for (const inv of invoices) {
+    const match = inv.invoice_number.match(regex);
+    if (match) {
+      const val = parseInt(match[1], 10);
+      if (!isNaN(val) && val > maxSeq) {
+        maxSeq = val;
+      }
+    }
+  }
+  return maxSeq;
+}
+
 /**
  * Gets the next running invoice number for a given date/FY without consuming it.
- * Reads the latest recorded sequence from Setting or checks existing Invoices.
+ * Reads the latest recorded sequence from Setting and checks existing Invoices.
  */
 export async function peekNextInvoiceNumber(dateInput?: Date | string | null): Promise<{
   invoiceNumber: string;
@@ -54,40 +83,17 @@ export async function peekNextInvoiceNumber(dateInput?: Date | string | null): P
   const fy = getFinancialYearCode(dateInput);
   const settingKey = `invoice_generator_seq_${fy}`;
 
-  // 1. Check setting
-  const setting = await prisma.setting.findUnique({
-    where: { key: settingKey },
-  });
+  const [setting, maxDbSeq] = await Promise.all([
+    prisma.setting.findUnique({ where: { key: settingKey } }),
+    getMaxInvoiceSequence(prisma, fy),
+  ]);
 
-  let nextSeq = 1;
+  const settingSeq =
+    setting && typeof (setting.value as any)?.last_sequence === "number"
+      ? ((setting.value as any).last_sequence as number)
+      : 0;
 
-  if (setting && typeof (setting.value as any)?.last_sequence === "number") {
-    nextSeq = ((setting.value as any).last_sequence as number) + 1;
-  } else {
-    // 2. Fallback: inspect invoices table for any invoices starting with IB{fy}/
-    const prefix = `IB${fy}/`;
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        invoice_number: {
-          startsWith: prefix,
-        },
-      },
-      select: { invoice_number: true },
-    });
-
-    let maxSeq = 0;
-    for (const inv of invoices) {
-      const match = inv.invoice_number.match(new RegExp(`^IB${fy}/(\\d+)`));
-      if (match) {
-        const val = parseInt(match[1], 10);
-        if (!isNaN(val) && val > maxSeq) {
-          maxSeq = val;
-        }
-      }
-    }
-
-    nextSeq = maxSeq > 0 ? maxSeq + 1 : 1;
-  }
+  const nextSeq = Math.max(settingSeq, maxDbSeq) + 1;
 
   return {
     invoiceNumber: formatInvoiceNumber(fy, nextSeq),
@@ -97,10 +103,64 @@ export async function peekNextInvoiceNumber(dateInput?: Date | string | null): P
 }
 
 /**
- * Commits and consumes the next running invoice number inside a safe transaction.
- * Only called when an invoice is actually saved.
+ * Acquires a row-level lock (FOR UPDATE) on the financial-year sequence setting row.
  */
-export async function commitNextInvoiceNumber(dateInput?: Date | string | null): Promise<{
+export async function lockSequenceSettingRow(
+  tx: Prisma.TransactionClient,
+  fy: string
+): Promise<number> {
+  const settingKey = `invoice_generator_seq_${fy}`;
+  const defaultValue = JSON.stringify({
+    last_sequence: 0,
+    updated_at: new Date().toISOString(),
+  });
+
+  await tx.$executeRaw`
+    INSERT INTO settings ("key", "value")
+    VALUES (${settingKey}, ${defaultValue}::jsonb)
+    ON CONFLICT ("key") DO NOTHING
+  `;
+
+  const lockedRows = await tx.$queryRaw<Array<{ key: string; value: any }>>`
+    SELECT "key", "value" FROM settings WHERE "key" = ${settingKey} FOR UPDATE
+  `;
+
+  const val = lockedRows[0]?.value as any;
+  return typeof val?.last_sequence === "number" ? val.last_sequence : 0;
+}
+
+/**
+ * Advances the sequence setting inside an already-open transaction using FOR UPDATE locking.
+ */
+export async function advanceInvoiceSequence(
+  tx: Prisma.TransactionClient,
+  fy: string,
+  seqVal: number
+): Promise<void> {
+  const settingKey = `invoice_generator_seq_${fy}`;
+  const currentLast = await lockSequenceSettingRow(tx, fy);
+  if (seqVal >= currentLast) {
+    await tx.setting.upsert({
+      where: { key: settingKey },
+      create: {
+        key: settingKey,
+        value: { last_sequence: seqVal, updated_at: new Date().toISOString() },
+      },
+      update: {
+        value: { last_sequence: seqVal, updated_at: new Date().toISOString() },
+      },
+    });
+  }
+}
+
+/**
+ * Commits and consumes the next running invoice number inside a safe transaction
+ * guarded by a row-level FOR UPDATE lock. Only called when an invoice is actually saved.
+ */
+export async function commitNextInvoiceNumber(
+  dateInput?: Date | string | null,
+  outerTx?: Prisma.TransactionClient
+): Promise<{
   invoiceNumber: string;
   financialYear: string;
   sequence: number;
@@ -108,41 +168,11 @@ export async function commitNextInvoiceNumber(dateInput?: Date | string | null):
   const fy = getFinancialYearCode(dateInput);
   const settingKey = `invoice_generator_seq_${fy}`;
 
-  return await prisma.$transaction(async (tx) => {
-    const setting = await tx.setting.findUnique({
-      where: { key: settingKey },
-    });
+  const run = async (tx: Prisma.TransactionClient) => {
+    const settingSeq = await lockSequenceSettingRow(tx, fy);
+    const maxDbSeq = await getMaxInvoiceSequence(tx, fy);
+    const nextSeq = Math.max(settingSeq, maxDbSeq) + 1;
 
-    let nextSeq = 1;
-
-    if (setting && typeof (setting.value as any)?.last_sequence === "number") {
-      nextSeq = ((setting.value as any).last_sequence as number) + 1;
-    } else {
-      const prefix = `IB${fy}/`;
-      const invoices = await tx.invoice.findMany({
-        where: {
-          invoice_number: {
-            startsWith: prefix,
-          },
-        },
-        select: { invoice_number: true },
-      });
-
-      let maxSeq = 0;
-      for (const inv of invoices) {
-        const match = inv.invoice_number.match(new RegExp(`^IB${fy}/(\\d+)`));
-        if (match) {
-          const val = parseInt(match[1], 10);
-          if (!isNaN(val) && val > maxSeq) {
-            maxSeq = val;
-          }
-        }
-      }
-
-      nextSeq = maxSeq > 0 ? maxSeq + 1 : 1;
-    }
-
-    // Persist consumed sequence in Setting table
     await tx.setting.upsert({
       where: { key: settingKey },
       create: {
@@ -159,5 +189,10 @@ export async function commitNextInvoiceNumber(dateInput?: Date | string | null):
       financialYear: fy,
       sequence: nextSeq,
     };
-  });
+  };
+
+  if (outerTx) {
+    return await run(outerTx);
+  }
+  return await prisma.$transaction(run);
 }

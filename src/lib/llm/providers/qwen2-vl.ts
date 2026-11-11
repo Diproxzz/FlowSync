@@ -1,5 +1,6 @@
 import { LLMProvider, ExtractionRequest, ExtractionResponse } from "../types";
 import { env } from "@/lib/env";
+import { storage } from "@/lib/storage/adapter";
 import { parseInvoiceTextToDraft } from "@/lib/ocr/parse-invoice-text";
 import fs from "fs/promises";
 import path from "path";
@@ -62,7 +63,7 @@ export class Qwen2VlProvider implements LLMProvider {
       try {
         if (req.images && req.images.length > 0) {
           const tempFileName = `ocr_qwen_${crypto.randomBytes(6).toString("hex")}.png`;
-          tempImagePath = path.resolve(process.cwd(), "storage/temp", tempFileName);
+          tempImagePath = storage.getTempPath(tempFileName);
           await fs.mkdir(path.dirname(tempImagePath), { recursive: true });
           await fs.writeFile(tempImagePath, Buffer.from(req.images[0].base64, "base64"));
         } else {

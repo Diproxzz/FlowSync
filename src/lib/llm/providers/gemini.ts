@@ -36,7 +36,7 @@ export class GeminiProvider implements LLMProvider {
 
     for (const model of candidateModels) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
         const parts: any[] = [];
         parts.push({ text: `${req.systemPrompt}\n\n${req.userPrompt}` });
@@ -68,7 +68,10 @@ export class GeminiProvider implements LLMProvider {
 
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": env.GEMINI_API_KEY,
+          },
           body: JSON.stringify(body),
           signal: req.signal,
         });

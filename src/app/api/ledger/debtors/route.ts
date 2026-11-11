@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { calculateStatementTotals } from "@/lib/ledger/balances";
 import { build12MonthSchedule, rollInto12Months } from "@/lib/ledger/debtor-periods";
-import { getActiveClientContext } from "@/lib/auth/session";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +16,12 @@ export async function GET(request: NextRequest) {
 
     // Multi-tenant client privacy isolation
     const ctx = await getActiveClientContext();
+    if (!ctx.clientId) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+        { status: 401 }
+      );
+    }
     if (!ctx.isFoundingClient) {
       return NextResponse.json({
         success: true,
@@ -387,6 +393,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const body = await request.json();
     const { mode = "rolling", updates, resetPartyName } = body;
 

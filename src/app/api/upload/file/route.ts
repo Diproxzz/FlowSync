@@ -3,8 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { storage } from "@/lib/storage/adapter";
+import { requireFoundingReadResponse } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
@@ -28,7 +31,7 @@ export async function GET(request: NextRequest) {
         headers: {
           "Content-Type": contentType,
           "Content-Disposition": `inline; filename="${encodeURIComponent(filename || "document")}"`,
-          "Cache-Control": "public, max-age=3600, immutable",
+          "Cache-Control": "private, max-age=3600, immutable",
         },
       });
     } catch {
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
           headers: {
             "Content-Type": contentType,
             "Content-Disposition": `inline; filename="${encodeURIComponent(path.basename(token))}"`,
-            "Cache-Control": "public, max-age=3600, immutable",
+            "Cache-Control": "private, max-age=3600, immutable",
           },
         });
       } catch {

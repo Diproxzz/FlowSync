@@ -2,8 +2,12 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeSupplierName } from "@/lib/matching/normalize";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const { sourceSupplierId, targetSupplierId } = body;

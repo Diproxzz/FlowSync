@@ -3,9 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { formatParticularsText } from "@/lib/ledger/particulars";
 import Decimal from "decimal.js";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
     const body = await request.json();
     const {
       accountId,

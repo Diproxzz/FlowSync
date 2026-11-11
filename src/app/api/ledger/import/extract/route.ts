@@ -6,8 +6,11 @@ import { validateStatement } from "@/lib/ledger/parse/validate";
 import { matchParty } from "@/lib/matching/party";
 import { prisma } from "@/lib/db";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
   try {
     const contentType = request.headers.get("content-type") || "";
 

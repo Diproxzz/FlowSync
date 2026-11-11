@@ -115,7 +115,7 @@ export async function resolveSupplier(
   const suggestions: Array<{ id: string; name: string; gstin: string | null; score: number }> = [];
 
   for (const s of allSuppliers) {
-    const score = calculateSimilarity(nameNorm, s.name_norm);
+    const score = calculateSimilarity(nameNorm, s.name_norm, fuzzyThreshold);
     if (score >= fuzzyThreshold) {
       suggestions.push({
         id: s.id,

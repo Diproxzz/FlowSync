@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -121,7 +121,7 @@ export default function PurchaseDetailPage({
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const loadPurchase = async () => {
+  const loadPurchase = useCallback(async () => {
     try {
       const res = await fetch(`/api/purchases/${id}`);
       if (!res.ok) {
@@ -132,7 +132,7 @@ export default function PurchaseDetailPage({
     } catch (err: any) {
       setError(err.message || "Error loading purchase invoice");
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     async function initialLoad() {
@@ -141,7 +141,7 @@ export default function PurchaseDetailPage({
       setLoading(false);
     }
     initialLoad();
-  }, [id]);
+  }, [loadPurchase]);
 
   const buildInitialDraft = (p: PurchaseDetail): ExtractedPurchaseInvoice => {
     return {

@@ -1,11 +1,14 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
   try {
     const job = await prisma.uploadJob.update({
       where: { id: params.id },

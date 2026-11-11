@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { env } from "@/lib/env";
 import { getClientByUsername } from "@/lib/clients/store";
+import { getPasswordOverrideHash } from "@/lib/auth/recovery";
 
 export interface VerificationResult {
   valid: boolean;
@@ -9,6 +10,18 @@ export interface VerificationResult {
   clientName?: string;
   username?: string;
   reason?: string;
+}
+
+async function matchesBcryptHash(password: string, hash: string): Promise<boolean> {
+  const cleanHash = (hash || "").replace(/\\/g, "").trim();
+  if (!cleanHash || (!cleanHash.startsWith("$2a$") && !cleanHash.startsWith("$2b$") && !cleanHash.startsWith("$2y$"))) {
+    return false;
+  }
+  try {
+    return await bcrypt.compare(password, cleanHash);
+  } catch {
+    return false;
+  }
 }
 
 export async function verifyCredentials(
@@ -25,13 +38,21 @@ export async function verifyCredentials(
   const cleanUser = username.trim();
   const lowerUser = cleanUser.toLowerCase();
 
-  // 1. Admin Profile Authentication
+  // 1. Admin Profile Authentication (DB password-reset override first, then env hash)
   if (lowerUser === "admin") {
-    const adminHash = process.env.ADMIN_PASSWORD_HASH;
-    const isMatch = adminHash
-      ? await bcrypt.compare(password, adminHash.replace(/\\/g, ""))
-      : (process.env.NODE_ENV !== "production" && password === (process.env.ADMIN_PASSWORD || "admin123"));
+    const overrideHash = await getPasswordOverrideHash("admin");
+    const envAdminHash = (process.env.ADMIN_PASSWORD_HASH || env.ADMIN_PASSWORD_HASH || "").trim();
+    const effectiveHash = overrideHash || envAdminHash;
 
+    if (!effectiveHash) {
+      return {
+        valid: false,
+        reason:
+          "Administrator password is not configured. Use Reset Password with your recovery email or set ADMIN_PASSWORD_HASH.",
+      };
+    }
+
+    const isMatch = await matchesBcryptHash(password, effectiveHash);
     if (isMatch) {
       return {
         valid: true,
@@ -41,16 +62,32 @@ export async function verifyCredentials(
         username: "admin",
       };
     }
+
     return {
       valid: false,
       reason: "Incorrect password for administrator profile.",
     };
   }
 
-  // 2. Founding Indobest Profile Authentication
-  const configuredUser = (env.APP_USERNAME || process.env.APP_USERNAME || "Indobest").trim().toLowerCase();
+  // 2. Founding Indobest Profile Authentication (DB password-reset override first, then APP_PASSWORD_HASH)
+  const configuredUser = (process.env.APP_USERNAME || env.APP_USERNAME || "Indobest")
+    .trim()
+    .toLowerCase();
   if (lowerUser === "indobest" || lowerUser === configuredUser) {
-    if (password === "Indobest2026") {
+    const overrideHash = await getPasswordOverrideHash("indobest");
+    const envHash = (process.env.APP_PASSWORD_HASH || env.APP_PASSWORD_HASH || "").trim();
+    const effectiveHash = overrideHash || envHash;
+
+    if (!effectiveHash) {
+      return {
+        valid: false,
+        reason:
+          "Indobest password is not configured. Use Reset Password with your recovery email or set APP_PASSWORD_HASH.",
+      };
+    }
+
+    const matches = await matchesBcryptHash(password, effectiveHash);
+    if (matches) {
       return {
         valid: true,
         role: "CLIENT",
@@ -60,42 +97,24 @@ export async function verifyCredentials(
       };
     }
 
-    const hash = env.APP_PASSWORD_HASH || process.env.APP_PASSWORD_HASH;
-    if (hash) {
-      const cleanHash = hash.replace(/\\/g, "");
-      try {
-        const matches = await bcrypt.compare(password, cleanHash);
-        if (matches) {
-          return {
-            valid: true,
-            role: "CLIENT",
-            clientId: "indobest",
-            clientName: "Indobest",
-            username: "Indobest",
-          };
-        }
-      } catch {
-        // Fall through
-      }
-    }
-
     return {
       valid: false,
       reason: "Incorrect password for Indobest profile.",
     };
   }
 
-  // 3. Dynamic Registered Client Profile Authentication
+  // 3. Dynamic Registered Client Profile Authentication (strictly bcrypt hash & active status)
   try {
     const client = await getClientByUsername(cleanUser);
     if (client) {
-      let isMatch = false;
-      if (client.passwordHash.startsWith("$2a$") || client.passwordHash.startsWith("$2b$")) {
-        isMatch = await bcrypt.compare(password, client.passwordHash);
-      } else {
-        isMatch = client.passwordHash === password;
+      if (client.status !== "ACTIVE") {
+        return {
+          valid: false,
+          reason: `Client profile '${client.name}' is currently inactive.`,
+        };
       }
 
+      const isMatch = await matchesBcryptHash(password, client.passwordHash);
       if (isMatch) {
         return {
           valid: true,
@@ -131,6 +150,8 @@ export async function verifyPassword(password: string): Promise<boolean> {
 export function verifyUsername(username: string): boolean {
   if (!username || typeof username !== "string") return false;
   const clean = username.trim().toLowerCase();
-  const configuredUser = (env.APP_USERNAME || process.env.APP_USERNAME || "Indobest").trim().toLowerCase();
+  const configuredUser = (process.env.APP_USERNAME || env.APP_USERNAME || "Indobest")
+    .trim()
+    .toLowerCase();
   return clean === "indobest" || clean === "admin" || clean === configuredUser;
 }

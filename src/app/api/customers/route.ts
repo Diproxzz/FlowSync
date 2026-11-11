@@ -3,10 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { normalizeCustomerName } from "@/lib/matching/normalize";
 import { Prisma } from "@prisma/client";
-import { getActiveClientContext } from "@/lib/auth/session";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
   if (!ctx.isFoundingClient) {
     return NextResponse.json({ customers: [] });
   }
@@ -57,6 +63,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const body = await request.json();
     const { name, gstin, address } = body;
 

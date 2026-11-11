@@ -1,9 +1,26 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import {
+  COOKIE_NAME,
+  SESSION_VERSION,
+  DEV_SESSION_SECRET,
+} from "@/lib/auth/constants";
 
-const COOKIE_NAME = "indobest_session";
-const SESSION_VERSION = "indobest_v3";
+function resolveMiddlewareSecret(): Uint8Array | null {
+  const rawSecret = process.env.SESSION_SECRET;
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (isProd) {
+    if (!rawSecret || rawSecret.length < 32 || rawSecret === DEV_SESSION_SECRET) {
+      return null;
+    }
+    return new TextEncoder().encode(`${rawSecret}_${SESSION_VERSION}`);
+  }
+
+  const secret = rawSecret || DEV_SESSION_SECRET;
+  return new TextEncoder().encode(`${secret}_${SESSION_VERSION}`);
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -11,7 +28,10 @@ export async function middleware(request: NextRequest) {
   // Public paths that do not require authentication
   if (
     pathname === "/login" ||
+    pathname === "/reset-password" ||
     pathname === "/api/auth/login" ||
+    pathname === "/api/auth/forgot-password" ||
+    pathname === "/api/auth/reset-password" ||
     pathname === "/api/admin/sync-storage" ||
     pathname === "/api/admin/sync-products" ||
     (pathname === "/api/admin/backup" && !!request.headers.get("authorization")) ||
@@ -24,19 +44,20 @@ export async function middleware(request: NextRequest) {
     pathname === "/logo.jpg" ||
     pathname === "/wisp.png"
   ) {
-    // If user is already authenticated and visits /login, redirect
+    // If user is already authenticated and visits /login, redirect to workspace
     if (pathname === "/login") {
       const token = request.cookies.get(COOKIE_NAME)?.value;
-      if (token) {
-        const secret = new TextEncoder().encode(
-          (process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long") +
-            "_" +
-            SESSION_VERSION
-        );
+      const secret = resolveMiddlewareSecret();
+      if (token && secret) {
         try {
           const { payload } = await jwtVerify(token, secret);
-          if (payload && payload.authenticated === true && typeof payload.username === "string") {
-            const redirectPath = payload.role === "ADMIN" ? "/admin" : "/dashboard";
+          if (
+            payload &&
+            payload.authenticated === true &&
+            typeof payload.username === "string"
+          ) {
+            const redirectPath =
+              payload.role === "ADMIN" ? "/admin" : "/dashboard";
             return NextResponse.redirect(new URL(redirectPath, request.url));
           }
         } catch {
@@ -47,20 +68,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check session token
+  // Check session token (fail closed if production secret is missing/weak/default)
   const token = request.cookies.get(COOKIE_NAME)?.value;
+  const secret = resolveMiddlewareSecret();
   let isAuthenticated = false;
   let sessionPayload: any = null;
 
-  if (token) {
-    const secret = new TextEncoder().encode(
-      (process.env.SESSION_SECRET || "development_session_secret_change_me_to_at_least_32_chars_long") +
-        "_" +
-        SESSION_VERSION
-    );
+  if (token && secret) {
     try {
       const { payload } = await jwtVerify(token, secret);
-      if (payload && payload.authenticated === true && typeof payload.username === "string") {
+      if (
+        payload &&
+        payload.authenticated === true &&
+        typeof payload.username === "string"
+      ) {
         isAuthenticated = true;
         sessionPayload = payload;
       }
@@ -75,7 +96,8 @@ export async function middleware(request: NextRequest) {
         {
           error: {
             code: "UNAUTHORIZED",
-            message: "Authentication required. Please sign in with your FlowPilot credentials.",
+            message:
+              "Authentication required. Please sign in with your FlowPilot credentials.",
           },
         },
         { status: 401 }
@@ -89,7 +111,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Admin route protection: only users with role === 'ADMIN' can access /admin UI
+  // Admin UI route protection: only users with role === 'ADMIN' can access /admin UI
   if (pathname.startsWith("/admin") && sessionPayload?.role !== "ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
@@ -114,11 +136,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Enforce Administrator Read-Only Mode in client workspaces
-  if (
-    sessionPayload?.isReadOnly === true &&
+  const isMutatingMethod =
     request.method !== "GET" &&
     request.method !== "HEAD" &&
-    request.method !== "OPTIONS" &&
+    request.method !== "OPTIONS";
+
+  if (
+    sessionPayload?.isReadOnly === true &&
+    isMutatingMethod &&
     !pathname.startsWith("/api/admin/") &&
     pathname !== "/api/auth/logout"
   ) {
@@ -136,17 +161,41 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Multi-tenant write isolation: non-founding isolated client sessions cannot mutate shared Indobest data tables
+  if (
+    pathname.startsWith("/api/") &&
+    isMutatingMethod &&
+    !pathname.startsWith("/api/auth/") &&
+    !pathname.startsWith("/api/admin/") &&
+    pathname !== "/api/wisp/chat"
+  ) {
+    const effectiveClientId = String(
+      sessionPayload?.activeClientId || sessionPayload?.clientId || ""
+    ).toLowerCase();
+    const isAdminOnSettings =
+      sessionPayload?.role === "ADMIN" &&
+      sessionPayload?.isReadOnly !== true &&
+      pathname.startsWith("/api/settings");
+
+    if (effectiveClientId !== "indobest" && !isAdminOnSettings) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN_TENANT_ISOLATION",
+            message:
+              "Workspace isolation: mutations to primary dataset are restricted in isolated tenant workspaces.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

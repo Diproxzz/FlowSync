@@ -2,8 +2,19 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { MovementType, Prisma } from "@prisma/client";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
+  }
+  if (!ctx.isFoundingClient) {
+    return NextResponse.json({ movements: [] });
+  }
   const { searchParams } = request.nextUrl;
   const productId = searchParams.get("productId");
   const type = searchParams.get("type") as MovementType | null;
@@ -39,6 +50,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const body = await request.json();
     const { productId, type, qtyKg, movementDate, note, partyText } = body;
 
@@ -66,6 +80,12 @@ export async function POST(request: NextRequest) {
 
     let actualType: MovementType = MovementType.ADJUSTMENT;
     let numericQty = Number(qtyKg);
+    if (!Number.isFinite(numericQty) || numericQty === 0) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "qtyKg must be a non-zero number" } },
+        { status: 400 }
+      );
+    }
 
     if (type === "ADJUSTMENT_NEG") {
       actualType = MovementType.ADJUSTMENT;
@@ -75,6 +95,7 @@ export async function POST(request: NextRequest) {
       numericQty = Math.abs(numericQty);
     } else if (type === "PURCHASE") {
       actualType = MovementType.PURCHASE;
+      numericQty = Math.abs(numericQty);
     } else {
       actualType = MovementType.ADJUSTMENT;
     }

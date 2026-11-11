@@ -2,6 +2,10 @@ import { Prisma } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
 
+function isSyntheticTestInvoiceNumber(invoiceNumber: string): boolean {
+  return /(?:^|[\/\-_])TEST(?:$|[\/\-_])/i.test(invoiceNumber.trim());
+}
+
 /**
  * Posts or links a Sales Invoice to the Customer's Ledger Account.
  * Follows Link-Never-Duplicate (FR-LED-AUTO-3) and Statement Cut-off (FR-LED-AUTO-4).
@@ -17,7 +21,7 @@ export async function postSalesInvoiceToLedger(
   }
 ): Promise<void> {
   // Do not post test/mock invoices from automated tests into real ledger accounts
-  if (invoice.invoice_number.toUpperCase().includes("TEST")) {
+  if (isSyntheticTestInvoiceNumber(invoice.invoice_number)) {
     return;
   }
 
@@ -161,6 +165,10 @@ export async function postPurchaseInvoiceToLedger(
     grand_total: Decimal | number | string;
   }
 ): Promise<void> {
+  if (isSyntheticTestInvoiceNumber(purchase.supplier_invoice_number)) {
+    return;
+  }
+
   const invoiceDate = new Date(purchase.invoice_date);
   const grandTotal = new Decimal(purchase.grand_total.toString());
   const normDoc = normalizeInvoiceNumber(purchase.supplier_invoice_number);

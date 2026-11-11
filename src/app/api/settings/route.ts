@@ -3,12 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getGroqKeys } from "@/lib/llm/providers/groq";
+import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET() {
-  const dbSettings = await prisma.setting.findMany();
-  const settingsMap: Record<string, any> = {};
-  for (const s of dbSettings) {
-    settingsMap[s.key] = s.value;
+  const ctx = await getActiveClientContext();
+  if (!ctx.clientId) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+      { status: 401 }
+    );
   }
 
   const groqKeyCount = getGroqKeys().length;
@@ -62,6 +65,39 @@ export async function GET() {
     },
   ];
 
+  const defaultOrder = [
+    "groq",
+    "gemini",
+    "glm-ocr",
+    "paddleocr-vl",
+    "qwen2-vl",
+    "openrouter",
+    "ollama",
+  ];
+
+  if (!ctx.isFoundingClient && !ctx.isAdmin) {
+    return NextResponse.json({
+      settings: {
+        company: {
+          name: ctx.clientId || "Workspace",
+          gstin: "",
+          address: "",
+        },
+        fiscalYearStartMonth: 4,
+        lapsedDays: 60,
+        fuzzyThreshold: 0.85,
+        providerOrder: defaultOrder,
+      },
+      providers,
+    });
+  }
+
+  const dbSettings = await prisma.setting.findMany();
+  const settingsMap: Record<string, any> = {};
+  for (const s of dbSettings) {
+    settingsMap[s.key] = s.value;
+  }
+
   return NextResponse.json({
     settings: {
       company: settingsMap.company || {
@@ -72,21 +108,16 @@ export async function GET() {
       fiscalYearStartMonth: settingsMap.fiscal_year_start_month ?? 4,
       lapsedDays: settingsMap.lapsed_days ?? 60,
       fuzzyThreshold: settingsMap.fuzzy_threshold ?? 0.85,
-      providerOrder: settingsMap.provider_order ?? [
-        "groq",
-        "gemini",
-        "glm-ocr",
-        "paddleocr-vl",
-        "qwen2-vl",
-        "openrouter",
-        "ollama",
-      ],
+      providerOrder: settingsMap.provider_order ?? defaultOrder,
     },
     providers,
   });
 }
 
 export async function PUT(request: NextRequest) {
+  const auth = await requireFoundingWrite({ allowAdminOnSettings: true });
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
 

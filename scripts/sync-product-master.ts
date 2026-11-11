@@ -273,6 +273,18 @@ export async function syncProductMaster() {
   }
 
   console.log(`Product master sync complete: ${updatedCount} updated, ${createdCount} created.`);
+
+  const viewMigrationPath = path.resolve(
+    process.cwd(),
+    "prisma/migrations/20261111000000_fix_v_stock_summary/migration.sql"
+  );
+  if (fs.existsSync(viewMigrationPath)) {
+    const viewSql = fs.readFileSync(viewMigrationPath, "utf-8").trim();
+    if (viewSql) {
+      await prisma.$executeRawUnsafe(viewSql);
+      console.log("Updated v_stock_summary database view.");
+    }
+  }
 }
 
 syncProductMaster()

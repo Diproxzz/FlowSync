@@ -32,37 +32,55 @@ describe("Phase 1: Database Seed and Stock Summary Verification", () => {
     const kg = map.get("KG");
     expect(kg).toBeDefined();
     expect(kg?.opening).toBe(1980);
-    expect(kg?.closing).toBe(1980 + (kg?.purchases || 0) - (kg?.sales || 0));
+    expect(kg?.closing).toBeCloseTo(
+      1980 + (kg?.purchases || 0) - (kg?.sales || 0) + (kg?.adjustments || 0),
+      3
+    );
 
     // Check AA
     const aa = map.get("AA");
     expect(aa).toBeDefined();
     expect(aa?.opening).toBe(973);
-    expect(aa?.closing).toBe(973 + (aa?.purchases || 0) - (aa?.sales || 0));
+    expect(aa?.closing).toBeCloseTo(
+      973 + (aa?.purchases || 0) - (aa?.sales || 0) + (aa?.adjustments || 0),
+      3
+    );
 
     // Check WAK
     const wak = map.get("WAK");
     expect(wak).toBeDefined();
     expect(wak?.opening).toBe(4713);
-    expect(wak?.closing).toBe(4713 + (wak?.purchases || 0) - (wak?.sales || 0));
+    expect(wak?.closing).toBeCloseTo(
+      4713 + (wak?.purchases || 0) - (wak?.sales || 0) + (wak?.adjustments || 0),
+      3
+    );
 
     // Check SNA
     const sna = map.get("SNA");
     expect(sna).toBeDefined();
     expect(sna?.opening).toBe(6707);
-    expect(sna?.closing).toBe(6707 + (sna?.purchases || 0) - (sna?.sales || 0));
+    expect(sna?.closing).toBeCloseTo(
+      6707 + (sna?.purchases || 0) - (sna?.sales || 0) + (sna?.adjustments || 0),
+      3
+    );
 
     // Check SBL
     const sbl = map.get("SBL");
     expect(sbl).toBeDefined();
     expect(sbl?.opening).toBe(4800);
-    expect(sbl?.closing).toBe(4800 + (sbl?.purchases || 0) - (sbl?.sales || 0));
+    expect(sbl?.closing).toBeCloseTo(
+      4800 + (sbl?.purchases || 0) - (sbl?.sales || 0) + (sbl?.adjustments || 0),
+      3
+    );
 
     // Check TiO2
     const tio2 = map.get("TiO2");
     expect(tio2).toBeDefined();
     expect(tio2?.opening).toBe(4861);
-    expect(tio2?.closing).toBe(4861 + (tio2?.purchases || 0) - (tio2?.sales || 0));
+    expect(tio2?.closing).toBeCloseTo(
+      4861 + (tio2?.purchases || 0) - (tio2?.sales || 0) + (tio2?.adjustments || 0),
+      3
+    );
 
     // Total opening stock across all 55 products matches opening stock (66590.3 kg)
     const totalOpening = summary.reduce((sum, r) => sum + r.opening, 0);
@@ -73,7 +91,7 @@ describe("Phase 1: Database Seed and Stock Summary Verification", () => {
     const totalAdjustments = summary.reduce((sum, r) => sum + r.adjustments, 0);
     const totalClosing = summary.reduce((sum, r) => sum + r.closing, 0);
     expect(
-      Math.round((totalClosing + totalSales - totalPurchases + totalAdjustments) * 10) / 10
+      Math.round((totalClosing + totalSales - totalPurchases - totalAdjustments) * 10) / 10
     ).toBe(66590.3);
   });
 

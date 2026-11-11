@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { formatINR, formatDate } from "@/lib/format";
 import {
@@ -155,16 +155,14 @@ export function DebtorListView({
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
 
-  const EDITABLE_BREAKDOWN_MONTHS = ["2025-12", "2026-01", "2026-02", "2026-03"];
-
-  const isMonthEditable = (monthKey: string, monthIndex: number): boolean => {
+  const isMonthEditable = useCallback((monthKey: string, monthIndex: number): boolean => {
     // Column 0 is the prior base column (auto-calculated)
     if (monthIndex === 0) return false;
     // Dec 2025, Jan 2026, Feb 2026, Mar 2026 are editable
-    return EDITABLE_BREAKDOWN_MONTHS.includes(monthKey);
-  };
+    return ["2025-12", "2026-01", "2026-02", "2026-03"].includes(monthKey);
+  }, []);
 
-  const getBasePriorPool = (d: DebtorItem): number => {
+  const getBasePriorPool = useCallback((d: DebtorItem): number => {
     // The prior pool is totalOutstanding (the ledger Total Due) minus all non-editable, non-prior months
     const nonEditableNonPriorSum = activeMonths.reduce((sum, m, idx) => {
       if (idx === 0) return sum; // column 0 is the prior column
@@ -172,19 +170,19 @@ export function DebtorListView({
       return sum + (d.monthlyAmounts[m.key] || 0);
     }, 0);
     return Math.round((d.totalOutstanding - nonEditableNonPriorSum) * 100) / 100;
-  };
+  }, [activeMonths, isMonthEditable]);
 
-  const getPriorMonthValue = (d: DebtorItem): number => {
+  const getPriorMonthValue = useCallback((d: DebtorItem): number => {
     const pool = getBasePriorPool(d);
     const debtorEdits = pendingEdits[d.id] || {};
-    const currentEditableSum = EDITABLE_BREAKDOWN_MONTHS.reduce((sum, k) => {
+    const currentEditableSum = ["2025-12", "2026-01", "2026-02", "2026-03"].reduce((sum, k) => {
       const val = debtorEdits[k] !== undefined ? debtorEdits[k] : (d.monthlyAmounts[k] || 0);
       return sum + (Number(val) || 0);
     }, 0);
     return Math.max(0, Math.round((pool - currentEditableSum) * 100) / 100);
-  };
+  }, [getBasePriorPool, pendingEdits]);
 
-  const getDebtorMonthly = (d: DebtorItem): Record<string, number> => {
+  const getDebtorMonthly = useCallback((d: DebtorItem): Record<string, number> => {
     const priorKey = activeMonths[0]?.key || "2025-11";
     const priorVal = getPriorMonthValue(d);
     const debtorEdits = pendingEdits[d.id] || {};
@@ -194,12 +192,12 @@ export function DebtorListView({
       ...debtorEdits,
       [priorKey]: priorVal,
     };
-  };
+  }, [activeMonths, getPriorMonthValue, pendingEdits]);
 
-  const getDebtorTotal = (d: DebtorItem): number => {
+  const getDebtorTotal = useCallback((d: DebtorItem): number => {
     // Total Outstanding must always match the ledger Total Due
     return d.totalOutstanding;
-  };
+  }, []);
 
   const handleCellChange = (debtorId: string, partyName: string, monthKey: string, val: number) => {
     setPendingEdits((prev) => {
@@ -215,48 +213,12 @@ export function DebtorListView({
   const editContainerRef = useRef<HTMLDivElement>(null);
   const modalContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleCancelEdits = () => {
+  const handleCancelEdits = useCallback(() => {
     setPendingEdits({});
     setIsEditing(false);
-  };
+  }, []);
 
-  // When editing, clicking Discard button or pressing Escape key will discard edits.
-  // Clicking buttons or inputs inside the modal will NEVER wipe pending edits.
-  useEffect(() => {
-    if (!isEditing) return;
-
-    const handleOutsideClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      // Never discard if clicking inside modal, on any button, or on edit controls
-      if (
-        target.closest("button") ||
-        target.closest(".edit-controls") ||
-        target.closest("input") ||
-        modalContainerRef.current?.contains(target)
-      ) {
-        return;
-      }
-      handleCancelEdits();
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        handleCancelEdits();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        handleSaveEdits();
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isEditing, pendingEdits]);
-
-  const handleSaveEdits = async () => {
+  const handleSaveEdits = useCallback(async () => {
     if (Object.keys(pendingEdits).length === 0) {
       setIsEditing(false);
       return;
@@ -325,7 +287,43 @@ export function DebtorListView({
     } finally {
       setSavingEdits(false);
     }
-  };
+  }, [activeDebtors, activeMonths, activePeriod.mode, getPriorMonthValue, pendingEdits]);
+
+  // When editing, clicking Discard button or pressing Escape key will discard edits.
+  // Clicking buttons or inputs inside the modal will NEVER wipe pending edits.
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Never discard if clicking inside modal, on any button, or on edit controls
+      if (
+        target.closest("button") ||
+        target.closest(".edit-controls") ||
+        target.closest("input") ||
+        modalContainerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      handleCancelEdits();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleCancelEdits();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleSaveEdits();
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isEditing, handleCancelEdits, handleSaveEdits]);
 
   const handleResetDebtor = async (partyName: string, debtorId: string) => {
     try {
@@ -409,7 +407,7 @@ export function DebtorListView({
       grandOverdue: Math.round(grandOverdue * 100) / 100,
       monthTotals,
     };
-  }, [filteredDebtors, activeMonths, pendingEdits]);
+  }, [filteredDebtors, activeMonths, getDebtorMonthly, getDebtorTotal]);
 
   // Export to CSV
   const handleExportCSV = () => {

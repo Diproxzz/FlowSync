@@ -60,7 +60,7 @@ export async function processUploadJob(jobId: string) {
     let extractedText = "";
 
     if (ext === ".pdf") {
-      const tempPdfPath = path.resolve(process.cwd(), "storage/temp", job.file_token);
+      const tempPdfPath = storage.getTempPath(job.file_token);
       const pdfInspection = await inspectAndRasterizePdf(tempPdfPath);
       pages = pdfInspection.pages;
       extractedText = pdfInspection.extractedText || "";

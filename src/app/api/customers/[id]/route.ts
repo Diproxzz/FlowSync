@@ -5,11 +5,15 @@ import { normalizeCustomerName } from "@/lib/matching/normalize";
 import { Prisma } from "@prisma/client";
 import { getOrCreateCustomerLedgerAccount, calculateAccountTotalDue } from "@/lib/ledger/account-utils";
 import { allocateBillwiseOutstanding } from "@/lib/ledger/billAllocation";
+import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireFoundingReadResponse();
+  if (denied) return denied;
+
   const { id } = params;
   const customer = await prisma.customer.findUnique({
     where: { id },
@@ -211,20 +215,6 @@ export async function GET(
     }
   }
 
-  // Sort months in descending order (newest first)
-  const monthlyBreakdown = Array.from(monthlyMap.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
-
-  // Sort products by total quantity bought (highest first)
-  const productsBought = Array.from(productsMap.values()).map((p) => {
-    const avgRate = p.rates.length > 0 && p.totalQtyKg > 0 ? p.totalTaxable / p.totalQtyKg : 0;
-    return {
-      ...p,
-      avgRate: Math.round(avgRate * 100) / 100,
-      totalQtyKg: Math.round(p.totalQtyKg * 1000) / 1000,
-      totalAmount: Math.round(p.totalAmount * 100) / 100,
-    };
-  }).sort((a, b) => b.totalQtyKg - a.totalQtyKg);
-
   // Accumulate informal invoices into monthly breakdown and products bought
   for (const inf of customer.informal_invoices || []) {
     const d = new Date(inf.invoice_date);
@@ -336,6 +326,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     const body = await request.json();
@@ -374,6 +367,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireFoundingWrite();
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     const customer = await prisma.customer.findUnique({

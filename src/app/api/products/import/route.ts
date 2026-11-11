@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import ExcelJS from "exceljs";
+import { requireFoundingWrite } from "@/lib/auth/session";
 
 interface ParsedProductRow {
   code: string;
@@ -18,6 +19,9 @@ interface ParsedProductRow {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireFoundingWrite();
+    if (!auth.ok) return auth.response;
+
     const isDryRun = request.nextUrl.searchParams.get("dryRun") === "1" ||
       request.nextUrl.searchParams.get("dryRun") === "true";
 

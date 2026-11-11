@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft, Download, Database, ShieldCheck, Clock, FileJson, Upload } from "lucide-react";
@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const [backupTriggering, setBackupTriggering] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
-  const fetchBackupInfo = async () => {
+  const fetchBackupInfo = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/backup");
       if (res.ok) {
@@ -54,7 +54,7 @@ export default function SettingsPage() {
     } catch (e) {
       console.error("Failed to load backup info", e);
     }
-  };
+  }, []);
 
   const handleTriggerBackup = async () => {
     setBackupTriggering(true);
@@ -114,7 +114,7 @@ export default function SettingsPage() {
     }
   };
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const [res, sessionRes] = await Promise.all([
@@ -136,11 +136,11 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchBackupInfo]);
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [loadSettings]);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();

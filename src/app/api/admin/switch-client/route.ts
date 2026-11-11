@@ -6,7 +6,13 @@ import { getClientById } from "@/lib/clients/store";
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "ADMIN") {
+    if (!session) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+        { status: 401 }
+      );
+    }
+    if (session.role !== "ADMIN") {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Administrator access required" } },
         { status: 403 }

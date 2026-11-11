@@ -1,6 +1,7 @@
 import { LLMProvider, ExtractionRequest, ExtractionResponse } from "../types";
 import { parseInvoiceTextToDraft } from "@/lib/ocr/parse-invoice-text";
 import { env } from "@/lib/env";
+import { storage } from "@/lib/storage/adapter";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -26,7 +27,7 @@ export class PaddleOcrVlProvider implements LLMProvider {
     let tempImagePath: string | null = null;
     try {
       const tempFileName = `ocr_paddle_${crypto.randomBytes(6).toString("hex")}.png`;
-      tempImagePath = path.resolve(process.cwd(), "storage/temp", tempFileName);
+      tempImagePath = storage.getTempPath(tempFileName);
       await fs.mkdir(path.dirname(tempImagePath), { recursive: true });
       await fs.writeFile(tempImagePath, Buffer.from(req.images[0].base64, "base64"));
 

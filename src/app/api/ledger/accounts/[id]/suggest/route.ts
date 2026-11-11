@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { calculateOpenItems } from "@/lib/ledger/openItems";
+import { requireFoundingReadResponse } from "@/lib/auth/session";
 
 export async function GET(
   request: NextRequest,
@@ -10,6 +11,8 @@ export async function GET(
   try {
     const { id } = params;
     const { searchParams } = request.nextUrl;
+    const denied = await requireFoundingReadResponse();
+    if (denied) return denied;
     const amountStr = searchParams.get("amount") || "0";
     const amount = parseFloat(amountStr) || 0;
 

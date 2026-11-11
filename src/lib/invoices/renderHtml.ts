@@ -1,5 +1,6 @@
 import { InvoiceCalculationResult } from "./calculations";
 import { CustomerInvoiceMeta, InvoiceHeaderMeta } from "@/components/invoices/PrintableInvoice";
+import { env } from "@/lib/env";
 
 export interface RenderInvoiceOptions {
   customer: CustomerInvoiceMeta;
@@ -19,8 +20,37 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
     .filter(Boolean);
 
   const hasDiscount = calculation.hasDiscount;
+  const isInterState = calculation.isInterState;
+  const companyEmail = (env.COMPANY_EMAIL || process.env.NEXT_PUBLIC_COMPANY_EMAIL || "").trim();
 
-  const colWidths = hasDiscount
+  const colWidths = isInterState
+    ? hasDiscount
+      ? [
+          "4.0%",  // Sl
+          "8.5%",  // Qnty
+          "5.5%",  // Pack
+          "25.5%", // Product
+          "6.5%",  // Batch
+          "8.5%",  // HSN
+          "7.0%",  // Rate
+          "6.0%",  // Disc %
+          "9.5%",  // TAXABLE
+          "9.0%",  // IGST
+          "10.0%", // Amount
+        ]
+      : [
+          "4.5%",  // Sl
+          "9.5%",  // Qnty
+          "6.0%",  // Pack
+          "28.5%", // Product
+          "7.5%",  // Batch
+          "8.5%",  // HSN
+          "7.5%",  // Rate
+          "9.5%",  // TAXABLE
+          "9.0%",  // IGST
+          "9.5%",  // Amount
+        ]
+    : hasDiscount
     ? [
         "4.0%",  // Sl
         "8.5%",  // Qnty
@@ -53,9 +83,17 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
     .map((line) => `<div class="text-black text-[12px]">${escapeHtml(line)}</div>`)
     .join("");
 
+  const taxableColIdx = hasDiscount ? 8 : 7;
   const rowsHtml = calculation.items
-    .map(
-      (item) => `
+    .map((item) => {
+      const taxColsHtml = isInterState
+        ? `<div style="width: ${colWidths[taxableColIdx + 1]}" class="text-right pr-1 font-mono text-[11.5px]">${escapeHtml(item.igstPct)}</div>
+           <div style="width: ${colWidths[taxableColIdx + 2]}" class="text-right pr-1.5 font-bold font-mono text-[12.5px]">${escapeHtml(item.amount)}</div>`
+        : `<div style="width: ${colWidths[taxableColIdx + 1]}" class="text-right pr-0.5 font-mono text-[11.5px]">${escapeHtml(item.sgstPct)}</div>
+           <div style="width: ${colWidths[taxableColIdx + 2]}" class="text-right pr-0.5 font-mono text-[11.5px]">${escapeHtml(item.cgstPct)}</div>
+           <div style="width: ${colWidths[taxableColIdx + 3]}" class="text-right pr-1.5 font-bold font-mono text-[12.5px]">${escapeHtml(item.amount)}</div>`;
+
+      return `
       <div class="w-full flex text-[13px] leading-[1.35] text-black font-medium pt-0.5" style="height: 24px;">
         <div style="width: ${colWidths[0]}" class="text-center px-0.5">${item.sl}.</div>
         <div style="width: ${colWidths[1]}" class="text-right pr-1.5 font-bold">${escapeHtml(item.qty)}</div>
@@ -71,13 +109,32 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
               }</div>`
             : ""
         }
-        <div style="width: ${hasDiscount ? colWidths[8] : colWidths[7]}" class="text-right pr-1 font-bold font-mono text-[12px]">${escapeHtml(item.taxable)}</div>
-        <div style="width: ${hasDiscount ? colWidths[9] : colWidths[8]}" class="text-right pr-0.5 font-mono text-[11.5px]">${escapeHtml(item.sgstPct)}</div>
-        <div style="width: ${hasDiscount ? colWidths[10] : colWidths[9]}" class="text-right pr-0.5 font-mono text-[11.5px]">${escapeHtml(item.cgstPct)}</div>
-        <div style="width: ${hasDiscount ? colWidths[11] : colWidths[10]}" class="text-right pr-1.5 font-bold font-mono text-[12.5px]">${escapeHtml(item.amount)}</div>
-      </div>`
-    )
+        <div style="width: ${colWidths[taxableColIdx]}" class="text-right pr-1 font-bold font-mono text-[12px]">${escapeHtml(item.taxable)}</div>
+        ${taxColsHtml}
+      </div>`;
+    })
     .join("");
+
+  const taxHeadersHtml = isInterState
+    ? `<div style="width: ${colWidths[taxableColIdx + 1]}" class="p-0.5 text-right pr-1 text-[10px] border-r border-black flex items-center justify-end">IGST</div>
+       <div style="width: ${colWidths[taxableColIdx + 2]}" class="p-0.5 text-right pr-1.5 flex items-center justify-end">Amount</div>`
+    : `<div style="width: ${colWidths[taxableColIdx + 1]}" class="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">SGST</div>
+       <div style="width: ${colWidths[taxableColIdx + 2]}" class="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">CGST</div>
+       <div style="width: ${colWidths[taxableColIdx + 3]}" class="p-0.5 text-right pr-1.5 flex items-center justify-end">Amount</div>`;
+
+  const taxSummaryRowsHtml = isInterState
+    ? `<div class="flex justify-between items-center text-black whitespace-nowrap">
+         <span>IGST ${escapeHtml(calculation.igstRatePct)}</span>
+         <span class="text-right font-semibold">${escapeHtml(calculation.igstTotal)}</span>
+       </div>`
+    : `<div class="flex justify-between items-center text-black whitespace-nowrap">
+         <span>SGST ${escapeHtml(calculation.sgstRatePct)}</span>
+         <span class="text-right font-semibold">${escapeHtml(calculation.sgstTotal)}</span>
+       </div>
+       <div class="flex justify-between items-center text-black whitespace-nowrap">
+         <span>CGST ${escapeHtml(calculation.cgstRatePct)}</span>
+         <span class="text-right font-semibold">${escapeHtml(calculation.cgstTotal)}</span>
+       </div>`;
 
   const verticalBordersHtml = colWidths
     .map(
@@ -108,7 +165,7 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
           <div class="text-[11.5px] font-normal leading-[1.3] mt-1">19/10/2,GOBINDA KHATICK ROAD</div>
           <div class="text-[11.5px] font-normal leading-[1.3]">KOLKATA-700046 19-WEST BENGAL</div>
           <div class="text-[11.5px] font-normal leading-[1.3] mt-0.5">Phone : 8240892993</div>
-          <div class="text-[11.5px] font-normal leading-[1.3]">E-Mail : indobest@gmail.com</div>
+          ${companyEmail ? `<div class="text-[11.5px] font-normal leading-[1.3]">E-Mail : ${escapeHtml(companyEmail)}</div>` : ""}
           <div class="text-[15.5px] font-black tracking-wide leading-tight mt-1" style="font-family: Arial, sans-serif;">
             GST INVOICE
           </div>
@@ -194,10 +251,8 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
             <div style="width: ${colWidths[5]}" class="p-0.5 text-center border-r border-black flex items-center justify-center">HSN</div>
             <div style="width: ${colWidths[6]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">Rate</div>
             ${hasDiscount ? `<div style="width: ${colWidths[7]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">Disc %</div>` : ""}
-            <div style="width: ${hasDiscount ? colWidths[8] : colWidths[7]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">TAXABLE</div>
-            <div style="width: ${hasDiscount ? colWidths[9] : colWidths[8]}" class="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">SGST</div>
-            <div style="width: ${hasDiscount ? colWidths[10] : colWidths[9]}" class="p-0.5 text-right pr-0.5 text-[10px] border-r border-black flex items-center justify-end">CGST</div>
-            <div style="width: ${hasDiscount ? colWidths[11] : colWidths[10]}" class="p-0.5 text-right pr-1.5 flex items-center justify-end">Amount</div>
+            <div style="width: ${colWidths[taxableColIdx]}" class="p-0.5 text-right pr-1 border-r border-black flex items-center justify-end">TAXABLE</div>
+            ${taxHeadersHtml}
           </div>
 
           <!-- Data Rows -->
@@ -234,14 +289,7 @@ export function renderInvoiceToHtml({ customer, meta, calculation }: RenderInvoi
             </div>`
                 : ""
             }
-            <div class="flex justify-between items-center text-black whitespace-nowrap">
-              <span>SGST ${escapeHtml(calculation.sgstRatePct)}</span>
-              <span class="text-right font-semibold">${escapeHtml(calculation.sgstTotal)}</span>
-            </div>
-            <div class="flex justify-between items-center text-black whitespace-nowrap">
-              <span>CGST ${escapeHtml(calculation.cgstRatePct)}</span>
-              <span class="text-right font-semibold">${escapeHtml(calculation.cgstTotal)}</span>
-            </div>
+            ${taxSummaryRowsHtml}
             <div class="flex justify-between items-center text-black whitespace-nowrap">
               <span>Roundoff</span>
               <span class="text-right font-semibold">${escapeHtml(calculation.roundOff)}</span>
