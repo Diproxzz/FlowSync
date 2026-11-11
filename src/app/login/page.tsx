@@ -173,22 +173,12 @@ function LoginForm() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label
-                className="block text-xs font-medium text-ink-2"
-                htmlFor="password"
-              >
-                Password
-              </label>
-              <button
-                type="button"
-                onClick={switchToReset}
-                disabled={loading}
-                className="text-xs font-medium text-primary hover:underline cursor-pointer disabled:opacity-50"
-              >
-                Reset Password
-              </button>
-            </div>
+            <label
+              className="block text-xs font-medium text-ink-2 mb-1.5"
+              htmlFor="password"
+            >
+              Password
+            </label>
             <div className="relative">
               <input
                 id="password"
