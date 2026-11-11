@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
+    "db:sync": "prisma db push --skip-generate && tsx scripts/sync-product-master.ts",
     "lint": "next lint",
     "format": "prettier --write .",
     "test": "vitest run",
