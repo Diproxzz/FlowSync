@@ -172,6 +172,37 @@ describe("Phase 2: Auth and Session Tests", () => {
     expect(res.status).toBe(200);
   });
 
+  it("should reject cross-origin mutating API requests with mismatched Origin header", async () => {
+    const validToken = await createSessionToken("Indobest");
+    const reqMismatchedOrigin = new NextRequest("https://flowpilot.up.railway.app/api/invoices", {
+      method: "POST",
+      headers: {
+        cookie: `indobest_session=${validToken}`,
+        origin: "https://malicious-site.com",
+        host: "flowpilot.up.railway.app",
+      },
+    });
+    const res = await middleware(reqMismatchedOrigin);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe("FORBIDDEN_CSRF");
+  });
+
+  it("should allow same-origin mutating API requests with matching Origin header", async () => {
+    const validToken = await createSessionToken("Indobest");
+    const reqMatchingOrigin = new NextRequest("https://flowpilot.up.railway.app/api/invoices", {
+      method: "POST",
+      headers: {
+        cookie: `indobest_session=${validToken}`,
+        origin: "https://flowpilot.up.railway.app",
+        host: "flowpilot.up.railway.app",
+      },
+    });
+    const res = await middleware(reqMatchingOrigin);
+    // In middleware, an authenticated Indobest session for /api/invoices proceeds to route handler (NextResponse.next -> status 200)
+    expect(res.status).toBe(200);
+  });
+
   it("should redirect unauthenticated root / visits to /login", async () => {
     const req = new NextRequest("http://localhost:3000/");
     const res = await middleware(req);

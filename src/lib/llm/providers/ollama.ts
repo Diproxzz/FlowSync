@@ -41,11 +41,15 @@ export class OllamaProvider implements LLMProvider {
       },
     };
 
+    const signal = req.signal
+      ? AbortSignal.any([req.signal, AbortSignal.timeout(4000)])
+      : AbortSignal.timeout(4000);
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: req.signal,
+      signal,
     });
 
     if (!res.ok) {

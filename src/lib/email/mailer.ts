@@ -32,7 +32,9 @@ export async function sendPasswordResetEmail(
     `FlowPilot Security <${smtpUser}>`
   ).trim();
 
-  if (!smtpUser || !smtpPass) {
+  const cleanPass = smtpPass.replace(/\s+/g, "");
+
+  if (!smtpUser || !cleanPass) {
     throw new SmtpNotConfiguredError();
   }
 
@@ -42,8 +44,11 @@ export async function sendPasswordResetEmail(
     secure: smtpPort === 465,
     auth: {
       user: smtpUser,
-      pass: smtpPass,
+      pass: cleanPass,
     },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 12000,
   });
 
   const subject = `FlowPilot Password Reset (${params.username})`;

@@ -34,11 +34,15 @@ export class GlmOcrProvider implements LLMProvider {
           stream: false,
         };
 
+        const signal = req.signal
+          ? AbortSignal.any([req.signal, AbortSignal.timeout(3500)])
+          : AbortSignal.timeout(3500);
+
         const res = await fetch(`${baseUrl}/api/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-          signal: req.signal,
+          signal,
         });
 
         if (res.ok) {

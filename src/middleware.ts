@@ -141,6 +141,59 @@ export async function middleware(request: NextRequest) {
     request.method !== "HEAD" &&
     request.method !== "OPTIONS";
 
+  // CSRF protection on browser API mutations: if Origin header is sent, it must match host
+  if (
+    pathname.startsWith("/api/") &&
+    isMutatingMethod &&
+    !request.headers.get("authorization")
+  ) {
+    const origin = request.headers.get("origin");
+    if (origin) {
+      try {
+        const originUrl = new URL(origin);
+        const hostHeader = (
+          request.headers.get("x-forwarded-host") ||
+          request.headers.get("host") ||
+          ""
+        )
+          .split(",")[0]
+          .trim();
+
+        const isLocalDev =
+          originUrl.hostname === "localhost" ||
+          originUrl.hostname === "127.0.0.1" ||
+          hostHeader.startsWith("localhost") ||
+          hostHeader.startsWith("127.0.0.1");
+
+        if (
+          hostHeader &&
+          !isLocalDev &&
+          originUrl.host.toLowerCase() !== hostHeader.toLowerCase()
+        ) {
+          return NextResponse.json(
+            {
+              error: {
+                code: "FORBIDDEN_CSRF",
+                message: "Cross-origin API mutation rejected.",
+              },
+            },
+            { status: 403 }
+          );
+        }
+      } catch {
+        return NextResponse.json(
+          {
+            error: {
+              code: "FORBIDDEN_CSRF",
+              message: "Invalid request origin.",
+            },
+          },
+          { status: 403 }
+        );
+      }
+    }
+  }
+
   if (
     sessionPayload?.isReadOnly === true &&
     isMutatingMethod &&
