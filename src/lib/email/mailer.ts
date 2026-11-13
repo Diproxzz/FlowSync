@@ -18,6 +18,147 @@ export interface PasswordResetEmailParams {
   expiresMinutes: number;
 }
 
+interface EmailDispatchPayload {
+  fromEmail: string;
+  fromName: string;
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  text: string;
+  html: string;
+  attachment?: {
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  };
+  smtpFallback: {
+    host: string;
+    preferredPort: number;
+    user: string;
+    pass: string;
+  };
+}
+
+async function sendViaBrevo(apiKey: string, payload: EmailDispatchPayload): Promise<void> {
+  const body: any = {
+    sender: { name: payload.fromName, email: payload.fromEmail },
+    to: [{ email: payload.toEmail, name: payload.toName || payload.toEmail }],
+    subject: payload.subject,
+    htmlContent: payload.html,
+    textContent: payload.text,
+  };
+
+  if (payload.attachment) {
+    body.attachment = [
+      {
+        name: payload.attachment.filename,
+        content: payload.attachment.content.toString("base64"),
+      },
+    ];
+  }
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey.trim(),
+      accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorDetails = await response.text();
+    throw new Error(`Brevo HTTPS API error (${response.status}): ${errorDetails}`);
+  }
+}
+
+async function sendViaResend(apiKey: string, payload: EmailDispatchPayload): Promise<void> {
+  const from = payload.fromName
+    ? `${payload.fromName} <${payload.fromEmail}>`
+    : payload.fromEmail;
+
+  const body: any = {
+    from,
+    to: [payload.toEmail],
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+  };
+
+  if (payload.attachment) {
+    body.attachments = [
+      {
+        filename: payload.attachment.filename,
+        content: payload.attachment.content.toString("base64"),
+      },
+    ];
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey.trim()}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorDetails = await response.text();
+    throw new Error(`Resend HTTPS API error (${response.status}): ${errorDetails}`);
+  }
+}
+
+async function dispatchEmail(payload: EmailDispatchPayload): Promise<void> {
+  const brevoKey = (process.env.BREVO_API_KEY || "").trim();
+  const resendKey = (process.env.RESEND_API_KEY || "").trim();
+
+  // 1. Try Brevo HTTPS API if key is provided (Port 443, never blocked by Railway)
+  if (brevoKey) {
+    try {
+      await sendViaBrevo(brevoKey, payload);
+      return;
+    } catch (err: any) {
+      console.warn(`[Email] Brevo HTTPS dispatch failed (${err.message}). Trying fallback transport...`);
+    }
+  }
+
+  // 2. Try Resend HTTPS API if key is provided (Port 443, never blocked by Railway)
+  if (resendKey) {
+    try {
+      await sendViaResend(resendKey, payload);
+      return;
+    } catch (err: any) {
+      console.warn(`[Email] Resend HTTPS dispatch failed (${err.message}). Trying fallback transport...`);
+    }
+  }
+
+  // 3. Fallback to direct SMTP (ports 587 / 465)
+  await sendMailWithTransportFallback({
+    host: payload.smtpFallback.host,
+    preferredPort: payload.smtpFallback.preferredPort,
+    user: payload.smtpFallback.user,
+    pass: payload.smtpFallback.pass,
+    mailOptions: {
+      from: `${payload.fromName} <${payload.fromEmail}>`,
+      to: payload.toEmail,
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+      attachments: payload.attachment
+        ? [
+            {
+              filename: payload.attachment.filename,
+              content: payload.attachment.content,
+              contentType: payload.attachment.contentType || "application/pdf",
+            },
+          ]
+        : undefined,
+    },
+  });
+}
+
 async function sendMailWithTransportFallback(options: {
   host: string;
   preferredPort: number;
@@ -39,7 +180,7 @@ async function sendMailWithTransportFallback(options: {
           user: options.user,
           pass: options.pass,
         },
-        family: 4, // Explicitly force IPv4 to prevent IPv6 connection timeouts on cloud platforms (e.g. Railway)
+        family: 4, // Explicitly force IPv4 to prevent IPv6 connection timeouts on cloud platforms
         connectionTimeout: 8000,
         greetingTimeout: 8000,
         socketTimeout: 12000,
@@ -53,6 +194,12 @@ async function sendMailWithTransportFallback(options: {
         `[SMTP] Delivery attempt on port ${port} failed (${err.code || err.message}). Trying alternate port if available...`
       );
     }
+  }
+
+  if (lastError?.code === "ETIMEDOUT" || lastError?.message?.includes("timeout")) {
+    console.error(
+      `[SMTP] Outbound connection timed out. Railway blocks outbound SMTP ports (465, 587, 25) on Hobby/Personal plans. To deliver email from Railway, upgrade to the Pro plan or configure an HTTPS provider like BREVO_API_KEY or RESEND_API_KEY.`
+    );
   }
 
   throw lastError;
@@ -132,17 +279,19 @@ export async function sendPasswordResetEmail(
     </div>
   `;
 
-  await sendMailWithTransportFallback({
-    host: smtpHost,
-    preferredPort: smtpPort,
-    user: smtpUser,
-    pass: cleanPass,
-    mailOptions: {
-      from: smtpFrom,
-      to: params.to,
-      subject,
-      text: textBody,
-      html: htmlBody,
+  await dispatchEmail({
+    fromEmail: smtpUser,
+    fromName: "FlowPilot Security",
+    toEmail: params.to,
+    toName: params.displayName,
+    subject,
+    text: textBody,
+    html: htmlBody,
+    smtpFallback: {
+      host: smtpHost,
+      preferredPort: smtpPort,
+      user: smtpUser,
+      pass: cleanPass,
     },
   });
 }
@@ -180,7 +329,6 @@ export async function sendCustomerStatementEmail(
 
   // Strict requirement: All emails to the customers will be sent from "indobest@gmail.com"
   const senderEmail = smtpUser || "indobest@gmail.com";
-  const smtpFrom = `Indobest <${senderEmail}>`;
 
   const cleanPass = smtpPass.replace(/\s+/g, "");
 
@@ -195,92 +343,53 @@ export async function sendCustomerStatementEmail(
   const textBody = [
     `Dear ${params.customerName},`,
     ``,
-    `Please find attached your updated statement of account from Indobest.`,
+    `Please find attached your updated Statement of Account from Indobest. The current Total Due (Closing Balance) is ${params.totalDueFormatted}.`,
     ``,
-    `Current Total Due (Closing Balance): ${params.totalDueFormatted}`,
+    `Kindly review and arrange for clearance at your earliest convenience.`,
     ``,
-    `Kindly review the attached statement and arrange for the clearance of the outstanding balance at your earliest convenience.`,
-    ``,
-    `If payment has already been initiated, or if you have any questions or require any clarification regarding any entries, please feel free to reach out to us at 8240892993 or reply directly to this email at ${senderEmail}.`,
-    ``,
-    `We value your business and look forward to our continued partnership.`,
-    ``,
-    `Warm regards,`,
+    `Regards,`,
     `Indobest`,
-    `19/10/2, Gobinda Khatick Road, Kolkata - 700046`,
-    `Phone: 8240892993 | E-Mail: ${senderEmail}`,
   ].join("\n");
 
   const safeCustomerName = escapeHtml(params.customerName);
   const safeDue = escapeHtml(params.totalDueFormatted);
 
   const htmlBody = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; color: #1e293b; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;">
-      <div style="border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">INDOBEST</h1>
-        <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">
-          19/10/2, Gobinda Khatick Road, Kolkata - 700046 &bull; Phone: 8240892993 &bull; E-Mail: ${senderEmail}
-        </p>
-      </div>
-
-      <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; color: #1e293b; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
         Dear <strong>${safeCustomerName}</strong>,
       </p>
-
-      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-        Please find attached your updated statement of account detailing your recent invoices, receipts, and current account position.
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        Please find attached your updated Statement of Account from Indobest. The current Total Due (Closing Balance) is <strong>${safeDue}</strong>.
       </p>
-
-      <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 6px; margin: 20px 0;">
-        <div style="font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
-          Total Due (Closing Balance)
-        </div>
-        <div style="font-size: 22px; font-weight: 800; color: #b45309; font-family: monospace;">
-          ${safeDue}
-        </div>
-        <div style="font-size: 12px; color: #78350f; margin-top: 4px;">
-          Party balance pending clearance as per ledger records.
-        </div>
-      </div>
-
-      <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-        Kindly review the attached PDF statement (<strong>${escapeHtml(params.pdfFilename)}</strong>) and arrange for the settlement of the pending amount at your earliest convenience.
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        Kindly review and arrange for clearance at your earliest convenience.
       </p>
-
-      <p style="margin: 0 0 14px 0; font-size: 13px; line-height: 1.6; color: #64748b;">
-        If you have already processed this payment, or if you need any clarification or reconciliation support, please do not hesitate to contact us at <strong>8240892993</strong> or reply directly to this email.
+      <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        Regards,<br />
+        <strong>Indobest</strong>
       </p>
-
-      <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.6; color: #334155;">
-        Thank you for your valued partnership.
-      </p>
-
-      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; line-height: 1.5;">
-        <strong>Indobest Accounts Department</strong><br />
-        19/10/2, Gobinda Khatick Road, Kolkata - 700046<br />
-        Phone: 8240892993 | E-Mail: <a href="mailto:${senderEmail}" style="color: #2563eb; text-decoration: none;">${senderEmail}</a>
-      </div>
     </div>
   `;
 
-  await sendMailWithTransportFallback({
-    host: smtpHost,
-    preferredPort: smtpPort,
-    user: smtpUser,
-    pass: cleanPass,
-    mailOptions: {
-      from: smtpFrom,
-      to: params.to,
-      subject,
-      text: textBody,
-      html: htmlBody,
-      attachments: [
-        {
-          filename: params.pdfFilename,
-          content: params.pdfBuffer,
-          contentType: "application/pdf",
-        },
-      ],
+  await dispatchEmail({
+    fromEmail: senderEmail,
+    fromName: "Indobest",
+    toEmail: params.to,
+    toName: params.customerName,
+    subject,
+    text: textBody,
+    html: htmlBody,
+    attachment: {
+      filename: params.pdfFilename,
+      content: params.pdfBuffer,
+      contentType: "application/pdf",
+    },
+    smtpFallback: {
+      host: smtpHost,
+      preferredPort: smtpPort,
+      user: smtpUser,
+      pass: cleanPass,
     },
   });
 }
