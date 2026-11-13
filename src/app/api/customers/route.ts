@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { normalizeCustomerName } from "@/lib/matching/normalize";
 import { Prisma } from "@prisma/client";
 import { getActiveClientContext, requireFoundingWrite } from "@/lib/auth/session";
+import { logBusinessActivity } from "@/lib/logs/business-logger";
 
 export async function GET(request: NextRequest) {
   const ctx = await getActiveClientContext();
@@ -25,6 +26,8 @@ export async function GET(request: NextRequest) {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
           { gstin: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search, mode: "insensitive" } },
           { aliases: { some: { alias: { contains: search, mode: "insensitive" } } } },
         ],
       }
@@ -55,7 +58,9 @@ export async function GET(request: NextRequest) {
     ...c,
     destination: metaMap[c.id]?.destination || "",
     deliveryNote: metaMap[c.id]?.deliveryNote || "",
-    phone: metaMap[c.id]?.phone || "",
+    phone: c.phone || metaMap[c.id]?.phone || "",
+    secondary_phone: c.secondary_phone || "",
+    email: c.email || "",
   }));
 
   return NextResponse.json({ customers: enrichedCustomers });
@@ -67,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return auth.response;
 
     const body = await request.json();
-    const { name, gstin, address } = body;
+    const { name, gstin, address, email, phone, secondary_phone } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
@@ -106,7 +111,18 @@ export async function POST(request: NextRequest) {
         gstin: cleanGstin,
         address: address ? address.trim() : null,
         state_code,
+        email: email && typeof email === "string" ? email.trim() : null,
+        phone: phone && typeof phone === "string" ? phone.trim() : null,
+        secondary_phone: secondary_phone && typeof secondary_phone === "string" ? secondary_phone.trim() : null,
       },
+    });
+
+    await logBusinessActivity({
+      action: "CUSTOMER_CREATED",
+      description: `Customer "${cleanName}" created`,
+      entityType: "CUSTOMER",
+      entityId: customer.id,
+      metadata: { name: cleanName, gstin: cleanGstin, email: customer.email, phone: customer.phone },
     });
 
     return NextResponse.json({ customer }, { status: 201 });

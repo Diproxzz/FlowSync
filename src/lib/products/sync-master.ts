@@ -339,7 +339,6 @@ export async function ensureProductMasterSynced(force = false) {
         where: { code: item.code },
         update: {
           name: item.name,
-          category: item.category ?? undefined,
           default_hsn: item.default_hsn ?? undefined,
           pack_size_kg: item.pack_size_kg !== null ? item.pack_size_kg.toFixed(2) : undefined,
           landing_cost: item.landing_cost !== null ? item.landing_cost.toFixed(2) : undefined,

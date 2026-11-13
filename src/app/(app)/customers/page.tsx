@@ -20,6 +20,11 @@ import {
   ChevronRight,
   ArrowUpRight,
   BookOpen,
+  Mail,
+  Phone,
+  Send,
+  Smartphone,
+  Info,
 } from "lucide-react";
 import { formatINR, formatKg, formatDate } from "@/lib/format";
 
@@ -30,6 +35,9 @@ interface Customer {
   gstin: string | null;
   address: string | null;
   state_code: string | null;
+  email?: string | null;
+  phone?: string | null;
+  secondary_phone?: string | null;
   aliases: Array<{ id: string; alias: string }>;
   ledger_account?: { id: string; display_name: string } | null;
   _count?: { invoices: number };
@@ -77,7 +85,125 @@ export default function CustomersPage() {
     name: "",
     gstin: "",
     address: "",
+    email: "",
+    phone: "",
+    secondary_phone: "",
   });
+
+  // Statement Dispatch Modal state
+  const [isSendStatementOpen, setIsSendStatementOpen] = useState(false);
+  const [statementCustomer, setStatementCustomer] = useState<Customer | null>(null);
+  const [sendChannel, setSendChannel] = useState<"email" | "primary" | "secondary" | "all">("email");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [statementTotalDue, setStatementTotalDue] = useState<string>("Loading...");
+  const [loadingStatementInfo, setLoadingStatementInfo] = useState(false);
+  const [sendingStatement, setSendingStatement] = useState(false);
+  const [statementResult, setStatementResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleOpenSendStatement = async (c: Customer, channel: "email" | "primary" | "secondary" | "all" = "email") => {
+    setStatementCustomer(c);
+    setSendChannel(channel);
+    setRecipientEmail(c.email || "");
+    setStatementResult(null);
+    setStatementTotalDue("Loading...");
+    setIsSendStatementOpen(true);
+    setLoadingStatementInfo(true);
+
+    try {
+      const res = await fetch(`/api/customers/${c.id}`);
+      const data = await res.json();
+      if (res.ok && data.customer) {
+        const out = data.customer.totalOutstanding ?? 0;
+        setStatementTotalDue(formatINR(out) + " Dr");
+      } else {
+        setStatementTotalDue("—");
+      }
+    } catch {
+      setStatementTotalDue("—");
+    } finally {
+      setLoadingStatementInfo(false);
+    }
+  };
+
+  const handleSendStatement = async () => {
+    if (!statementCustomer) return;
+    setStatementResult(null);
+
+    const emailToSend = recipientEmail.trim();
+
+    if (sendChannel === "email" && !emailToSend) {
+      setStatementResult({
+        type: "error",
+        text: "Please provide a valid recipient email address.",
+      });
+      return;
+    }
+
+    if (sendChannel === "primary" && !statementCustomer.phone) {
+      setStatementResult({
+        type: "error",
+        text: `No primary contact number registered for customer "${statementCustomer.name}".`,
+      });
+      return;
+    }
+
+    if (sendChannel === "secondary" && !statementCustomer.secondary_phone) {
+      setStatementResult({
+        type: "error",
+        text: `No secondary contact number registered for customer "${statementCustomer.name}".`,
+      });
+      return;
+    }
+
+    if (sendChannel === "all" && !emailToSend && !statementCustomer.phone && !statementCustomer.secondary_phone) {
+      setStatementResult({
+        type: "error",
+        text: `No contact details (email or phone) registered for customer "${statementCustomer.name}".`,
+      });
+      return;
+    }
+
+    try {
+      setSendingStatement(true);
+
+      // Save email if updated
+      if (emailToSend && (!statementCustomer.email || statementCustomer.email !== emailToSend)) {
+        await fetch(`/api/customers/${statementCustomer.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: emailToSend }),
+        });
+      }
+
+      const res = await fetch(`/api/customers/${statementCustomer.id}/send-statement`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel: sendChannel }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setStatementResult({
+          type: "error",
+          text: data.error?.message || "Failed to dispatch statement.",
+        });
+        return;
+      }
+
+      setStatementResult({
+        type: "success",
+        text: data.message || `Statement successfully dispatched! (Total Due: ${data.totalDue})`,
+      });
+      loadCustomers();
+    } catch (err: any) {
+      setStatementResult({
+        type: "error",
+        text: err?.message || "Network error while sending statement.",
+      });
+    } finally {
+      setSendingStatement(false);
+    }
+  };
 
   const loadCustomers = async () => {
     try {
@@ -248,7 +374,7 @@ export default function CustomersPage() {
 
         <button
           onClick={() => {
-            setFormData({ name: "", gstin: "", address: "" });
+            setFormData({ name: "", gstin: "", address: "", email: "", phone: "", secondary_phone: "" });
             setMessage(null);
             setIsAddOpen(true);
           }}
@@ -304,20 +430,21 @@ export default function CustomersPage() {
                 <th className="py-2.5 px-3">State</th>
                 <th className="py-2.5 px-3">Address</th>
                 <th className="py-2.5 px-3 text-right">Invoices</th>
-                <th className="py-2.5 px-3 text-right">Aliases</th>
+                <th className="py-2.5 px-3">Contact Info</th>
+                <th className="py-2.5 px-3">Reminders</th>
                 <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-ink-3">
+                  <td colSpan={8} className="py-8 text-center text-ink-3">
                     Loading customers...
                   </td>
                 </tr>
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-ink-3">
+                  <td colSpan={8} className="py-8 text-center text-ink-3">
                     No customers found. Customers are created automatically when sales invoices are confirmed.
                   </td>
                 </tr>
@@ -348,8 +475,83 @@ export default function CustomersPage() {
                     <td className="py-2.5 px-3 text-right num text-ink font-medium">
                       {c._count?.invoices ?? 0}
                     </td>
-                    <td className="py-2.5 px-3 text-right num text-ink-3">
-                      {c.aliases.length}
+                    <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-col gap-1 text-[11px] leading-tight">
+                        {c.email ? (
+                          <div className="flex items-center gap-1.5 font-mono text-ink" title={c.email}>
+                            <Mail className="w-3 h-3 text-ink-3 flex-shrink-0" />
+                            <span className="truncate max-w-[160px]">{c.email}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-ink-3 text-[10.5px] italic">
+                            <Mail className="w-3 h-3 opacity-40 flex-shrink-0" />
+                            <span>No email</span>
+                          </div>
+                        )}
+
+                        {c.phone && (
+                          <div className="flex items-center gap-1.5 font-mono text-ink">
+                            <Phone className="w-3 h-3 text-ink-3 flex-shrink-0" />
+                            <span>{c.phone}</span>
+                          </div>
+                        )}
+
+                        {c.secondary_phone && (
+                          <div className="flex items-center gap-1.5 font-mono text-ink-3 text-[10.5px]">
+                            <Phone className="w-3 h-3 opacity-60 flex-shrink-0" />
+                            <span>{c.secondary_phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5">
+                        {/* 1. Envelope icon for Email */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSendStatement(c, "email")}
+                          className="h-7 w-7 rounded-sm border flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary border-primary/25 transition shadow-xs"
+                          title="Send statement via Email (indobest@gmail.com)"
+                          aria-label="Send via Email"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* 2. Phone with small 1 for Primary Number */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSendStatement(c, "primary")}
+                          className="h-7 w-7 rounded-sm border flex items-center justify-center bg-surface-2 hover:bg-surface text-ink-2 hover:text-ink border-border transition shadow-xs relative"
+                          title={`Primary Number: ${c.phone || "No phone registered"} (Messaging in next update)`}
+                          aria-label="Send to Primary Number"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span className="text-[8px] font-bold absolute top-0.5 right-1 leading-none text-ink-2">1</span>
+                        </button>
+
+                        {/* 3. Phone with small 2 for Secondary Number */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSendStatement(c, "secondary")}
+                          className="h-7 w-7 rounded-sm border flex items-center justify-center bg-surface-2 hover:bg-surface text-ink-2 hover:text-ink border-border transition shadow-xs relative"
+                          title={`Secondary Number: ${c.secondary_phone || "No phone registered"} (Messaging in next update)`}
+                          aria-label="Send to Secondary Number"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span className="text-[8px] font-bold absolute top-0.5 right-1 leading-none text-ink-2">2</span>
+                        </button>
+
+                        {/* 4. "All" button */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSendStatement(c, "all")}
+                          className="h-7 px-2 rounded-sm border flex items-center justify-center bg-surface-2 hover:bg-surface text-ink-2 hover:text-ink font-semibold text-[11px] border-border transition shadow-xs"
+                          title="Send to all channels (Email + Messages)"
+                          aria-label="Send to All"
+                        >
+                          All
+                        </button>
+                      </div>
                     </td>
                     <td className="py-2.5 px-3 text-right space-x-1" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -373,6 +575,9 @@ export default function CustomersPage() {
                             name: c.name,
                             gstin: c.gstin || "",
                             address: c.address || "",
+                            email: c.email || "",
+                            phone: c.phone || "",
+                            secondary_phone: c.secondary_phone || "",
                           });
                           setIsEditOpen(true);
                         }}
@@ -447,6 +652,40 @@ export default function CustomersPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-medium text-ink-2 mb-1">Email ID (Optional)</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="e.g. accounts@customer.com"
+                    className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-ink-2 mb-1">Primary Contact No (Optional)</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g. 9876543210"
+                    className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-ink-2 mb-1">Secondary Contact No (Optional)</label>
+                <input
+                  type="tel"
+                  value={formData.secondary_phone}
+                  onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
+                  placeholder="e.g. 9876543211"
+                  className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
+                />
+              </div>
+
               <div className="flex items-center justify-between pt-3 border-t border-border mt-4">
                 <button
                   type="button"
@@ -514,6 +753,40 @@ export default function CustomersPage() {
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="Billing / Shipping address"
                   rows={2}
+                  className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-medium text-ink-2 mb-1">Email ID (Optional)</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="e.g. accounts@customer.com"
+                    className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-ink-2 mb-1">Primary Contact No (Optional)</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g. 9876543210"
+                    className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-ink-2 mb-1">Secondary Contact No (Optional)</label>
+                <input
+                  type="tel"
+                  value={formData.secondary_phone}
+                  onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
+                  placeholder="e.g. 9876543211"
                   className="w-full px-2.5 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink"
                 />
               </div>
@@ -939,6 +1212,220 @@ export default function CustomersPage() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Statement Modal */}
+      {isSendStatementOpen && statementCustomer && (
+        <div className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-lg shadow-pop w-full max-w-lg p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-ink flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-primary" />
+                  <span>Send Account Statement</span>
+                </h3>
+                <p className="text-xs text-ink-3 mt-0.5">
+                  Dispatch closing statement to <strong>{statementCustomer.name}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setIsSendStatementOpen(false)}
+                className="text-ink-3 hover:text-ink p-1 rounded transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Total Due Banner */}
+            <div className="p-3.5 rounded bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+              <div>
+                <div className="text-[10.5px] uppercase font-bold text-amber-900 dark:text-amber-200 tracking-wider">
+                  Total Due (Closing Balance)
+                </div>
+                <div className="text-base font-bold font-mono text-amber-700 dark:text-amber-300 mt-0.5">
+                  {statementTotalDue}
+                </div>
+              </div>
+              <div className="text-right text-[11px] text-ink-3">
+                <span>Party owes you (Receivable)</span>
+              </div>
+            </div>
+
+            {/* Recipient Details & Channels */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                  Recipient Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="w-3.5 h-3.5 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    placeholder="Enter customer email address"
+                    className="w-full pl-9 pr-3 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Channel Selector */}
+              <div>
+                <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                  Dispatch Options
+                </label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setSendChannel("email")}
+                    className={`p-2.5 rounded border text-left flex items-start gap-2 transition ${
+                      sendChannel === "email"
+                        ? "bg-primary/10 border-primary/40 text-primary"
+                        : "bg-surface-2 border-border text-ink-2 hover:bg-surface"
+                    }`}
+                  >
+                    <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold text-xs">Send via Email</div>
+                      <div className="text-[10px] text-ink-3">From indobest@gmail.com</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSendChannel("all")}
+                    className={`p-2.5 rounded border text-left flex items-start gap-2 transition ${
+                      sendChannel === "all"
+                        ? "bg-primary/10 border-primary/40 text-primary"
+                        : "bg-surface-2 border-border text-ink-2 hover:bg-surface"
+                    }`}
+                  >
+                    <Send className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold text-xs">Send to All</div>
+                      <div className="text-[10px] text-ink-3">Email + Messages</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSendChannel("primary")}
+                    className={`p-2.5 rounded border text-left flex items-start gap-2 transition ${
+                      sendChannel === "primary"
+                        ? "bg-primary/10 border-primary/40 text-primary"
+                        : "bg-surface-2 border-border text-ink-2 hover:bg-surface"
+                    }`}
+                  >
+                    <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold text-xs flex items-center gap-1.5">
+                        <span>Primary No.</span>
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-normal">WhatsApp</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-ink-3">{statementCustomer.phone || "No phone registered"}</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSendChannel("secondary")}
+                    className={`p-2.5 rounded border text-left flex items-start gap-2 transition ${
+                      sendChannel === "secondary"
+                        ? "bg-primary/10 border-primary/40 text-primary"
+                        : "bg-surface-2 border-border text-ink-2 hover:bg-surface"
+                    }`}
+                  >
+                    <Smartphone className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold text-xs flex items-center gap-1.5">
+                        <span>Secondary No.</span>
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-normal">WhatsApp</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-ink-3">{statementCustomer.secondary_phone || "No phone registered"}</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Message & Attachment Preview */}
+              <div className="bg-surface-2 p-3 rounded border border-border text-[11px] space-y-1.5">
+                <div className="font-semibold text-ink flex items-center justify-between">
+                  <span>Attachment Preview</span>
+                  <span className="text-primary font-mono text-[10px]">{statementCustomer.name} Statement.pdf</span>
+                </div>
+                <div className="text-ink-3 leading-relaxed">
+                  <strong>Message:</strong> &ldquo;Dear {statementCustomer.name}, please find attached your updated statement of account. The current Total Due (Closing Balance) is {statementTotalDue}. Kindly review and arrange for clearance at your earliest convenience...&rdquo;
+                </div>
+              </div>
+            </div>
+
+            {/* Status alerts */}
+            {statementResult && (
+              <div
+                className={`p-3 rounded-sm text-xs flex items-center gap-2 ${
+                  statementResult.type === "success"
+                    ? "bg-success-bg text-success border border-success/30"
+                    : "bg-danger-bg text-danger border border-danger/30"
+                }`}
+              >
+                {statementResult.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                )}
+                <span>{statementResult.text}</span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="text-[11px] text-ink-3">
+                Sender:{" "}
+                <strong className="text-ink">
+                  {sendChannel === "email"
+                    ? "indobest@gmail.com"
+                    : sendChannel === "all"
+                    ? "indobest@gmail.com & WhatsApp"
+                    : "WhatsApp (Linked Number)"}
+                </strong>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSendStatementOpen(false)}
+                  className="px-3 py-1.5 rounded-sm border border-border text-xs text-ink-2 hover:bg-surface-2"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendStatement}
+                  disabled={sendingStatement || loadingStatementInfo}
+                  className="px-4 py-1.5 rounded-sm bg-primary text-primary-fg text-xs font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {sendingStatement ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-primary-fg border-t-transparent rounded-full animate-spin" />
+                      <span>Sending Statement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>
+                        {sendChannel === "email"
+                          ? "Send Statement Email"
+                          : sendChannel === "all"
+                          ? "Send Email & WhatsApp"
+                          : "Send WhatsApp Statement"}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -176,6 +176,15 @@ export default function AccountStatementPage() {
     document.body.removeChild(link);
   };
 
+  const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = "";
+    window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1000);
+  };
+
   if (loading && !statementData) {
     return (
       <div className="max-w-7xl mx-auto p-8 text-center text-muted-foreground">
@@ -282,7 +291,7 @@ export default function AccountStatementPage() {
           {/* Print */}
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -390,7 +399,7 @@ export default function AccountStatementPage() {
           oldestBillNo={statementData.summary?.oldestBillNo ?? statementData.totalDue?.oldestBill}
           oldestBillDate={statementData.summary?.oldestBillDate}
           onAddReceipt={() => setIsReceiptModalOpen(true)}
-          onPrint={() => window.print()}
+          onPrint={handlePrint}
         />
       </div>
 

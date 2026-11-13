@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { getOrCreateCustomerLedgerAccount, calculateAccountTotalDue } from "@/lib/ledger/account-utils";
 import { allocateBillwiseOutstanding } from "@/lib/ledger/billAllocation";
 import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
+import { logBusinessActivity } from "@/lib/logs/business-logger";
 
 export async function GET(
   request: NextRequest,
@@ -347,10 +348,27 @@ export async function PATCH(
     if (body.address !== undefined) {
       updateData.address = body.address ? body.address.trim() : null;
     }
+    if (body.email !== undefined) {
+      updateData.email = body.email ? body.email.trim() : null;
+    }
+    if (body.phone !== undefined) {
+      updateData.phone = body.phone ? body.phone.trim() : null;
+    }
+    if (body.secondary_phone !== undefined) {
+      updateData.secondary_phone = body.secondary_phone ? body.secondary_phone.trim() : null;
+    }
 
     const customer = await prisma.customer.update({
       where: { id },
       data: updateData,
+    });
+
+    await logBusinessActivity({
+      action: "CUSTOMER_UPDATED",
+      description: `Customer "${customer.name}" contact & master details updated`,
+      entityType: "CUSTOMER",
+      entityId: customer.id,
+      metadata: { name: customer.name, email: customer.email, phone: customer.phone },
     });
 
     return NextResponse.json({ customer });
@@ -403,6 +421,13 @@ export async function DELETE(
 
     await prisma.customer.delete({
       where: { id },
+    });
+
+    await logBusinessActivity({
+      action: "CUSTOMER_DELETED",
+      description: `Customer "${customer.name}" deleted`,
+      entityType: "CUSTOMER",
+      entityId: id,
     });
 
     return NextResponse.json({ success: true, message: "Customer deleted successfully" });

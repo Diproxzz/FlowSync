@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { formatParticularsText } from "@/lib/ledger/particulars";
 import Decimal from "decimal.js";
 import { requireFoundingWrite } from "@/lib/auth/session";
+import { logBusinessActivity } from "@/lib/logs/business-logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -171,6 +172,17 @@ export async function POST(request: NextRequest) {
       });
 
       return entry;
+    });
+
+    const formattedAmount = "₹ " + numAmount.toNumber().toLocaleString("en-IN");
+    const desc = entryType === "RECEIPT" ? account.display_name + " paid " + formattedAmount + (instrumentNo ? " via Cheque/Ref " + instrumentNo : "") : entryType + " of " + formattedAmount + " recorded for " + account.display_name;
+    await logBusinessActivity({
+      action: entryType === "RECEIPT" ? "PAYMENT_RECEIVED" : "ENTRY_RECORDED",
+      description: desc,
+      entityType: "PAYMENT",
+      entityId: result.id,
+      amount: numAmount.toNumber(),
+      metadata: { accountName: account.display_name, entryType, docNo: docNo || null, paymentMode: paymentMode || null, instrumentNo: instrumentNo || null },
     });
 
     return NextResponse.json({

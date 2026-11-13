@@ -23,6 +23,7 @@ import {
   FilePlus2,
   ShieldAlert,
   ArrowLeft,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -162,6 +163,12 @@ export function Sidebar() {
         ]
       : []),
     {
+      title: "Logs",
+      items: [
+        { label: "Business Activity", href: "/logs", icon: History },
+      ],
+    },
+    {
       title: "Inventory & Setup",
       items: [
         { label: "Products", href: "/products", icon: Package },
@@ -193,12 +200,11 @@ export function Sidebar() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
-            alt="FlowPilot"
+            alt="Logo"
             className="h-7 w-auto object-contain"
           />
           <div className="flex flex-col">
-            <span className="font-bold text-sm leading-tight text-ink tracking-tight">FlowPilot</span>
-            <span className="text-[10px] text-ink-3 tracking-wider font-mono">
+            <span className="font-bold text-sm leading-tight text-ink tracking-tight">
               {session?.isAdmin
                 ? session.isReadOnly
                   ? session.activeClientName || "Client View"

@@ -118,25 +118,16 @@ export function SummaryCards({
         </div>
       </div>
 
-      {/* 4. Total Due (High Visual Highlight) */}
-      <div
-        className={cn(
-          "p-4 rounded-xl border-2 shadow-sm flex flex-col justify-between transition-all print:p-2 print:rounded-none print:border print:border-black print:shadow-none print:bg-white",
-          isClosingZero
-            ? "bg-slate-50 border-slate-200 dark:bg-slate-900/40 dark:border-slate-800"
-            : isClosingCr
-            ? "bg-emerald-50/60 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900"
-            : "bg-rose-50/60 border-rose-300 dark:bg-rose-950/20 dark:border-rose-900"
-        )}
-      >
-        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider print:text-[10px] print:text-black">
+      {/* 4. Total Due (Clean Box - No internal body color) */}
+      <div className="p-4 rounded-xl border border-border bg-card shadow-sm flex flex-col justify-between print:p-2 print:rounded-none print:border print:border-black print:shadow-none print:bg-white">
+        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider print:text-[10px]">
           <span
             className={
               isClosingZero
-                ? "text-slate-600 print:text-black font-bold"
+                ? "text-slate-600 dark:text-slate-400 font-bold"
                 : isClosingCr
-                ? "text-emerald-700 dark:text-emerald-400 print:text-black font-bold"
-                : "text-rose-700 dark:text-rose-400 print:text-black font-bold"
+                ? "text-emerald-700 dark:text-emerald-400 font-bold"
+                : "text-rose-700 dark:text-rose-400 font-bold"
             }
           >
             Total Due (Closing)
@@ -146,10 +137,10 @@ export function SummaryCards({
           ) : (
             <span
               className={cn(
-                "px-2 py-0.5 text-[11px] print:text-[9px] font-bold rounded-full uppercase print:rounded-none print:border print:border-black print:bg-white print:text-black",
+                "px-2 py-0.5 text-[11px] print:text-[9px] font-bold rounded-full uppercase border print:rounded-none print:border print:border-black print:bg-white",
                 isClosingCr
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
-                  : "bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200"
+                  ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-transparent print:text-black"
+                  : "border-rose-500/30 text-rose-700 dark:text-rose-400 bg-transparent print:text-black"
               )}
             >
               {isClosingCr ? "Cr" : "Dr"}
@@ -163,22 +154,22 @@ export function SummaryCards({
               isClosingZero
                 ? "text-foreground print:text-black"
                 : isClosingCr
-                ? "text-emerald-600 dark:text-emerald-400 print:text-black font-bold"
-                : "text-rose-700 dark:text-rose-400 print:text-black font-bold"
+                ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                : "text-rose-700 dark:text-rose-400 font-bold"
             )}
           >
             {isClosingZero ? (
               "₹0.00 (Settled)"
             ) : (
               <>
-                <span className={isClosingCr ? "text-emerald-600 dark:text-emerald-400 print:text-black font-bold" : "text-rose-700 dark:text-rose-400 print:text-black font-bold"}>
+                <span className={isClosingCr ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-700 dark:text-rose-400 font-bold"}>
                   {formatINR(closingAbs)}
                 </span>
                 <span
                   className={
                     isClosingCr
-                      ? "text-emerald-600 dark:text-emerald-400 print:text-black font-bold"
-                      : "text-rose-600 dark:text-rose-400 print:text-black font-bold"
+                      ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                      : "text-rose-600 dark:text-rose-400 font-bold"
                   }
                 >
                   {isClosingCr ? "Cr" : "Dr"}

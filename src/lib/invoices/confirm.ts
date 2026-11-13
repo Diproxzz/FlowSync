@@ -5,6 +5,7 @@ import { validateInvoice } from "../validation/invoice";
 import { normalize, normalizeCustomerName, normalizeInvoiceNumber } from "../matching/normalize";
 import { storage } from "../storage/adapter";
 import { postSalesInvoiceToLedger } from "../ledger/posting";
+import { logBusinessActivity } from "../logs/business-logger";
 
 export interface ConfirmInvoiceInput {
   draft: ExtractedInvoice;
@@ -90,7 +91,7 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
   let newProductsCreatedCount = 0;
 
   // Execute in single Prisma Transaction
-  return await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 3. Resolve Customer
     const rawCustomerName = draft.customer.name?.trim();
     let customerId = customerResolution.customerId;
@@ -478,4 +479,20 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
       newProductsCreatedCount,
     };
   });
+
+  if (!result.invoice.invoice_number.toUpperCase().includes("TEST") && process.env.NODE_ENV !== "test") {
+    await logBusinessActivity({
+      action: "INVOICE_CONFIRMED",
+      description: `${result.invoice.invoice_number} Invoice has been confirmed for ${result.invoice.customer_name_snapshot} (₹ ${Number(result.invoice.grand_total).toLocaleString("en-IN")})`,
+      entityType: "INVOICE",
+      entityId: result.invoice.id,
+      amount: Number(result.invoice.grand_total),
+      metadata: {
+        invoiceNumber: result.invoice.invoice_number,
+        customerName: result.invoice.customer_name_snapshot,
+      },
+    });
+  }
+
+  return result;
 }

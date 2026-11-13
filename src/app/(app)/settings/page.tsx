@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft, Download, Database, ShieldCheck, Clock, FileJson, Upload } from "lucide-react";
+import { Building2, Sliders, Cpu, CheckCircle2, XCircle, ArrowUp, ArrowDown, RefreshCw, ArrowLeft, Download, Database, ShieldCheck, Clock, FileJson, Upload, MessageSquare, Smartphone, QrCode } from "lucide-react";
 
 interface ProviderInfo {
   id: string;
@@ -114,6 +114,131 @@ export default function SettingsPage() {
     }
   };
 
+  // WhatsApp Gateway state
+  const [waStatus, setWaStatus] = useState<{
+    status: "CONNECTED" | "CONNECTING" | "QR_READY" | "DISCONNECTED";
+    phoneNumber: string | null;
+    qrCode: string | null;
+    lastError: string | null;
+  }>({
+    status: "DISCONNECTED",
+    phoneNumber: null,
+    qrCode: null,
+    lastError: null,
+  });
+  const [waLoading, setWaLoading] = useState(false);
+  const [pairingPhone, setPairingPhone] = useState("");
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
+  const [linkTab, setLinkTab] = useState<"qr" | "code">("qr");
+
+  const handleRequestPairingCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pairingPhone.trim()) return;
+    setPairingCodeLoading(true);
+    try {
+      const res = await fetch("/api/whatsapp/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pairing_code", phone: pairingPhone.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.pairingCode) {
+        setPairingCode(data.pairingCode);
+      } else {
+        alert(data.error?.message || "Failed to generate pairing code.");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Network error generating pairing code.");
+    } finally {
+      setPairingCodeLoading(false);
+    }
+  };
+
+  const fetchWhatsAppStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/whatsapp/status");
+      if (res.ok) {
+        const data = await res.json();
+        setWaStatus(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch WhatsApp status:", err);
+    }
+  }, []);
+
+  const handleConnectWhatsApp = async () => {
+    setWaLoading(true);
+    try {
+      const res = await fetch("/api/whatsapp/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "connect" }),
+      });
+      const data = await res.json();
+      setWaStatus(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setWaLoading(false);
+    }
+  };
+
+  const handleRefreshWhatsAppQR = async () => {
+    setWaLoading(true);
+    try {
+      const res = await fetch("/api/whatsapp/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "refresh" }),
+      });
+      const data = await res.json();
+      setWaStatus(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setWaLoading(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!confirm("Are you sure you want to unlink WhatsApp from FlowPilot?")) return;
+    setWaLoading(true);
+    try {
+      const res = await fetch("/api/whatsapp/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" }),
+      });
+      const data = await res.json();
+      setWaStatus(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setWaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWhatsAppStatus();
+  }, [fetchWhatsAppStatus]);
+
+  // Auto-poll WhatsApp status when QR is ready, pairing code is waiting, or connecting
+  useEffect(() => {
+    if (waStatus.status === "QR_READY" || pairingCode !== null || waStatus.status === "CONNECTING") {
+      const timer = setInterval(() => {
+        fetchWhatsAppStatus();
+      }, 2000);
+      return () => clearInterval(timer);
+    }
+  }, [waStatus.status, pairingCode, fetchWhatsAppStatus]);
+
+  useEffect(() => {
+    if (waStatus.status === "CONNECTED") {
+      setPairingCode(null);
+    }
+  }, [waStatus.status]);
+
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
@@ -211,7 +336,7 @@ export default function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-ink">System Settings</h2>
-          <p className="text-xs text-ink-3">Issuer company details, inventory defaults, and LLM configuration</p>
+          <p className="text-xs text-ink-3">Issuer company details, inventory defaults, and system preferences</p>
         </div>
         {isAdmin && (
           <Link
@@ -449,6 +574,260 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* WhatsApp Gateway Integration */}
+        <div className="bg-surface border border-border rounded-sm p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-border gap-2">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <div>
+                <h3 className="text-sm font-semibold text-ink">WhatsApp Gateway</h3>
+              </div>
+            </div>
+
+            {waStatus.status === "CONNECTED" ? null : waStatus.status === "QR_READY" ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-medium border border-amber-500/20 w-fit">
+                <QrCode className="w-3.5 h-3.5 animate-pulse" />
+                <span>Ready to Link</span>
+              </div>
+            ) : waStatus.status === "CONNECTING" ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-2 text-ink-2 text-[11px] font-medium border border-border w-fit">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Connecting...</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-2 text-ink-3 text-[11px] font-medium border border-border w-fit">
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Not Linked</span>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-bg border border-border rounded-sm p-4 space-y-4">
+            {waStatus.status === "CONNECTED" ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-ink flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Active Linked WhatsApp: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{waStatus.phoneNumber}</strong></span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDisconnectWhatsApp}
+                  disabled={waLoading}
+                  className="px-3 py-1.5 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/25 rounded-sm text-xs font-medium transition disabled:opacity-50 self-start sm:self-auto cursor-pointer"
+                >
+                  {waLoading ? "Unlinking..." : "Unlink WhatsApp"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Method Switcher Tabs */}
+                <div className="flex items-center gap-1 border-b border-border pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setLinkTab("qr")}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-sm flex items-center gap-2 transition cursor-pointer",
+                      linkTab === "qr"
+                        ? "bg-surface text-ink border border-border shadow-xs"
+                        : "text-ink-3 hover:text-ink hover:bg-surface/50"
+                    )}
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>Scan QR Code</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setLinkTab("code")}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-sm flex items-center gap-2 transition cursor-pointer",
+                      linkTab === "code"
+                        ? "bg-surface text-ink border border-border shadow-xs"
+                        : "text-ink-3 hover:text-ink hover:bg-surface/50"
+                    )}
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Link with Phone Number (8-Digit Code)</span>
+                  </button>
+                </div>
+
+                {/* TAB 1: QR CODE */}
+                {linkTab === "qr" && (
+                  <div>
+                    {waStatus.status === "QR_READY" && waStatus.qrCode ? (
+                      <div className="flex flex-col md:flex-row items-center gap-6 p-2">
+                        <div className="bg-white p-3 rounded-md border border-border shadow-xs flex-shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={waStatus.qrCode}
+                            alt="Scan WhatsApp QR Code"
+                            className="w-52 h-52 object-contain"
+                          />
+                        </div>
+
+                        <div className="space-y-3 text-xs">
+                          <div>
+                            <h4 className="font-semibold text-ink text-sm">Scan QR Code with WhatsApp</h4>
+                            <p className="text-ink-3 text-[11px] mt-0.5">
+                              Link FlowPilot once as a companion device. Session persists safely in your database across restarts.
+                            </p>
+                          </div>
+
+                          <ol className="space-y-1.5 list-decimal list-inside text-ink-2 text-xs">
+                            <li>Open <strong>WhatsApp</strong> on your phone</li>
+                            <li>Tap <strong>Menu</strong> (Android 3 dots) or <strong>Settings</strong> (iPhone)</li>
+                            <li>Tap <strong>Linked Devices</strong> and then <strong>Link a Device</strong></li>
+                            <li>Point your camera at this QR code to link</li>
+                          </ol>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleRefreshWhatsAppQR}
+                              disabled={waLoading}
+                              className="px-3 py-1 bg-surface border border-border text-ink rounded-sm text-xs font-medium hover:bg-surface-2 transition flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <RefreshCw className={cn("w-3 h-3", waLoading && "animate-spin")} />
+                              <span>Refresh QR</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setLinkTab("code")}
+                              className="px-3 py-1 text-emerald-600 dark:text-emerald-400 hover:underline text-xs transition"
+                            >
+                              Camera issue? Use pairing code instead &rarr;
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : waLoading || waStatus.status === "CONNECTING" ? (
+                      <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-3">
+                        <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                        <div className="text-sm font-semibold text-ink">Connecting to WhatsApp...</div>
+                        <p className="text-xs text-ink-3 max-w-sm">
+                          Establishing a secure WebSocket session and generating your one-time pairing QR code. Please wait a few seconds...
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="text-xs font-semibold text-ink flex items-center gap-2">
+                            <Smartphone className="w-4 h-4 text-ink-3" />
+                            <span>No WhatsApp Device Linked</span>
+                          </div>
+                          <p className="text-[11px] text-ink-3 max-w-xl">
+                            Click below to generate a one-time QR code. FlowPilot will send statement PDFs and reminder messages directly to customer phone numbers in the background.
+                          </p>
+                          {waStatus.lastError && (
+                            <div className="text-danger text-[11px] font-medium pt-1">
+                              {waStatus.lastError}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleRefreshWhatsAppQR}
+                          disabled={waLoading}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm text-xs font-medium transition shadow-xs flex items-center gap-2 self-start sm:self-auto cursor-pointer disabled:opacity-50"
+                        >
+                          {waLoading ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Generating QR...</span>
+                            </>
+                          ) : (
+                            <>
+                              <QrCode className="w-3.5 h-3.5" />
+                              <span>Generate QR Code</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 2: PAIRING CODE (PHONE NUMBER) */}
+                {linkTab === "code" && (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-ink text-sm">Link via 8-Digit Code</h4>
+                      <p className="text-[11px] text-ink-3 max-w-xl">
+                        WhatsApp allows you to link directly without scanning with your camera. Enter your phone number below to receive an 8-character verification code to enter on your phone.
+                      </p>
+                    </div>
+
+                    {!pairingCode ? (
+                      <form onSubmit={handleRequestPairingCode} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-md pt-1">
+                        <input
+                          type="tel"
+                          placeholder="e.g. 9830123456 or +91 9830123456"
+                          value={pairingPhone}
+                          onChange={(e) => setPairingPhone(e.target.value)}
+                          className="flex-1 px-3 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink placeholder:text-ink-4 focus:outline-none focus:border-primary"
+                          required
+                        />
+                        <button
+                          type="submit"
+                          disabled={pairingCodeLoading || !pairingPhone.trim()}
+                          className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm text-xs font-medium transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {pairingCodeLoading ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Generating Code...</span>
+                            </>
+                          ) : (
+                            <span>Get Pairing Code</span>
+                          )}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="space-y-4 p-4 bg-surface border border-border rounded-sm max-w-lg">
+                        <div className="text-center space-y-1">
+                          <span className="text-[11px] text-ink-3 uppercase tracking-wider font-semibold">Your One-Time WhatsApp Pairing Code</span>
+                          <div className="text-3xl font-mono font-bold tracking-widest text-emerald-600 dark:text-emerald-400 py-2 select-all">
+                            {pairingCode}
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border pt-3 space-y-2 text-xs">
+                          <div className="font-semibold text-ink">Instructions to enter code on your phone:</div>
+                          <ol className="space-y-1.5 list-decimal list-inside text-ink-2 text-xs">
+                            <li>Open <strong>WhatsApp</strong> on your phone</li>
+                            <li>Tap <strong>Menu</strong> (Android 3 dots) or <strong>Settings</strong> (iPhone)</li>
+                            <li>Tap <strong>Linked Devices</strong> and then <strong>Link a Device</strong></li>
+                            <li>At the bottom of the camera screen, tap <strong>&ldquo;Link with phone number instead&rdquo;</strong></li>
+                            <li>Type in the 8-digit code shown above: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{pairingCode}</strong></li>
+                          </ol>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                          <div className="flex items-center gap-2 text-[11px] text-ink-3">
+                            <RefreshCw className="w-3 h-3 text-emerald-600 animate-spin" />
+                            <span>Waiting for you to enter code on phone...</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPairingCode(null)}
+                            className="text-xs text-ink-3 hover:text-ink underline cursor-pointer"
+                          >
+                            Enter different number
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Profile Backup & Disaster Recovery */}
         <div className="bg-surface border border-border rounded-sm p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-border gap-2">
@@ -541,14 +920,7 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div className="text-[11px] text-ink-3 leading-relaxed space-y-1">
-            <div>
-              <strong>Syncing with Production:</strong> Any changes made in production (products, commercial names, invoices, customers, ledger entries) can be brought into your local environment with 1 click using <strong>Restore / Sync from Prod</strong> (select the JSON downloaded from production) or in your terminal via <code className="bg-surface px-1 py-0.5 rounded text-ink">npm run pull:production</code>.
-            </div>
-            <div>
-              <strong>Real-Time Live Mirroring:</strong> You can also point <code className="bg-surface px-1 py-0.5 rounded text-ink">DATABASE_URL</code> in your local <code className="bg-surface px-1 py-0.5 rounded text-ink">.env</code> directly to your production PostgreSQL connection string to share live data in real time.
-            </div>
-          </div>
+
         </div>
 
         {saveSuccess && (

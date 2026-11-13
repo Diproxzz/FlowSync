@@ -10,6 +10,7 @@ import {
 } from "@/lib/invoices/generator-sequence";
 import { normalizeInvoiceNumber, normalizeCustomerName } from "@/lib/matching/normalize";
 import { postSalesInvoiceToLedger } from "@/lib/ledger/posting";
+import { logBusinessActivity } from "@/lib/logs/business-logger";
 import { MovementType, MovementSource } from "@prisma/client";
 import Decimal from "decimal.js";
 import { ensureProductMasterSynced } from "@/lib/products/sync-master";
@@ -549,6 +550,19 @@ export async function POST(request: NextRequest) {
         customerName: cleanName,
         grandTotal: calc.grandTotal,
       };
+    });
+
+    await logBusinessActivity({
+      action: "INVOICE_GENERATED",
+      description: `${result.invoiceNumber} Invoice has been generated for ${result.customerName} (₹ ${Number(result.grandTotal).toLocaleString("en-IN")})`,
+      entityType: "INVOICE",
+      entityId: result.invoiceId,
+      amount: result.grandTotal,
+      metadata: {
+        invoiceNumber: result.invoiceNumber,
+        customerName: result.customerName,
+        grandTotal: result.grandTotal,
+      },
     });
 
     return NextResponse.json({

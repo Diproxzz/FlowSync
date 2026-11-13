@@ -121,30 +121,110 @@ select option {
 }
 
 /* ==========================================================================
-   Print Styles: Clean A4 Statement Output & Suppress Browser Headers/Footers
+   Print Styles: Clean A4 Statement Output & Uniform 10mm Margins on All Pages
    ========================================================================== */
 @page {
   size: A4 portrait;
-  margin: 0; /* Zero margin suppresses browser title, date, URL and page header/footer */
+  margin: 10mm;
+
+  @top-left {
+    content: "";
+  }
+  @top-center {
+    content: "";
+  }
+  @top-right {
+    content: "";
+  }
+  @bottom-left {
+    content: "";
+  }
+  @bottom-center {
+    content: "";
+  }
+  @bottom-right {
+    content: "";
+  }
 }
 
 @media print {
+  @page {
+    size: portrait;
+    margin: 10mm;
+
+    @top-left {
+      content: "";
+    }
+    @top-center {
+      content: "";
+    }
+    @top-right {
+      content: "";
+    }
+    @bottom-left {
+      content: "";
+    }
+    @bottom-center {
+      content: "";
+    }
+    @bottom-right {
+      content: "";
+    }
+  }
+
+  /* Force light mode variables regardless of website theme */
+  :root,
+  html,
+  body,
+  .dark,
+  [data-theme="dark"] {
+    --background: 0 0% 100% !important;
+    --foreground: 222.2 84% 4.9% !important;
+    --card: 0 0% 100% !important;
+    --card-foreground: 222.2 84% 4.9% !important;
+    --popover: 0 0% 100% !important;
+    --popover-foreground: 222.2 84% 4.9% !important;
+    --muted: 210 40% 96.1% !important;
+    --muted-foreground: 215.4 16.3% 46.9% !important;
+    --border: 214.3 31.8% 91.4% !important;
+    --input: 214.3 31.8% 91.4% !important;
+    --surface: #ffffff !important;
+    --surface-2: #f8fafc !important;
+    --surface-3: #f1f5f9 !important;
+    --bg: #ffffff !important;
+    --ink: #0f172a !important;
+    --ink-2: #334155 !important;
+    --ink-3: #64748b !important;
+    --ink-4: #94a3b8 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    color-scheme: light !important;
+  }
+
   html, body {
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #111827 !important;
+    color-scheme: light !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Printable statement container with controlled page padding */
+  /* Printable statement container centered on screen with uniform margins on all 4 edges */
   .print-statement-page {
-    padding: 10mm 12mm !important;
-    margin: 0 !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
     max-width: 100% !important;
     width: 100% !important;
     background: #ffffff !important;
+    color: #111827 !important;
+    color-scheme: light !important;
+    box-sizing: border-box !important;
+  }
+
+  .print-statement-page * {
+    color-scheme: light !important;
   }
 
   /* Hide app navigation, topbar, sidebars, buttons and modals */

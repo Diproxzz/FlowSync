@@ -21,8 +21,19 @@ export interface PasswordResetEmailParams {
 export async function sendPasswordResetEmail(
   params: PasswordResetEmailParams
 ): Promise<void> {
-  const smtpUser = (process.env.SMTP_USER || env.SMTP_USER || "").trim();
-  const smtpPass = (process.env.SMTP_PASS || env.SMTP_PASS || "").trim();
+  // System email credentials for password resets
+  const smtpUser = (
+    process.env.FLOWPILOT_SMTP_USER ||
+    process.env.SMTP_USER ||
+    env.SMTP_USER ||
+    "flowpilot.admin@gmail.com"
+  ).trim();
+  const smtpPass = (
+    process.env.FLOWPILOT_SMTP_PASS ||
+    process.env.SMTP_PASS ||
+    env.SMTP_PASS ||
+    ""
+  ).trim();
   const smtpHost = (process.env.SMTP_HOST || env.SMTP_HOST || "smtp.gmail.com").trim();
   const smtpPortRaw = Number(process.env.SMTP_PORT || env.SMTP_PORT || "465");
   const smtpPort = Number.isFinite(smtpPortRaw) && smtpPortRaw > 0 ? smtpPortRaw : 465;
@@ -35,7 +46,9 @@ export async function sendPasswordResetEmail(
   const cleanPass = smtpPass.replace(/\s+/g, "");
 
   if (!smtpUser || !cleanPass) {
-    throw new SmtpNotConfiguredError();
+    throw new SmtpNotConfiguredError(
+      "Password reset email delivery is not configured yet. Please set FLOWPILOT_SMTP_PASS (or SMTP_PASS) with the App Password for flowpilot.admin@gmail.com in the server environment."
+    );
   }
 
   const transporter = nodemailer.createTransport({
@@ -98,6 +111,151 @@ export async function sendPasswordResetEmail(
     subject,
     text: textBody,
     html: htmlBody,
+  });
+}
+
+export interface CustomerStatementEmailParams {
+  to: string;
+  customerName: string;
+  totalDueFormatted: string;
+  closingBalanceNumber?: number;
+  pdfBuffer: Buffer;
+  pdfFilename: string;
+}
+
+export async function sendCustomerStatementEmail(
+  params: CustomerStatementEmailParams
+): Promise<void> {
+  // Business email credentials for Indobest customer communications
+  const smtpUser = (
+    process.env.INDOBEST_SMTP_USER ||
+    process.env.COMPANY_SMTP_USER ||
+    process.env.SMTP_USER ||
+    env.SMTP_USER ||
+    "indobest@gmail.com"
+  ).trim();
+  const smtpPass = (
+    process.env.INDOBEST_SMTP_PASS ||
+    process.env.COMPANY_SMTP_PASS ||
+    process.env.SMTP_PASS ||
+    env.SMTP_PASS ||
+    ""
+  ).trim();
+  const smtpHost = (process.env.SMTP_HOST || env.SMTP_HOST || "smtp.gmail.com").trim();
+  const smtpPortRaw = Number(process.env.SMTP_PORT || env.SMTP_PORT || "465");
+  const smtpPort = Number.isFinite(smtpPortRaw) && smtpPortRaw > 0 ? smtpPortRaw : 465;
+
+  // Strict requirement: All emails to the customers will be sent from "indobest@gmail.com"
+  const senderEmail = smtpUser || "indobest@gmail.com";
+  const smtpFrom = `Indobest <${senderEmail}>`;
+
+  const cleanPass = smtpPass.replace(/\s+/g, "");
+
+  if (!smtpUser || !cleanPass) {
+    throw new SmtpNotConfiguredError(
+      "Indobest customer email delivery is not configured yet. Please set INDOBEST_SMTP_PASS (or SMTP_PASS) with the Google App Password for indobest@gmail.com in your .env / server environment."
+    );
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: {
+      user: smtpUser,
+      pass: cleanPass,
+    },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 12000,
+  });
+
+  const subject = `Account Statement - ${params.customerName} | Balance Due: ${params.totalDueFormatted}`;
+
+  const textBody = [
+    `Dear ${params.customerName},`,
+    ``,
+    `Please find attached your updated statement of account from Indobest.`,
+    ``,
+    `Current Total Due (Closing Balance): ${params.totalDueFormatted}`,
+    ``,
+    `Kindly review the attached statement and arrange for the clearance of the outstanding balance at your earliest convenience.`,
+    ``,
+    `If payment has already been initiated, or if you have any questions or require any clarification regarding any entries, please feel free to reach out to us at 8240892993 or reply directly to this email at ${senderEmail}.`,
+    ``,
+    `We value your business and look forward to our continued partnership.`,
+    ``,
+    `Warm regards,`,
+    `Indobest`,
+    `19/10/2, Gobinda Khatick Road, Kolkata - 700046`,
+    `Phone: 8240892993 | E-Mail: ${senderEmail}`,
+  ].join("\n");
+
+  const safeCustomerName = escapeHtml(params.customerName);
+  const safeDue = escapeHtml(params.totalDueFormatted);
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; color: #1e293b; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;">
+      <div style="border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">INDOBEST</h1>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">
+          19/10/2, Gobinda Khatick Road, Kolkata - 700046 &bull; Phone: 8240892993 &bull; E-Mail: ${senderEmail}
+        </p>
+      </div>
+
+      <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+        Dear <strong>${safeCustomerName}</strong>,
+      </p>
+
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+        Please find attached your updated statement of account detailing your recent invoices, receipts, and current account position.
+      </p>
+
+      <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 6px; margin: 20px 0;">
+        <div style="font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+          Total Due (Closing Balance)
+        </div>
+        <div style="font-size: 22px; font-weight: 800; color: #b45309; font-family: monospace;">
+          ${safeDue}
+        </div>
+        <div style="font-size: 12px; color: #78350f; margin-top: 4px;">
+          Party balance pending clearance as per ledger records.
+        </div>
+      </div>
+
+      <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+        Kindly review the attached PDF statement (<strong>${escapeHtml(params.pdfFilename)}</strong>) and arrange for the settlement of the pending amount at your earliest convenience.
+      </p>
+
+      <p style="margin: 0 0 14px 0; font-size: 13px; line-height: 1.6; color: #64748b;">
+        If you have already processed this payment, or if you need any clarification or reconciliation support, please do not hesitate to contact us at <strong>8240892993</strong> or reply directly to this email.
+      </p>
+
+      <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.6; color: #334155;">
+        Thank you for your valued partnership.
+      </p>
+
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; line-height: 1.5;">
+        <strong>Indobest Accounts Department</strong><br />
+        19/10/2, Gobinda Khatick Road, Kolkata - 700046<br />
+        Phone: 8240892993 | E-Mail: <a href="mailto:${senderEmail}" style="color: #2563eb; text-decoration: none;">${senderEmail}</a>
+      </div>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: smtpFrom,
+    to: params.to,
+    subject,
+    text: textBody,
+    html: htmlBody,
+    attachments: [
+      {
+        filename: params.pdfFilename,
+        content: params.pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
   });
 }
 

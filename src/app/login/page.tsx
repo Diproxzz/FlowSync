@@ -133,7 +133,7 @@ function LoginForm() {
         <h1 className="text-xl font-bold text-ink tracking-tight">FlowPilot</h1>
         <p className="text-xs text-ink-3 mt-1">
           {mode === "login"
-            ? "Single-owner GST Invoice & Stock Intelligence"
+            ? "GST Invoice & Stock Intelligence"
             : "Reset your profile password via recovery email"}
         </p>
       </div>
@@ -308,12 +308,6 @@ function LoginForm() {
           </button>
         </form>
       )}
-
-      <div className="mt-8 pt-4 border-t border-border text-center">
-        <p className="text-[11px] text-ink-3">
-          Mandatory login to view and operate FlowPilot
-        </p>
-      </div>
     </div>
   );
 }

@@ -72,15 +72,18 @@ model ProductAlias {
 }
 
 model Customer {
-  id         String            @id @default(cuid())
-  name       String
-  name_norm  String
-  gstin      String?           @unique
-  address        String?
-  state_code     String?
-  gstin_source   String?
-  created_at     DateTime          @default(now())
-  updated_at     DateTime          @updatedAt
+  id                      String            @id @default(cuid())
+  name                    String
+  name_norm               String
+  gstin                   String?           @unique
+  address                 String?
+  state_code              String?
+  gstin_source            String?
+  email                   String?
+  phone                   String?
+  secondary_phone         String?
+  created_at              DateTime          @default(now())
+  updated_at              DateTime          @updatedAt
 
   aliases                 CustomerAlias[]
   invoices                Invoice[]
@@ -606,5 +609,37 @@ model RateLimit {
 
   @@map("rate_limits")
 }
+
+// ==========================================
+// BUSINESS ACTIVITY AUDIT LOGS
+// ==========================================
+
+model BusinessLog {
+  id          String   @id @default(cuid())
+  action      String   // INVOICE_GENERATED, PAYMENT_RECEIVED, STATEMENT_SENT, CUSTOMER_CREATED, CUSTOMER_UPDATED
+  description String   // e.g. "IB26-27/0539 Invoice has been generated", "Manish Trading CO paid ₹ 5310"
+  entity_type String?  // INVOICE, PAYMENT, STATEMENT, CUSTOMER
+  entity_id   String?
+  amount      Decimal? @db.Decimal(14, 2)
+  metadata    Json?
+  created_at  DateTime @default(now())
+
+  @@index([created_at])
+  @@index([action])
+  @@map("business_logs")
+}
+
+// ==========================================
+// WHATSAPP GATEWAY & SESSION STORAGE
+// ==========================================
+
+model WhatsAppSession {
+  id         String   @id // session key, e.g. "creds", "app-state-sync-key-...", etc.
+  data       String   @db.Text
+  updated_at DateTime @updatedAt
+
+  @@map("whatsapp_sessions")
+}
+
 
 
