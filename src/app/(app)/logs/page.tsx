@@ -32,6 +32,8 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("ALL");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
   const [totalCount, setTotalCount] = useState(0);
 
   const fetchLogs = useCallback(async () => {
@@ -40,6 +42,12 @@ export default function LogsPage() {
       const params = new URLSearchParams();
       if (search.trim()) params.set("search", search.trim());
       if (actionFilter !== "ALL") params.set("action", actionFilter);
+      if (fromDate) params.set("from", fromDate);
+      if (toDate) {
+        params.set("to", toDate);
+      } else if (fromDate) {
+        params.set("to", fromDate);
+      }
       params.set("limit", "100");
 
       const res = await fetch(`/api/logs?${params.toString()}`);
@@ -53,7 +61,7 @@ export default function LogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, actionFilter]);
+  }, [search, actionFilter, fromDate, toDate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -152,16 +160,53 @@ export default function LogsPage() {
       </div>
 
       {/* Filter / Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface p-3 border border-border rounded-sm">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search invoice number, party name, cheque, or description..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-surface p-3 border border-border rounded-sm">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search invoice number, party name, cheque, or description..."
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-bg border border-border rounded-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {/* Date Filter */}
+          <div className="flex items-center gap-1.5 bg-bg border border-border rounded-sm px-2.5 py-1 text-xs self-start sm:self-auto">
+            <Calendar className="w-3.5 h-3.5 text-ink-3 flex-shrink-0" />
+            <span className="text-ink-3 text-[11px] font-medium">Date:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent text-xs text-ink font-mono focus:outline-none"
+              title="Select date or from date"
+            />
+            <span className="text-ink-3 text-[11px]">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent text-xs text-ink font-mono focus:outline-none"
+              title="To date (optional for range)"
+            />
+            {(fromDate || toDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                }}
+                className="text-ink-3 hover:text-ink text-xs px-1 font-bold transition"
+                title="Clear date filter"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Filter Pills */}
