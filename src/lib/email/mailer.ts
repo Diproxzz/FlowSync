@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type SendMailOptions } from "nodemailer";
 import { env } from "@/lib/env";
 
 export class SmtpNotConfiguredError extends Error {
@@ -16,6 +16,46 @@ export interface PasswordResetEmailParams {
   displayName: string;
   resetUrl: string;
   expiresMinutes: number;
+}
+
+async function sendMailWithTransportFallback(options: {
+  host: string;
+  preferredPort: number;
+  user: string;
+  pass: string;
+  mailOptions: SendMailOptions;
+}): Promise<void> {
+  // If preferred port is 587, try [587, 465]; otherwise try [465, 587]
+  const portsToTry = options.preferredPort === 587 ? [587, 465] : [465, 587];
+  let lastError: any = null;
+
+  for (const port of portsToTry) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: options.host,
+        port,
+        secure: port === 465,
+        auth: {
+          user: options.user,
+          pass: options.pass,
+        },
+        family: 4, // Explicitly force IPv4 to prevent IPv6 connection timeouts on cloud platforms (e.g. Railway)
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 12000,
+      } as any);
+
+      await transporter.sendMail(options.mailOptions);
+      return;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(
+        `[SMTP] Delivery attempt on port ${port} failed (${err.code || err.message}). Trying alternate port if available...`
+      );
+    }
+  }
+
+  throw lastError;
 }
 
 export async function sendPasswordResetEmail(
@@ -50,19 +90,6 @@ export async function sendPasswordResetEmail(
       "Password reset email delivery is not configured yet. Please set FLOWPILOT_SMTP_PASS (or SMTP_PASS) with the App Password for flowpilot.admin@gmail.com in the server environment."
     );
   }
-
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    auth: {
-      user: smtpUser,
-      pass: cleanPass,
-    },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 12000,
-  });
 
   const subject = `FlowPilot Password Reset (${params.username})`;
   const textBody = [
@@ -105,12 +132,18 @@ export async function sendPasswordResetEmail(
     </div>
   `;
 
-  await transporter.sendMail({
-    from: smtpFrom,
-    to: params.to,
-    subject,
-    text: textBody,
-    html: htmlBody,
+  await sendMailWithTransportFallback({
+    host: smtpHost,
+    preferredPort: smtpPort,
+    user: smtpUser,
+    pass: cleanPass,
+    mailOptions: {
+      from: smtpFrom,
+      to: params.to,
+      subject,
+      text: textBody,
+      html: htmlBody,
+    },
   });
 }
 
@@ -156,19 +189,6 @@ export async function sendCustomerStatementEmail(
       "Indobest customer email delivery is not configured yet. Please set INDOBEST_SMTP_PASS (or SMTP_PASS) with the Google App Password for indobest@gmail.com in your .env / server environment."
     );
   }
-
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    auth: {
-      user: smtpUser,
-      pass: cleanPass,
-    },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 12000,
-  });
 
   const subject = `Account Statement - ${params.customerName} | Balance Due: ${params.totalDueFormatted}`;
 
@@ -243,19 +263,25 @@ export async function sendCustomerStatementEmail(
     </div>
   `;
 
-  await transporter.sendMail({
-    from: smtpFrom,
-    to: params.to,
-    subject,
-    text: textBody,
-    html: htmlBody,
-    attachments: [
-      {
-        filename: params.pdfFilename,
-        content: params.pdfBuffer,
-        contentType: "application/pdf",
-      },
-    ],
+  await sendMailWithTransportFallback({
+    host: smtpHost,
+    preferredPort: smtpPort,
+    user: smtpUser,
+    pass: cleanPass,
+    mailOptions: {
+      from: smtpFrom,
+      to: params.to,
+      subject,
+      text: textBody,
+      html: htmlBody,
+      attachments: [
+        {
+          filename: params.pdfFilename,
+          content: params.pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    },
   });
 }
 
