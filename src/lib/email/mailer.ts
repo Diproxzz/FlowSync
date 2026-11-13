@@ -110,11 +110,71 @@ async function sendViaResend(apiKey: string, payload: EmailDispatchPayload): Pro
   }
 }
 
+async function sendViaGoogleAppsScript(bridgeUrl: string, payload: EmailDispatchPayload): Promise<void> {
+  const requestBody = {
+    to: payload.toEmail,
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html,
+    fromName: payload.fromName,
+    attachments: payload.attachment
+      ? [
+          {
+            filename: payload.attachment.filename,
+            base64: payload.attachment.content.toString("base64"),
+            mimeType: payload.attachment.contentType || "application/pdf",
+          },
+        ]
+      : [],
+  };
+
+  const response = await fetch(bridgeUrl.trim(), {
+    method: "POST",
+    redirect: "follow",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorDetails = await response.text();
+    throw new Error(`Google Apps Script Bridge error (${response.status}): ${errorDetails}`);
+  }
+
+  const resultText = await response.text();
+  try {
+    const json = JSON.parse(resultText);
+    if (json.error) {
+      throw new Error(`Google Apps Script error: ${json.error}`);
+    }
+  } catch (err: any) {
+    if (err.message.includes("Google Apps Script error:")) {
+      throw err;
+    }
+  }
+}
+
 async function dispatchEmail(payload: EmailDispatchPayload): Promise<void> {
+  const gasBridgeUrl = (
+    process.env.GMAIL_HTTP_BRIDGE_URL ||
+    process.env.EMAIL_HTTP_BRIDGE_URL ||
+    ""
+  ).trim();
   const brevoKey = (process.env.BREVO_API_KEY || "").trim();
   const resendKey = (process.env.RESEND_API_KEY || "").trim();
 
-  // 1. Try Brevo HTTPS API if key is provided (Port 443, never blocked by Railway)
+  // 1. Try Google Apps Script HTTP Bridge if provided (100% Free, sends from your Gmail, Port 443)
+  if (gasBridgeUrl) {
+    try {
+      await sendViaGoogleAppsScript(gasBridgeUrl, payload);
+      return;
+    } catch (err: any) {
+      console.warn(`[Email] Google Apps Script HTTP bridge failed (${err.message}). Trying fallback transport...`);
+    }
+  }
+
+  // 2. Try Brevo HTTPS API if key is provided (Port 443, never blocked by Railway)
   if (brevoKey) {
     try {
       await sendViaBrevo(brevoKey, payload);
@@ -124,7 +184,7 @@ async function dispatchEmail(payload: EmailDispatchPayload): Promise<void> {
     }
   }
 
-  // 2. Try Resend HTTPS API if key is provided (Port 443, never blocked by Railway)
+  // 3. Try Resend HTTPS API if key is provided (Port 443, never blocked by Railway)
   if (resendKey) {
     try {
       await sendViaResend(resendKey, payload);
