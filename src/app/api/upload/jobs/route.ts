@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         id: true,
         file_name: true,
         file_size: true,
+        file_token: true,
         status: true,
         error: true,
         saved_invoice_id: true,
@@ -40,7 +41,15 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ jobs });
+    // Group jobs: active un-saved jobs in chronological (FIFO) upload order so invoice 1 is #1 and invoice 2 is #2;
+    // saved/completed jobs follow after in reverse chronological order
+    const activeJobs = jobs
+      .filter((j) => j.status !== "SAVED")
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const savedJobs = jobs.filter((j) => j.status === "SAVED");
+    const orderedJobs = [...activeJobs, ...savedJobs];
+
+    return NextResponse.json({ jobs: orderedJobs });
   } catch (error: any) {
     console.error("Failed to fetch upload jobs:", error);
     return NextResponse.json(

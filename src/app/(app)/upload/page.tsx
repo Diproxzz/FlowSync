@@ -38,6 +38,7 @@ export interface UploadJobItem {
   id: string;
   file_name: string;
   file_size: number;
+  file_token?: string;
   status: "QUEUED" | "PROCESSING" | "READY" | "SAVED" | "FAILED" | "CANCELLED";
   error?: string | null;
   saved_invoice_id?: string | null;
@@ -54,6 +55,9 @@ export interface UploadJobItem {
     pages: Array<{ pageNumber: number; pngBase64: string }>;
   } | null;
 }
+
+// Module-level in-memory store for local File references to provide instant blob preview fallback
+const globalSalesFiles = new Map<string, File>();
 
 function UploadPageContent() {
   const router = useRouter();
@@ -140,7 +144,10 @@ function UploadPageContent() {
 
         if (res.ok) {
           const data = await res.json();
-          setJobs((prev) => [data.job, ...prev.filter((j) => j.id !== data.job.id)]);
+          if (data.job?.id) {
+            globalSalesFiles.set(data.job.id, file);
+          }
+          setJobs((prev) => [...prev.filter((j) => j.id !== data.job.id), data.job]);
         } else {
           const errData = await res.json().catch(() => ({}));
           alert(`Failed to upload ${file.name}: ${errData.error?.message || "Upload error"}`);
@@ -240,7 +247,10 @@ function UploadPageContent() {
 
   // Active review item
   const activeJob = activeJobId ? jobs.find((j) => j.id === activeJobId) : null;
-  const readyJobs = jobs.filter((j) => j.status === "READY" && j.extracted_data);
+  // Active review item: ensure ready jobs are sorted in FIFO chronological upload order so invoice 1 is reviewed first
+  const readyJobs = jobs
+    .filter((j) => (j.status === "READY" || (j.status === "FAILED" && j.extracted_data)) && j.extracted_data)
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const savedJobs = jobs.filter((j) => j.status === "SAVED");
   const failedJobs = jobs.filter((j) => j.status === "FAILED" || j.status === "CANCELLED");
   const processingJobs = jobs.filter((j) => j.status === "QUEUED" || j.status === "PROCESSING");
@@ -308,12 +318,11 @@ function UploadPageContent() {
         setToastMessage(null);
         setIsModifyingDuplicate(false);
 
-        if (options?.advanceToNext && nextReadyJob) {
-          setActiveJobId(nextReadyJob.id);
-        } else if (nextInReadyList) {
-          setActiveJobId(nextInReadyList.id);
-        } else if (nextReadyJob) {
-          setActiveJobId(nextReadyJob.id);
+        const targetNext = nextInReadyList || nextReadyJob;
+        if (options?.advanceToNext && targetNext) {
+          setActiveJobId(targetNext.id);
+        } else if (targetNext) {
+          setActiveJobId(targetNext.id);
         } else {
           setActiveJobId(null);
         }
@@ -402,6 +411,15 @@ function UploadPageContent() {
 
               {/* Action buttons on the right */}
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleRetryJob(activeJob.id)}
+                  className="px-2.5 py-1 text-xs border border-border rounded-sm text-ink hover:bg-surface-2 transition flex items-center gap-1.5 font-medium"
+                  title="Re-extract this invoice and refresh preview"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-ink-3" />
+                  <span>Re-extract</span>
+                </button>
+
                 <div className="flex items-center border border-border rounded-sm overflow-hidden">
                   <button
                     onClick={() => prevReadyJob && setActiveJobId(prevReadyJob.id)}
@@ -535,8 +553,10 @@ function UploadPageContent() {
             {/* Left Column: Document Viewer */}
             <div className="lg:col-span-5 h-full min-h-[400px]">
               <DocumentViewer
+                key={activeJob.id}
                 pages={activeJob.extracted_data.pages}
-                fileToken={activeJob.extracted_data.fileToken || (activeJob as any).file_token}
+                fileToken={activeJob.extracted_data.fileToken || activeJob.file_token || (activeJob as any).file_token}
+                file={globalSalesFiles.get(activeJob.id)}
               />
             </div>
 
@@ -552,7 +572,7 @@ function UploadPageContent() {
                 onSave={handleSaveInvoice}
                 onDiscard={() => setActiveJobId(null)}
                 saving={saving}
-                hasNextReady={Boolean(nextReadyJob)}
+                hasNextReady={Boolean(nextInReadyList || nextReadyJob)}
               />
             </div>
           </div>
@@ -849,13 +869,22 @@ function UploadPageContent() {
                         )}
 
                         {job.status === "READY" && (
-                          <button
-                            onClick={() => setActiveJobId(job.id)}
-                            className="px-3.5 py-1.5 bg-primary text-primary-fg rounded-sm font-semibold text-xs hover:opacity-90 transition flex items-center gap-1 shadow-xs"
-                          >
-                            <span>Review & Save</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleRetryJob(job.id)}
+                              className="p-1.5 border border-border text-ink-3 hover:text-ink hover:bg-surface-2 rounded-sm transition"
+                              title="Re-extract this invoice with AI"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setActiveJobId(job.id)}
+                              className="px-3.5 py-1.5 bg-primary text-primary-fg rounded-sm font-semibold text-xs hover:opacity-90 transition flex items-center gap-1 shadow-xs"
+                            >
+                              <span>Review & Save</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
                         )}
 
                         {job.status === "SAVED" && (

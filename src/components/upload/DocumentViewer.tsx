@@ -27,6 +27,12 @@ export function DocumentViewer({ pages, fileToken, file }: DocumentViewerProps) 
     };
   }, [file]);
 
+  // Reset viewer error and page when document changes
+  useEffect(() => {
+    setImageError(false);
+    setCurrentPage(0);
+  }, [pages, fileToken, file]);
+
   const validPages = (pages || []).filter((p) => p && typeof p.pngBase64 === "string" && p.pngBase64.trim().length > 100);
   const hasPages = validPages.length > 0;
   const activePage = hasPages ? validPages[Math.min(currentPage, validPages.length - 1)] : null;
