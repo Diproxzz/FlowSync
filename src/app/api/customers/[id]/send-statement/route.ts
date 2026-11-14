@@ -182,6 +182,8 @@ export async function POST(
       ``,
       `Kindly review and arrange for clearance at your earliest convenience.`,
       ``,
+      `For any queries, please contact us at 8240892993.`,
+      ``,
       `Regards,`,
       `Indobest`,
     ].join("\n");

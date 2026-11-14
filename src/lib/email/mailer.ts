@@ -407,6 +407,8 @@ export async function sendCustomerStatementEmail(
     ``,
     `Kindly review and arrange for clearance at your earliest convenience.`,
     ``,
+    `For any queries, please contact us at 8240892993.`,
+    ``,
     `Regards,`,
     `Indobest`,
   ].join("\n");
@@ -424,6 +426,9 @@ export async function sendCustomerStatementEmail(
       </p>
       <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
         Kindly review and arrange for clearance at your earliest convenience.
+      </p>
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        For any queries, please contact us at 8240892993.
       </p>
       <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
         Regards,<br />

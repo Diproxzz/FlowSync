@@ -1363,7 +1363,7 @@ export default function CustomersPage() {
                   <span className="text-primary font-mono text-[10px]">{statementCustomer.name} Statement.pdf</span>
                 </div>
                 <div className="text-ink-3 leading-relaxed">
-                  <strong>Message:</strong> &ldquo;Dear {statementCustomer.name}, please find attached your updated statement of account. The current Total Due is {statementClosingBalance}. Kindly review and arrange for clearance at your earliest convenience...&rdquo;
+                  <strong>Message:</strong> &ldquo;Dear {statementCustomer.name}, please find attached your updated statement of account. The current Total Due is {statementClosingBalance}. Kindly review and arrange for clearance at your earliest convenience. For any queries, please contact us at 8240892993...&rdquo;
                 </div>
               </div>
             </div>
