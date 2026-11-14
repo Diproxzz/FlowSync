@@ -403,7 +403,7 @@ export async function sendCustomerStatementEmail(
   const textBody = [
     `Dear ${params.customerName},`,
     ``,
-    `Please find attached your updated Statement of Account from Indobest. The current Total Due (Closing Balance) is ${params.totalDueFormatted}.`,
+    `Please find attached your updated Statement of Account from Indobest. The current Total Due is ${params.totalDueFormatted}.`,
     ``,
     `Kindly review and arrange for clearance at your earliest convenience.`,
     ``,
@@ -420,7 +420,7 @@ export async function sendCustomerStatementEmail(
         Dear <strong>${safeCustomerName}</strong>,
       </p>
       <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
-        Please find attached your updated Statement of Account from Indobest. The current Total Due (Closing Balance) is <strong>${safeDue}</strong>.
+        Please find attached your updated Statement of Account from Indobest. The current Total Due is <strong>${safeDue}</strong>.
       </p>
       <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
         Kindly review and arrange for clearance at your earliest convenience.

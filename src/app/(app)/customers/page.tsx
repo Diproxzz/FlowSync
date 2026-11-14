@@ -96,6 +96,7 @@ export default function CustomersPage() {
   const [sendChannel, setSendChannel] = useState<"email" | "primary" | "secondary" | "all">("email");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [statementTotalDue, setStatementTotalDue] = useState<string>("Loading...");
+  const [statementClosingBalance, setStatementClosingBalance] = useState<string>("Loading...");
   const [loadingStatementInfo, setLoadingStatementInfo] = useState(false);
   const [sendingStatement, setSendingStatement] = useState(false);
   const [statementResult, setStatementResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -106,6 +107,7 @@ export default function CustomersPage() {
     setRecipientEmail(c.email || "");
     setStatementResult(null);
     setStatementTotalDue("Loading...");
+    setStatementClosingBalance("Loading...");
     setIsSendStatementOpen(true);
     setLoadingStatementInfo(true);
 
@@ -115,11 +117,14 @@ export default function CustomersPage() {
       if (res.ok && data.customer) {
         const out = data.customer.totalOutstanding ?? 0;
         setStatementTotalDue(formatINR(out) + " Dr");
+        setStatementClosingBalance(formatINR(out));
       } else {
         setStatementTotalDue("—");
+        setStatementClosingBalance("—");
       }
     } catch {
       setStatementTotalDue("—");
+      setStatementClosingBalance("—");
     } finally {
       setLoadingStatementInfo(false);
     }
@@ -1358,7 +1363,7 @@ export default function CustomersPage() {
                   <span className="text-primary font-mono text-[10px]">{statementCustomer.name} Statement.pdf</span>
                 </div>
                 <div className="text-ink-3 leading-relaxed">
-                  <strong>Message:</strong> &ldquo;Dear {statementCustomer.name}, please find attached your updated statement of account. The current Total Due (Closing Balance) is {statementTotalDue}. Kindly review and arrange for clearance at your earliest convenience...&rdquo;
+                  <strong>Message:</strong> &ldquo;Dear {statementCustomer.name}, please find attached your updated statement of account. The current Total Due is {statementClosingBalance}. Kindly review and arrange for clearance at your earliest convenience...&rdquo;
                 </div>
               </div>
             </div>

@@ -125,10 +125,10 @@ export async function POST(
     const rows = computeRunningBalances(periodEntries as any, periodOpening);
     const statementTotals = calculateStatementTotals(periodEntries as any, periodOpening);
 
-    // Format closing balance and Total Due
+    // Format closing balance and Total Due (without Dr. in message)
     const closingBalanceNum = statementTotals.closingBalance;
     const closingSide = statementTotals.closingSide;
-    const totalDueFormatted = `${formatINR(closingBalanceNum)} ${closingSide}`;
+    const totalDueFormatted = formatINR(closingBalanceNum);
 
     // 2. Prepare entries for PDF
     const pdfEntries = rows.map((r) => {
@@ -178,7 +178,7 @@ export async function POST(
     const messageText = [
       `Dear ${customer.name},`,
       ``,
-      `Please find attached your updated Statement of Account from Indobest. The current Total Due (Closing Balance) is ${totalDueFormatted}.`,
+      `Please find attached your updated Statement of Account from Indobest. The current Total Due is ${totalDueFormatted}.`,
       ``,
       `Kindly review and arrange for clearance at your earliest convenience.`,
       ``,
