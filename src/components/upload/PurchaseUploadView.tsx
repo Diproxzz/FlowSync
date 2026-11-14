@@ -54,6 +54,7 @@ const STORAGE_KEY = "invoicer_purchase_upload_queue";
 
 // Module-level in-memory stores that survive tab switching, unmounts, and background browser throttling
 const globalPurchaseFiles = new Map<string, File>();
+const globalPurchaseExtractedPages = new Map<string, Array<{ pageNumber: number; pngBase64: string }>>();
 const globalPurchaseAbortControllers = new Map<string, AbortController>();
 let isGlobalPurchaseQueueRunning = false;
 
@@ -118,6 +119,10 @@ export function PurchaseUploadView() {
           const data = await res.json();
 
           if (res.ok && data.draft) {
+            const pages = data.pages || [];
+            if (pages.length > 0) {
+              globalPurchaseExtractedPages.set(jobId, pages);
+            }
             updateJobInState(jobId, {
               status: "READY",
               error: null,
@@ -129,7 +134,7 @@ export function PurchaseUploadView() {
                 duplicate: data.duplicate,
                 fileToken: data.fileToken,
                 fileHash: data.fileHash,
-                pages: data.pages || [],
+                pages,
               },
             });
           } else {
@@ -166,8 +171,14 @@ export function PurchaseUploadView() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // If files are still in memory (e.g. user switched tabs), restore QUEUED state!
+          // If files are still in memory (e.g. user switched tabs), restore QUEUED state & cached pages!
           const sanitized = parsed.map((j: PurchaseUploadJob) => {
+            if (j.extracted_data) {
+              const cachedPages = globalPurchaseExtractedPages.get(j.id);
+              if (cachedPages && cachedPages.length > 0) {
+                j.extracted_data.pages = cachedPages;
+              }
+            }
             if (j.status === "PROCESSING" || j.status === "QUEUED") {
               if (globalPurchaseFiles.has(j.id)) {
                 return { ...j, status: "QUEUED" as const, error: null };
@@ -215,34 +226,29 @@ export function PurchaseUploadView() {
     };
   }, [runQueue]);
 
-  // Sync jobs to sessionStorage
+  // Sync jobs to sessionStorage (always store lightweight jobs without heavy base64 to avoid quota limits)
   useEffect(() => {
     try {
       if (jobs.length === 0) {
         sessionStorage.removeItem(STORAGE_KEY);
         return;
       }
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
-    } catch (e) {
-      // Storage quota fallback: strip heavy base64 raster pages
-      try {
-        const minimalJobs = jobs.map((j) => {
-          if (!j.extracted_data) return j;
-          return {
-            ...j,
-            extracted_data: {
-              ...j.extracted_data,
-              pages: (j.extracted_data.pages || []).map((p) => ({
-                pageNumber: p.pageNumber,
-                pngBase64: "",
-              })),
-            },
-          };
-        });
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(minimalJobs));
-      } catch (err) {
-        console.warn("sessionStorage quota exceeded:", err);
-      }
+      const minimalJobs = jobs.map((j) => {
+        if (!j.extracted_data) return j;
+        return {
+          ...j,
+          extracted_data: {
+            ...j.extracted_data,
+            pages: (j.extracted_data.pages || []).map((p) => ({
+              pageNumber: p.pageNumber,
+              pngBase64: "",
+            })),
+          },
+        };
+      });
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(minimalJobs));
+    } catch (err) {
+      console.warn("Failed to sync purchase queue to sessionStorage:", err);
     }
   }, [jobs]);
 
@@ -671,6 +677,7 @@ export function PurchaseUploadView() {
               <DocumentViewer
                 pages={activeJob.extracted_data.pages}
                 fileToken={activeJob.extracted_data.fileToken || (activeJob as any).file_token}
+                file={globalPurchaseFiles.get(activeJob.id)}
               />
             </div>
 

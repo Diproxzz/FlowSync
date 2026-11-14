@@ -1,24 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, FileText, ExternalLink } from "lucide-react";
 
 interface DocumentViewerProps {
   pages?: Array<{ pageNumber: number; pngBase64: string }> | null;
   fileToken?: string | null;
+  file?: File | null;
 }
 
-export function DocumentViewer({ pages, fileToken }: DocumentViewerProps) {
+export function DocumentViewer({ pages, fileToken, file }: DocumentViewerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [zoom, setZoom] = useState(0.8);
   const [imageError, setImageError] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setBlobUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setBlobUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
 
   const validPages = (pages || []).filter((p) => p && typeof p.pngBase64 === "string" && p.pngBase64.trim().length > 100);
   const hasPages = validPages.length > 0;
   const activePage = hasPages ? validPages[Math.min(currentPage, validPages.length - 1)] : null;
-  const showIframeFallback = (!hasPages || imageError) && Boolean(fileToken);
+  const fileSourceUrl = blobUrl || (fileToken ? `/api/upload/file?token=${encodeURIComponent(fileToken)}` : null);
+  const showIframeFallback = (!hasPages || imageError) && Boolean(fileSourceUrl);
 
-  if (!hasPages && !fileToken) {
+  if (!hasPages && !fileSourceUrl) {
     return (
       <div className="h-full min-h-[500px] flex flex-col items-center justify-center bg-surface-2/30 border border-border rounded-sm text-xs text-ink-3 gap-2">
         <FileText className="w-8 h-8 text-ink-3/40" />
@@ -61,9 +76,9 @@ export function DocumentViewer({ pages, fileToken }: DocumentViewerProps) {
         </div>
 
         <div className="flex items-center gap-1">
-          {fileToken && (
+          {fileSourceUrl && (
             <a
-              href={`/api/upload/file?token=${encodeURIComponent(fileToken)}`}
+              href={fileSourceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="p-1 rounded-sm hover:bg-border text-ink-2 transition flex items-center gap-1 text-[11px] font-mono mr-2"
@@ -117,13 +132,13 @@ export function DocumentViewer({ pages, fileToken }: DocumentViewerProps) {
               onError={() => setImageError(true)}
             />
           </div>
-        ) : showIframeFallback && fileToken ? (
+        ) : showIframeFallback && fileSourceUrl ? (
           <div
             style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
             className="transition-transform duration-100 shadow-md bg-white border border-border w-[650px] min-h-[850px] flex flex-col"
           >
             <iframe
-              src={`/api/upload/file?token=${encodeURIComponent(fileToken)}#toolbar=0`}
+              src={fileSourceUrl.includes("#") ? fileSourceUrl : `${fileSourceUrl}#toolbar=0`}
               title="Original Invoice Document"
               className="w-full flex-1 min-h-[850px] border-0"
             />

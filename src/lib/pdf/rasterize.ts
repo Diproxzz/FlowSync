@@ -75,7 +75,12 @@ export async function rasterizePdfPureNode(
 
   const standardFontDir = path.resolve(process.cwd(), "node_modules/pdfjs-dist/standard_fonts");
   const standardFontDataUrl = fsSync.existsSync(standardFontDir)
-    ? (standardFontDir.endsWith(path.sep) ? standardFontDir : standardFontDir + path.sep)
+    ? pathToFileURL(standardFontDir).href + "/"
+    : undefined;
+
+  const cMapDir = path.resolve(process.cwd(), "node_modules/pdfjs-dist/cmaps");
+  const cMapUrl = fsSync.existsSync(cMapDir)
+    ? pathToFileURL(cMapDir).href + "/"
     : undefined;
 
   let createCanvasFn: any = null;
@@ -83,6 +88,18 @@ export async function rasterizePdfPureNode(
     const nodeRequire = createRequire(import.meta.url);
     const canvasPkg = nodeRequire("@napi-rs/canvas");
     createCanvasFn = canvasPkg?.createCanvas;
+    // Polyfill canvas globals for pdfjs-dist font loading in Node.js
+    if (canvasPkg) {
+      if (canvasPkg.DOMMatrix && !(globalThis as any).DOMMatrix) {
+        (globalThis as any).DOMMatrix = canvasPkg.DOMMatrix;
+      }
+      if (canvasPkg.ImageData && !(globalThis as any).ImageData) {
+        (globalThis as any).ImageData = canvasPkg.ImageData;
+      }
+      if (canvasPkg.Path2D && !(globalThis as any).Path2D) {
+        (globalThis as any).Path2D = canvasPkg.Path2D;
+      }
+    }
   } catch (e) {
     console.warn("[rasterizePdfPureNode] @napi-rs/canvas could not be loaded via createRequire:", e);
   }
@@ -90,8 +107,12 @@ export async function rasterizePdfPureNode(
   const fileBytes = await fs.readFile(filePath);
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(fileBytes),
+    disableFontFace: false,
     useSystemFonts: true,
     standardFontDataUrl,
+    cMapUrl,
+    cMapPacked: true,
+    isEvalSupported: false,
   });
 
   const pdfDoc = await loadingTask.promise;
