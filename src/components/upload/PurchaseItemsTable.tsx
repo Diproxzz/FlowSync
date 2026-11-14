@@ -105,8 +105,6 @@ export function PurchaseItemsTable({
                 rate: item.rate,
               });
 
-              const isPackOrNonKgUnit = unitNorm !== "KG" && unitNorm !== "MT";
-
               return (
                 <tr key={index} className="hover:bg-surface-2/40 transition">
                   <td className="py-2 px-2.5 text-ink-3 font-mono text-center">
@@ -204,13 +202,9 @@ export function PurchaseItemsTable({
                       />
                       <select
                         value={unitNorm}
-                        onChange={(e) => {
-                          const newUnit = normalizeUnit(e.target.value);
-                          onUpdateItem(index, "unitPrinted", newUnit);
-                          if (newUnit !== "KG" && newUnit !== "MT" && (!pRes.packSizeKg || Number(pRes.packSizeKg) <= 0)) {
-                            onUpdateResolution(index, { packSizeKg: 1 });
-                          }
-                        }}
+                        onChange={(e) =>
+                          onUpdateItem(index, "unitPrinted", normalizeUnit(e.target.value))
+                        }
                         className="px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-ink font-mono uppercase focus:outline-none focus:ring-1 focus:ring-accent"
                       >
                         <option value="KG">KG</option>
@@ -226,34 +220,6 @@ export function PurchaseItemsTable({
                         <option value="OTHER">OTHER</option>
                       </select>
                     </div>
-
-                    {/* Pack size / weight relation in kg for any non-KG and non-MT unit */}
-                    {isPackOrNonKgUnit && (
-                      <div className="mt-1 flex items-center gap-1 text-[10px]">
-                        <span className="text-ink-3">Pack:</span>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="1"
-                          value={pRes.packSizeKg ?? ""}
-                          onChange={(e) =>
-                            onUpdateResolution(index, {
-                              packSizeKg: e.target.value !== ""
-                                ? parseFloat(e.target.value) || 0
-                                : null,
-                            })
-                          }
-                          className="w-14 px-1 py-0.5 bg-bg border border-border rounded-xs text-[10px] text-right num font-mono text-ink focus:outline-none focus:ring-1 focus:ring-accent"
-                        />
-                        <span className="text-ink-3">kg</span>
-                      </div>
-                    )}
-
-                    {conv.convertedToKg && (
-                      <div className="mt-0.5 text-[10px] text-accent font-mono truncate max-w-[150px]">
-                        = {Number(conv.qtyKg).toFixed(2)} kg
-                      </div>
-                    )}
                   </td>
 
                   {/* 5. Rate (₹) */}
@@ -267,11 +233,6 @@ export function PurchaseItemsTable({
                       }
                       className="w-full min-w-[85px] px-2 py-1.5 bg-bg border border-border rounded-sm text-xs text-right num text-ink focus:outline-none focus:ring-1 focus:ring-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    {unitNorm !== "KG" && Number(conv.ratePerKg) > 0 && (
-                      <div className="mt-0.5 text-[10px] text-ink-3 font-mono">
-                        (₹{Number(conv.ratePerKg).toFixed(2)}/kg)
-                      </div>
-                    )}
                   </td>
 
                   {/* 8. Discount (%) */}
