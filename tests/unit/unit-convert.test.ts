@@ -79,6 +79,40 @@ describe("Unit Conversion (FR-PUR-UP-4)", () => {
     expect(res.ratePerKg.toNumber()).toBe(50);
   });
 
+  it("converts any non-KG unit (e.g. PCS, PACK, BOX, LTR) to KG when pack size in kg is provided", () => {
+    const resPcs = convertUnitToKg({
+      qtyPrinted: 10,
+      unitPrinted: "PCS",
+      packSizeKg: 25,
+      rate: 2000,
+    });
+    expect(resPcs.isConvertible).toBe(true);
+    expect(resPcs.convertedToKg).toBe(true);
+    expect(resPcs.qtyKg.toNumber()).toBe(250); // 10 * 25
+    expect(resPcs.ratePerKg.toNumber()).toBe(80); // 2000 / 25
+
+    const resPack = convertUnitToKg({
+      qtyPrinted: 1,
+      unitPrinted: "PACK",
+      packSizeKg: 1,
+      rate: 3990,
+    });
+    expect(resPack.isConvertible).toBe(true);
+    expect(resPack.convertedToKg).toBe(true);
+    expect(resPack.qtyKg.toNumber()).toBe(1);
+    expect(resPack.ratePerKg.toNumber()).toBe(3990);
+
+    const resBox = convertUnitToKg({
+      qtyPrinted: 5,
+      unitPrinted: "BOX",
+      packSizeKg: 20,
+      rate: 1000,
+    });
+    expect(resBox.convertedToKg).toBe(true);
+    expect(resBox.qtyKg.toNumber()).toBe(100);
+    expect(resBox.ratePerKg.toNumber()).toBe(50);
+  });
+
   it("accepts manual kg entry for unconvertible units", () => {
     const res = convertUnitToKg({
       qtyPrinted: 100,

@@ -143,12 +143,18 @@ export function PurchasePreviewForm({
   >(() => {
     return draft.items.map((it, idx) => {
       const pm = productMatches[idx];
+      const normU = normalizeUnit(it.unitPrinted);
+      const isNonKg = normU !== "KG" && normU !== "MT";
+      const initialPack =
+        (it as any).packSizeKg ??
+        (pm as any)?.packSizeKg ??
+        (isNonKg ? 1 : null);
       return {
         lineNo: it.lineNo,
         productId: pm?.status === "MATCHED" ? pm.productId : undefined,
         productCode: pm?.status === "MATCHED" ? pm.productCode : undefined,
         productName: pm?.status === "MATCHED" ? pm.productName : undefined,
-        packSizeKg: (it as any).packSizeKg || null,
+        packSizeKg: initialPack,
         manualQtyKg: null,
         status: pm?.status === "MATCHED" ? "MATCHED" : "NEW",
       };
@@ -222,17 +228,21 @@ export function PurchasePreviewForm({
       .catch(console.error);
   }, []);
 
+  const [taxModeOverride, setTaxModeOverride] = useState<"intra" | "inter" | null>(null);
+
   // Determine if IGST is active
   const isIgstActive =
-    Boolean(draft.isImport) ||
-    (draft.totals.igstTotal !== null &&
-      draft.totals.igstTotal !== undefined &&
-      Number(draft.totals.igstTotal) > 0) ||
-    draft.items.some((it) => (it.igstPct || 0) > 0) ||
-    (Number(draft.totals.cgstTotal || 0) === 0 &&
-      Number(draft.totals.sgstTotal || 0) === 0 &&
-      Boolean(draft.supplier.gstin) &&
-      !draft.supplier.gstin?.startsWith("19"));
+    taxModeOverride !== null
+      ? taxModeOverride === "inter"
+      : Boolean(draft.isImport) ||
+        (draft.totals.igstTotal !== null &&
+          draft.totals.igstTotal !== undefined &&
+          Number(draft.totals.igstTotal) > 0) ||
+        draft.items.some((it) => (it.igstPct || 0) > 0) ||
+        (Number(draft.totals.cgstTotal || 0) === 0 &&
+          Number(draft.totals.sgstTotal || 0) === 0 &&
+          Boolean(draft.supplier.gstin) &&
+          !draft.supplier.gstin?.startsWith("19"));
 
   // Live duplicate check on invoice number or supplier change
   useEffect(() => {
@@ -284,18 +294,8 @@ export function PurchasePreviewForm({
           Math.round(((it.taxableAmount * (it.igstPct || 0)) / 100) * 100) / 100;
         igst += i;
       } else {
-        const totalTaxPct = Number(it.cgstPct || 0) + Number(it.sgstPct || 0);
-        let cPct = Number(it.cgstPct);
-        let sPct = Number(it.sgstPct);
-        if (!cPct && !sPct) {
-          if (totalTaxPct === 5) {
-            cPct = 2.5;
-            sPct = 2.5;
-          } else {
-            cPct = 9;
-            sPct = 9;
-          }
-        }
+        const cPct = Number(it.cgstPct || 0);
+        const sPct = Number(it.sgstPct || 0);
         const c = Math.round(((it.taxableAmount * cPct) / 100) * 100) / 100;
         const s = Math.round(((it.taxableAmount * sPct) / 100) * 100) / 100;
         cgst += c;
@@ -325,121 +325,179 @@ export function PurchasePreviewForm({
     };
   };
 
+  const handleUpdateGst = (index: number, totalGst: number) => {
+    setDraft((prev) => {
+      const nextItems = [...prev.items];
+      const item = { ...nextItems[index] };
+      const rate = Math.max(0, Number(totalGst) || 0);
+      const taxable = Number(item.taxableAmount) || 0;
+
+      if (isIgstActive) {
+        item.igstPct = rate;
+        item.cgstPct = 0;
+        item.sgstPct = 0;
+        item.cgstAmount = 0;
+        item.sgstAmount = 0;
+        const igstAmt = Math.round(((taxable * rate) / 100) * 100) / 100;
+        item.igstAmount = igstAmt;
+        item.lineTotal = Math.round((taxable + igstAmt) * 100) / 100;
+      } else {
+        item.igstPct = 0;
+        item.igstAmount = 0;
+        const halfRate =
+          rate === 5
+            ? 2.5
+            : rate === 18
+            ? 9
+            : Math.round((rate / 2) * 1000) / 1000;
+        item.cgstPct = halfRate;
+        item.sgstPct = halfRate;
+        const halfAmt = Math.round(((taxable * halfRate) / 100) * 100) / 100;
+        item.cgstAmount = halfAmt;
+        item.sgstAmount = halfAmt;
+        item.lineTotal = Math.round((taxable + halfAmt * 2) * 100) / 100;
+      }
+
+      nextItems[index] = item;
+      const nextTotals = recalculateTotals(
+        nextItems,
+        isIgstActive ? "inter" : "intra"
+      );
+      return {
+        ...prev,
+        items: nextItems,
+        totals: nextTotals,
+      };
+    });
+  };
+
   const handleUpdateItem = (
     index: number,
     field: keyof ExtractedPurchaseInvoiceItem,
     value: any
   ) => {
-    const nextItems = [...draft.items];
-    const item = { ...nextItems[index], [field]: value };
-    const pRes = productResolutions[index];
+    setDraft((prev) => {
+      const nextItems = [...prev.items];
+      const item = { ...nextItems[index], [field]: value };
+      const pRes = productResolutions[index];
 
-    if (field === "unitPrinted") {
-      item.unitPrinted = normalizeUnit(String(value));
-    }
-
-    if (
-      field === "qtyPrinted" ||
-      field === "unitPrinted" ||
-      field === "rate" ||
-      field === "discount"
-    ) {
-      const qPrinted = Number(item.qtyPrinted) || 0;
-      const r = Number(item.rate) || 0;
-      const dPct = Number(item.discount) || 0;
-      const discountMultiplier = dPct > 0 ? 1 - dPct / 100 : 1;
-      item.taxableAmount = Math.max(0, Math.round(qPrinted * r * discountMultiplier * 100) / 100);
-
-      const conv = convertUnitToKg({
-        qtyPrinted: qPrinted,
-        unitPrinted: item.unitPrinted,
-        packSizeKg: pRes?.packSizeKg,
-        manualQtyKg: pRes?.manualQtyKg,
-        rate: r,
-      });
-
-      (item as any).qtyKg = Number(conv.qtyKg);
-      (item as any).ratePerKg = Number(conv.ratePerKg);
-
-      if (isIgstActive) {
-        item.cgstPct = 0;
-        item.sgstPct = 0;
-        item.cgstAmount = 0;
-        item.sgstAmount = 0;
-        const igstAmt =
-          Math.round(((item.taxableAmount * (item.igstPct || 0)) / 100) * 100) / 100;
-        item.lineTotal = Math.round((item.taxableAmount + igstAmt) * 100) / 100;
-      } else {
-        item.igstPct = 0;
-        const totalTaxPct = Number(item.cgstPct || 0) + Number(item.sgstPct || 0);
-        const cPct = Number(item.cgstPct) > 0 ? Number(item.cgstPct) : totalTaxPct === 5 ? 2.5 : 9;
-        const sPct = Number(item.sgstPct) > 0 ? Number(item.sgstPct) : totalTaxPct === 5 ? 2.5 : 9;
-        item.cgstPct = cPct;
-        item.sgstPct = sPct;
-        const cAmt = Math.round(((item.taxableAmount * cPct) / 100) * 100) / 100;
-        const sAmt = Math.round(((item.taxableAmount * sPct) / 100) * 100) / 100;
-        item.cgstAmount = cAmt;
-        item.sgstAmount = sAmt;
-        item.lineTotal = Math.round((item.taxableAmount + cAmt + sAmt) * 100) / 100;
+      if (field === "unitPrinted") {
+        const normU = normalizeUnit(String(value));
+        item.unitPrinted = normU;
+        if (normU !== "KG" && normU !== "MT" && (!pRes?.packSizeKg || Number(pRes.packSizeKg) <= 0)) {
+          setProductResolutions((prevRes) => {
+            const nextRes = [...prevRes];
+            if (nextRes[index] && (!nextRes[index].packSizeKg || Number(nextRes[index].packSizeKg) <= 0)) {
+              nextRes[index] = { ...nextRes[index], packSizeKg: 1 };
+            }
+            return nextRes;
+          });
+        }
       }
-    } else if (field === "taxableAmount") {
-      const t = Number(value) || 0;
-      item.taxableAmount = t;
-      if (isIgstActive) {
-        item.cgstPct = 0;
-        item.sgstPct = 0;
-        item.cgstAmount = 0;
-        item.sgstAmount = 0;
-        const igstAmt =
-          Math.round(((t * (item.igstPct || 0)) / 100) * 100) / 100;
-        item.lineTotal = Math.round((t + igstAmt) * 100) / 100;
-      } else {
-        item.igstPct = 0;
-        const totalTaxPct = Number(item.cgstPct || 0) + Number(item.sgstPct || 0);
-        const cPct = Number(item.cgstPct) > 0 ? Number(item.cgstPct) : totalTaxPct === 5 ? 2.5 : 9;
-        const sPct = Number(item.sgstPct) > 0 ? Number(item.sgstPct) : totalTaxPct === 5 ? 2.5 : 9;
-        item.cgstPct = cPct;
-        item.sgstPct = sPct;
-        const cAmt = Math.round(((t * cPct) / 100) * 100) / 100;
-        const sAmt = Math.round(((t * sPct) / 100) * 100) / 100;
-        item.cgstAmount = cAmt;
-        item.sgstAmount = sAmt;
-        item.lineTotal = Math.round((t + cAmt + sAmt) * 100) / 100;
-      }
-    } else if (field === "cgstPct" || field === "sgstPct" || field === "igstPct") {
-      const p = Number(value) || 0;
-      if (field === "igstPct") {
-        item.igstPct = p;
-        item.cgstPct = 0;
-        item.sgstPct = 0;
-        item.cgstAmount = 0;
-        item.sgstAmount = 0;
-        const igstAmt = Math.round(((item.taxableAmount * p) / 100) * 100) / 100;
-        item.igstAmount = igstAmt;
-        item.lineTotal = Math.round((item.taxableAmount + igstAmt) * 100) / 100;
-      } else {
-        item.igstPct = 0;
-        item.igstAmount = 0;
-        if (field === "cgstPct") item.cgstPct = p;
-        if (field === "sgstPct") item.sgstPct = p;
-        const cPct = Number(item.cgstPct || 0);
-        const sPct = Number(item.sgstPct || 0);
-        const cAmt = Math.round(((item.taxableAmount * cPct) / 100) * 100) / 100;
-        const sAmt = Math.round(((item.taxableAmount * sPct) / 100) * 100) / 100;
-        item.cgstAmount = cAmt;
-        item.sgstAmount = sAmt;
-        item.lineTotal = Math.round((item.taxableAmount + cAmt + sAmt) * 100) / 100;
-      }
-    } else if (field === "lineTotal") {
-      item.lineTotal = Number(value) || 0;
-    }
 
-    nextItems[index] = item;
-    const nextTotals = recalculateTotals(nextItems);
-    setDraft({
-      ...draft,
-      items: nextItems,
-      totals: nextTotals,
+      if (
+        field === "qtyPrinted" ||
+        field === "unitPrinted" ||
+        field === "rate" ||
+        field === "discount"
+      ) {
+        const qPrinted = Number(item.qtyPrinted) || 0;
+        const r = Number(item.rate) || 0;
+        const dPct = Number(item.discount) || 0;
+        const discountMultiplier = dPct > 0 ? 1 - dPct / 100 : 1;
+        item.taxableAmount = Math.max(0, Math.round(qPrinted * r * discountMultiplier * 100) / 100);
+
+        const conv = convertUnitToKg({
+          qtyPrinted: qPrinted,
+          unitPrinted: item.unitPrinted,
+          packSizeKg: pRes?.packSizeKg,
+          manualQtyKg: pRes?.manualQtyKg,
+          rate: r,
+        });
+
+        (item as any).qtyKg = Number(conv.qtyKg);
+        (item as any).ratePerKg = Number(conv.ratePerKg);
+
+        if (isIgstActive) {
+          item.cgstPct = 0;
+          item.sgstPct = 0;
+          item.cgstAmount = 0;
+          item.sgstAmount = 0;
+          const igstPct = Number(item.igstPct || 0);
+          const igstAmt =
+            Math.round(((item.taxableAmount * igstPct) / 100) * 100) / 100;
+          item.igstAmount = igstAmt;
+          item.lineTotal = Math.round((item.taxableAmount + igstAmt) * 100) / 100;
+        } else {
+          item.igstPct = 0;
+          item.igstAmount = 0;
+          const cPct = Number(item.cgstPct || 0);
+          const sPct = Number(item.sgstPct || 0);
+          const cAmt = Math.round(((item.taxableAmount * cPct) / 100) * 100) / 100;
+          const sAmt = Math.round(((item.taxableAmount * sPct) / 100) * 100) / 100;
+          item.cgstAmount = cAmt;
+          item.sgstAmount = sAmt;
+          item.lineTotal = Math.round((item.taxableAmount + cAmt + sAmt) * 100) / 100;
+        }
+      } else if (field === "taxableAmount") {
+        const t = Number(value) || 0;
+        item.taxableAmount = t;
+        if (isIgstActive) {
+          item.cgstPct = 0;
+          item.sgstPct = 0;
+          item.cgstAmount = 0;
+          item.sgstAmount = 0;
+          const igstPct = Number(item.igstPct || 0);
+          const igstAmt =
+            Math.round(((t * igstPct) / 100) * 100) / 100;
+          item.igstAmount = igstAmt;
+          item.lineTotal = Math.round((t + igstAmt) * 100) / 100;
+        } else {
+          item.igstPct = 0;
+          item.igstAmount = 0;
+          const cPct = Number(item.cgstPct || 0);
+          const sPct = Number(item.sgstPct || 0);
+          const cAmt = Math.round(((t * cPct) / 100) * 100) / 100;
+          const sAmt = Math.round(((t * sPct) / 100) * 100) / 100;
+          item.cgstAmount = cAmt;
+          item.sgstAmount = sAmt;
+          item.lineTotal = Math.round((t + cAmt + sAmt) * 100) / 100;
+        }
+      } else if (field === "cgstPct" || field === "sgstPct" || field === "igstPct") {
+        const p = Number(value) || 0;
+        if (field === "igstPct") {
+          item.igstPct = p;
+          item.cgstPct = 0;
+          item.sgstPct = 0;
+          item.cgstAmount = 0;
+          item.sgstAmount = 0;
+          const igstAmt = Math.round(((item.taxableAmount * p) / 100) * 100) / 100;
+          item.igstAmount = igstAmt;
+          item.lineTotal = Math.round((item.taxableAmount + igstAmt) * 100) / 100;
+        } else {
+          item.igstPct = 0;
+          item.igstAmount = 0;
+          if (field === "cgstPct") item.cgstPct = p;
+          if (field === "sgstPct") item.sgstPct = p;
+          const cPct = Number(item.cgstPct || 0);
+          const sPct = Number(item.sgstPct || 0);
+          const cAmt = Math.round(((item.taxableAmount * cPct) / 100) * 100) / 100;
+          const sAmt = Math.round(((item.taxableAmount * sPct) / 100) * 100) / 100;
+          item.cgstAmount = cAmt;
+          item.sgstAmount = sAmt;
+          item.lineTotal = Math.round((item.taxableAmount + cAmt + sAmt) * 100) / 100;
+        }
+      } else if (field === "lineTotal") {
+        item.lineTotal = Number(value) || 0;
+      }
+
+      nextItems[index] = item;
+      const nextTotals = recalculateTotals(nextItems, isIgstActive ? "inter" : "intra");
+      return {
+        ...prev,
+        items: nextItems,
+        totals: nextTotals,
+      };
     });
   };
 
@@ -447,22 +505,33 @@ export function PurchasePreviewForm({
     index: number,
     updates: Partial<PurchaseItemResolution>
   ) => {
-    const next = [...productResolutions];
-    next[index] = { ...next[index], ...updates };
-    setProductResolutions(next);
+    setProductResolutions((prevResolutions) => {
+      const nextResolutions = [...prevResolutions];
+      nextResolutions[index] = { ...nextResolutions[index], ...updates };
 
-    // Recompute unit conversion if packSize or manualQty changed
-    if (updates.packSizeKg !== undefined || updates.manualQtyKg !== undefined) {
-      const item = draft.items[index];
-      const conv = convertUnitToKg({
-        qtyPrinted: item.qtyPrinted,
-        unitPrinted: item.unitPrinted,
-        packSizeKg: next[index].packSizeKg,
-        manualQtyKg: next[index].manualQtyKg,
-        rate: item.rate,
-      });
-      handleUpdateItem(index, "qtyKg" as any, Number(conv.qtyKg));
-    }
+      if (updates.packSizeKg !== undefined || updates.manualQtyKg !== undefined) {
+        setDraft((prevDraft) => {
+          const nextItems = [...prevDraft.items];
+          const item = { ...nextItems[index] };
+          const conv = convertUnitToKg({
+            qtyPrinted: item.qtyPrinted,
+            unitPrinted: item.unitPrinted,
+            packSizeKg: nextResolutions[index]?.packSizeKg,
+            manualQtyKg: nextResolutions[index]?.manualQtyKg,
+            rate: item.rate,
+          });
+          (item as any).qtyKg = Number(conv.qtyKg);
+          (item as any).ratePerKg = Number(conv.ratePerKg);
+          nextItems[index] = item;
+          return {
+            ...prevDraft,
+            items: nextItems,
+          };
+        });
+      }
+
+      return nextResolutions;
+    });
   };
 
   const handleToggleUpdateStdRate = (productId: string) => {
@@ -473,6 +542,7 @@ export function PurchasePreviewForm({
   };
 
   const handleToggleTaxMode = (targetMode: "intra" | "inter") => {
+    setTaxModeOverride(targetMode);
     setDraft((prev) => {
       const nextItems = prev.items.map((it) => {
         const totalTaxPct = Math.round(
@@ -498,7 +568,7 @@ export function PurchasePreviewForm({
               ? 9
               : totalTaxPct > 0
               ? totalTaxPct / 2
-              : 9;
+              : 0;
           const halfAmt =
             Math.round(((it.taxableAmount * halfPct) / 100) * 100) / 100;
           return {
@@ -642,13 +712,13 @@ export function PurchasePreviewForm({
       lineTotal: 0,
     };
 
-    setDraft({
-      ...draft,
-      items: [...draft.items, newItem],
-    });
+    setDraft((prev) => ({
+      ...prev,
+      items: [...prev.items, newItem],
+    }));
 
-    setProductResolutions([
-      ...productResolutions,
+    setProductResolutions((prev) => [
+      ...prev,
       {
         lineNo: nextLineNo,
         status: "NEW",
@@ -658,15 +728,16 @@ export function PurchasePreviewForm({
 
   const handleDeleteItem = (index: number) => {
     if (draft.items.length <= 1) return;
-    const nextItems = draft.items.filter((_, i) => i !== index);
-    const nextTotals = recalculateTotals(nextItems);
-
-    setDraft({
-      ...draft,
-      items: nextItems,
-      totals: nextTotals,
+    setDraft((prev) => {
+      const nextItems = prev.items.filter((_, i) => i !== index);
+      const nextTotals = recalculateTotals(nextItems);
+      return {
+        ...prev,
+        items: nextItems,
+        totals: nextTotals,
+      };
     });
-    setProductResolutions(productResolutions.filter((_, i) => i !== index));
+    setProductResolutions((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Run validation
@@ -1017,6 +1088,7 @@ export function PurchasePreviewForm({
           isIgstActive={isIgstActive}
           updateStdRates={updateStdRates}
           onUpdateItem={handleUpdateItem}
+          onUpdateGst={handleUpdateGst}
           onUpdateResolution={handleUpdateResolution}
           onToggleUpdateStdRate={handleToggleUpdateStdRate}
           onAddItem={handleAddItem}

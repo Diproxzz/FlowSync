@@ -90,9 +90,11 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
     };
   }
 
-  // 3. Pack-based units with packSizeKg (DRUM, BAG, CAN, PACK)
-  if (["DRUM", "BAG", "CAN", "PACK"].includes(unitNorm)) {
-    const packSizeDec = params.packSizeKg ? new Prisma.Decimal(params.packSizeKg) : null;
+  // 3. Any non-KG unit with packSizeKg (DRUM, BAG, CAN, PACK, PCS, NOS, BOX, LTR, OTHER, etc.)
+  if (unitNorm !== "KG" && unitNorm !== "MT") {
+    const packSizeDec = params.packSizeKg !== undefined && params.packSizeKg !== null && params.packSizeKg !== ""
+      ? new Prisma.Decimal(params.packSizeKg)
+      : null;
     if (packSizeDec && packSizeDec.greaterThan(0)) {
       const qtyKg = qtyPrintedDec.mul(packSizeDec);
       const ratePerKg = qtyKg.isZero()
@@ -105,7 +107,7 @@ export function convertUnitToKg(params: UnitConversionParams): UnitConversionRes
         isConvertible: true,
         needsManualKg: false,
         convertedToKg: true,
-        formulaDescription: `${qtyPrintedDec} ${unitNorm.toLowerCase()}s × ${packSizeDec} kg = ${qtyKg} kg`,
+        formulaDescription: `${qtyPrintedDec} ${unitNorm.toLowerCase()} × ${packSizeDec} kg = ${qtyKg} kg`,
         unitNormalized: unitNorm,
       };
     }

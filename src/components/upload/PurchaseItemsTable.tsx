@@ -32,6 +32,7 @@ interface PurchaseItemsTableProps {
   isIgstActive: boolean;
   updateStdRates: Record<string, boolean>;
   onUpdateItem: (index: number, field: keyof ExtractedPurchaseInvoiceItem, value: any) => void;
+  onUpdateGst?: (index: number, totalGst: number) => void;
   onUpdateResolution: (index: number, updates: Partial<PurchaseItemResolution>) => void;
   onToggleUpdateStdRate: (productId: string) => void;
   onAddItem: () => void;
@@ -45,6 +46,7 @@ export function PurchaseItemsTable({
   isIgstActive,
   updateStdRates,
   onUpdateItem,
+  onUpdateGst,
   onUpdateResolution,
   onToggleUpdateStdRate,
   onAddItem,
@@ -103,7 +105,7 @@ export function PurchaseItemsTable({
                 rate: item.rate,
               });
 
-              const isDrumUnit = ["DRUM", "BAG", "CAN", "PACK"].includes(unitNorm);
+              const isPackOrNonKgUnit = unitNorm !== "KG" && unitNorm !== "MT";
 
               return (
                 <tr key={index} className="hover:bg-surface-2/40 transition">
@@ -202,9 +204,13 @@ export function PurchaseItemsTable({
                       />
                       <select
                         value={unitNorm}
-                        onChange={(e) =>
-                          onUpdateItem(index, "unitPrinted", normalizeUnit(e.target.value))
-                        }
+                        onChange={(e) => {
+                          const newUnit = normalizeUnit(e.target.value);
+                          onUpdateItem(index, "unitPrinted", newUnit);
+                          if (newUnit !== "KG" && newUnit !== "MT" && (!pRes.packSizeKg || Number(pRes.packSizeKg) <= 0)) {
+                            onUpdateResolution(index, { packSizeKg: 1 });
+                          }
+                        }}
                         className="px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-ink font-mono uppercase focus:outline-none focus:ring-1 focus:ring-accent"
                       >
                         <option value="KG">KG</option>
@@ -221,23 +227,23 @@ export function PurchaseItemsTable({
                       </select>
                     </div>
 
-                    {/* Drum pack size input */}
-                    {isDrumUnit && (
+                    {/* Pack size / weight relation in kg for any non-KG and non-MT unit */}
+                    {isPackOrNonKgUnit && (
                       <div className="mt-1 flex items-center gap-1 text-[10px]">
                         <span className="text-ink-3">Pack:</span>
                         <input
                           type="number"
                           step="any"
-                          placeholder="kg/drum"
+                          placeholder="1"
                           value={pRes.packSizeKg ?? ""}
                           onChange={(e) =>
                             onUpdateResolution(index, {
-                              packSizeKg: e.target.value
-                                ? parseFloat(e.target.value)
+                              packSizeKg: e.target.value !== ""
+                                ? parseFloat(e.target.value) || 0
                                 : null,
                             })
                           }
-                          className="w-14 px-1 py-0.5 bg-bg border border-border rounded-xs text-[10px] text-right num font-mono"
+                          className="w-14 px-1 py-0.5 bg-bg border border-border rounded-xs text-[10px] text-right num font-mono text-ink focus:outline-none focus:ring-1 focus:ring-accent"
                         />
                         <span className="text-ink-3">kg</span>
                       </div>
@@ -306,42 +312,40 @@ export function PurchaseItemsTable({
 
                   {/* 10. Tax Rate Select */}
                   <td className="py-2 px-2.5 text-right">
-                    <select
-                      value={
-                        isIgstActive
-                          ? Number(item.igstPct || 0)
-                          : Math.round(
-                              (Number(item.cgstPct || 0) + Number(item.sgstPct || 0)) === 5
-                                ? 5
-                                : Number(item.cgstPct || 0) + Number(item.sgstPct || 0)
-                            )
-                      }
-                      onChange={(e) => {
-                        const totalGst = parseFloat(e.target.value) || 0;
-                        if (isIgstActive) {
-                          onUpdateItem(index, "igstPct", totalGst);
-                          onUpdateItem(index, "cgstPct", 0);
-                          onUpdateItem(index, "sgstPct", 0);
-                        } else {
-                          const halfGst =
-                            totalGst === 5
-                              ? 2.5
-                              : totalGst === 18
-                              ? 9
-                              : totalGst / 2;
-                          onUpdateItem(index, "cgstPct", halfGst);
-                          onUpdateItem(index, "sgstPct", halfGst);
-                          onUpdateItem(index, "igstPct", 0);
-                        }
-                      }}
-                      className="w-full min-w-[65px] px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-right num text-ink-2 focus:outline-none focus:ring-1 focus:ring-accent"
-                    >
-                      <option value="18">18%</option>
-                      <option value="12">12%</option>
-                      <option value="5">5%</option>
-                      <option value="28">28%</option>
-                      <option value="0">0%</option>
-                    </select>
+                    {(() => {
+                      const currentGst = isIgstActive
+                        ? Number(item.igstPct || 0)
+                        : Math.round(((Number(item.cgstPct || 0) + Number(item.sgstPct || 0)) * 100)) / 100;
+                      const standardOptions = [18, 12, 5, 28, 0];
+                      const isCustom = !standardOptions.includes(currentGst);
+
+                      return (
+                        <select
+                          value={currentGst}
+                          onChange={(e) => {
+                            const totalGst = parseFloat(e.target.value) || 0;
+                            if (onUpdateGst) {
+                              onUpdateGst(index, totalGst);
+                            } else {
+                              if (isIgstActive) {
+                                onUpdateItem(index, "igstPct", totalGst);
+                              } else {
+                                const halfGst = totalGst === 5 ? 2.5 : totalGst === 18 ? 9 : totalGst / 2;
+                                onUpdateItem(index, "cgstPct", halfGst);
+                              }
+                            }
+                          }}
+                          className="w-full min-w-[65px] px-1.5 py-1.5 bg-bg border border-border rounded-sm text-xs text-right num text-ink font-medium focus:outline-none focus:ring-1 focus:ring-accent"
+                        >
+                          {isCustom && <option value={currentGst}>{currentGst}%</option>}
+                          <option value="18">18%</option>
+                          <option value="12">12%</option>
+                          <option value="5">5%</option>
+                          <option value="28">28%</option>
+                          <option value="0">0%</option>
+                        </select>
+                      );
+                    })()}
                   </td>
 
                   {/* 11. Line Total (₹) */}
