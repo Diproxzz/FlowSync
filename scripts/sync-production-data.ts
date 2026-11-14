@@ -1,65 +1,63 @@
 import { prisma } from "../src/lib/db";
-import { normalizeCustomerName } from "../src/lib/matching/normalize";
-import { getOrCreateCustomerLedgerAccount } from "../src/lib/ledger/account-utils";
 import { backfillCustomerContacts } from "../src/lib/customers/contact-sync";
 
 /**
  * Runs during deployment / preDeployCommand (npm run db:sync).
- * Ensures customer Dipro exists with contact details and ledger account,
- * backfills existing customer contacts, and seeds initial business activity logs.
+ * Removes temporary test customer Dipro, backfills customer contacts,
+ * and ensures initial business activity logs.
  */
 export async function syncProductionData() {
   console.log("[Sync Production Data] Starting customer & business logs synchronization...");
 
-  // 1. Ensure customer Dipro
-  const name = "Dipro";
-  const email = "chowdhurydipro123@gmail.com";
-  const phone = "6290090297";
-  const secondary_phone = "9836924296";
-  const address = "Kolkata, West Bengal";
-  const state_code = "19";
-  const name_norm = normalizeCustomerName(name);
-
-  let dipro = await prisma.customer.findFirst({
-    where: {
-      OR: [
-        { name_norm },
-        { email },
-      ],
-    },
-  });
-
-  if (!dipro) {
-    dipro = await prisma.customer.create({
-      data: {
-        name,
-        name_norm,
-        email,
-        phone,
-        secondary_phone,
-        address,
-        state_code,
+  // 1. Remove temporary customer "Dipro" if present
+  try {
+    const diproRecords = await prisma.customer.findMany({
+      where: {
+        OR: [
+          { name_norm: "dipro" },
+          { name: { equals: "Dipro", mode: "insensitive" } },
+          { email: "chowdhurydipro123@gmail.com" },
+        ],
       },
     });
-    console.log(`[Sync Production Data] Created customer "${name}" (${dipro.id}) with email ${email} and phone ${phone}`);
-  } else {
-    dipro = await prisma.customer.update({
-      where: { id: dipro.id },
-      data: {
-        name,
-        email,
-        phone: phone || dipro.phone,
-        secondary_phone: secondary_phone || dipro.secondary_phone,
-        address: dipro.address || address,
-        state_code: dipro.state_code || state_code,
+
+    for (const dipro of diproRecords) {
+      // Clean up any business logs explicitly linked to Dipro
+      await prisma.businessLog.deleteMany({
+        where: {
+          OR: [
+            { entity_id: dipro.id },
+            { description: { contains: "Dipro", mode: "insensitive" } },
+          ],
+        },
+      }).catch(() => {});
+
+      // Delete customer (cascades to regular/informal ledger accounts and aliases)
+      await prisma.customer.delete({
+        where: { id: dipro.id },
+      }).catch((err) => {
+        console.warn(`[Sync Production Data] Warning deleting customer ${dipro.id}:`, err.message);
+      });
+
+      console.log(`[Sync Production Data] Removed temporary customer "Dipro" (${dipro.id})`);
+    }
+
+    // Clean up any stray logs mentioning Dipro
+    const deletedLogs = await prisma.businessLog.deleteMany({
+      where: {
+        OR: [
+          { description: { contains: "Dipro", mode: "insensitive" } },
+          { description: { contains: "chowdhurydipro123@gmail.com", mode: "insensitive" } },
+        ],
       },
-    });
-    console.log(`[Sync Production Data] Updated customer "${name}" (${dipro.id}) contact details`);
+    }).catch(() => ({ count: 0 }));
+
+    if (deletedLogs && deletedLogs.count > 0) {
+      console.log(`[Sync Production Data] Cleaned up ${deletedLogs.count} temporary log entries for Dipro`);
+    }
+  } catch (err: any) {
+    console.warn("[Sync Production Data] Warning removing temporary customer Dipro:", err.message);
   }
-
-  // Ensure ledger account exists for Dipro
-  const ledger = await getOrCreateCustomerLedgerAccount(dipro.id);
-  console.log(`[Sync Production Data] Customer Dipro ledger account ready (${ledger?.id})`);
 
   // 2. Backfill existing customer contacts from addresses & metadata
   try {
@@ -131,34 +129,6 @@ export async function syncProductionData() {
           },
         },
       });
-    }
-  }
-
-  // 4. Ensure customer Dipro creation log is recorded
-  if (dipro) {
-    const existingDiproLog = await prisma.businessLog.findFirst({
-      where: {
-        entity_type: "CUSTOMER",
-        entity_id: dipro.id,
-      },
-    });
-
-    if (!existingDiproLog) {
-      await prisma.businessLog.create({
-        data: {
-          action: "CUSTOMER_CREATED",
-          description: `Customer "Dipro" created with contact chowdhurydipro123@gmail.com`,
-          entity_type: "CUSTOMER",
-          entity_id: dipro.id,
-          created_at: dipro.created_at,
-          metadata: {
-            name: dipro.name,
-            email: dipro.email,
-            phone: dipro.phone,
-          },
-        },
-      });
-      console.log(`[Sync Production Data] Logged customer creation activity for Dipro`);
     }
   }
 

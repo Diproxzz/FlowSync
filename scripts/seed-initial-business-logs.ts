@@ -69,24 +69,6 @@ async function main() {
     });
   }
 
-  // 3. Customer Dipro
-  const dipro = await prisma.customer.findFirst({ where: { name_norm: "dipro" } });
-  if (dipro) {
-    await prisma.businessLog.create({
-      data: {
-        action: "CUSTOMER_CREATED",
-        description: `Customer "Dipro" created with contact chowdhurydipro123@gmail.com`,
-        entity_type: "CUSTOMER",
-        entity_id: dipro.id,
-        created_at: dipro.created_at,
-        metadata: {
-          name: dipro.name,
-          email: dipro.email,
-        },
-      },
-    });
-  }
-
   const finalCount = await prisma.businessLog.count();
   console.log(`Seeded ${finalCount} initial business logs.`);
 }
