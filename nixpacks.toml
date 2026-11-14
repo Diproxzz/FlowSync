@@ -1,7 +1,11 @@
 providers = ["node", "python"]
 
+[variables]
+PATH = "/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH"
+PYTHON_BIN = "python3"
+
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3", "python3Packages.pip", "python3Packages.pymupdf"]
+nixPkgs = ["nodejs_20", "python3", "python3Packages.pip", "python3Packages.pymupdf", "fontconfig", "dejavu_fonts", "freefont_ttf"]
 
 [phases.install]
 cmds = [

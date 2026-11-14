@@ -39,6 +39,21 @@ export async function getPythonBin(): Promise<string | null> {
     "/usr/local/bin/python3",
   ].filter(Boolean) as string[];
 
+  // Also check glob in /nix/store/*/bin/python3 if in a Linux/Nix environment
+  if (process.platform === "linux" && fsSync.existsSync("/nix/store")) {
+    try {
+      const dirs = await fs.readdir("/nix/store");
+      for (const d of dirs) {
+        if (d.includes("python3-") || d.includes("python-3")) {
+          const binPath = path.join("/nix/store", d, "bin/python3");
+          if (fsSync.existsSync(binPath)) {
+            candidates.push(binPath);
+          }
+        }
+      }
+    } catch {}
+  }
+
   for (const bin of candidates) {
     try {
       if (bin.startsWith("/") && !fsSync.existsSync(bin)) {
@@ -88,6 +103,7 @@ export async function rasterizePdfPureNode(
     const nodeRequire = createRequire(import.meta.url);
     const canvasPkg = nodeRequire("@napi-rs/canvas");
     createCanvasFn = canvasPkg?.createCanvas;
+
     // Polyfill canvas globals for pdfjs-dist font loading in Node.js
     if (canvasPkg) {
       if (canvasPkg.DOMMatrix && !(globalThis as any).DOMMatrix) {
@@ -98,6 +114,27 @@ export async function rasterizePdfPureNode(
       }
       if (canvasPkg.Path2D && !(globalThis as any).Path2D) {
         (globalThis as any).Path2D = canvasPkg.Path2D;
+      }
+
+      // Explicitly register bundled standard fonts into GlobalFonts so canvas renders text
+      // on systems with zero installed OS fonts (e.g. minimal headless Linux containers).
+      if (canvasPkg.GlobalFonts && standardFontDir && fsSync.existsSync(standardFontDir)) {
+        const fontMappings = [
+          { file: "LiberationSans-Regular.ttf", families: ["Helvetica", "Arial", "Verdana", "sans-serif", "Liberation Sans", "LiberationSans"] },
+          { file: "LiberationSans-Bold.ttf", families: ["Helvetica-Bold", "Arial-Bold", "Verdana-Bold", "Liberation Sans Bold", "LiberationSans-Bold"] },
+          { file: "LiberationSans-Italic.ttf", families: ["Helvetica-Oblique", "Arial-Italic", "Verdana-Italic", "Liberation Sans Italic", "LiberationSans-Italic"] },
+          { file: "LiberationSans-BoldItalic.ttf", families: ["Helvetica-BoldOblique", "Arial-BoldItalic", "Verdana-BoldItalic", "Liberation Sans Bold Italic", "LiberationSans-BoldItalic"] },
+        ];
+        for (const m of fontMappings) {
+          const fontFilePath = path.join(standardFontDir, m.file);
+          if (fsSync.existsSync(fontFilePath)) {
+            for (const fam of m.families) {
+              try {
+                canvasPkg.GlobalFonts.registerFromPath(fontFilePath, fam);
+              } catch {}
+            }
+          }
+        }
       }
     }
   } catch (e) {

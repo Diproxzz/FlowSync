@@ -14,6 +14,7 @@ export function DocumentViewer({ pages, fileToken, file }: DocumentViewerProps) 
   const [zoom, setZoom] = useState(0.8);
   const [imageError, setImageError] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [preferIframe, setPreferIframe] = useState(false);
 
   useEffect(() => {
     if (!file) {
@@ -31,13 +32,18 @@ export function DocumentViewer({ pages, fileToken, file }: DocumentViewerProps) 
   useEffect(() => {
     setImageError(false);
     setCurrentPage(0);
+    setPreferIframe(false);
   }, [pages, fileToken, file]);
 
   const validPages = (pages || []).filter((p) => p && typeof p.pngBase64 === "string" && p.pngBase64.trim().length > 100);
   const hasPages = validPages.length > 0;
   const activePage = hasPages ? validPages[Math.min(currentPage, validPages.length - 1)] : null;
   const fileSourceUrl = blobUrl || (fileToken ? `/api/upload/file?token=${encodeURIComponent(fileToken)}` : null);
-  const showIframeFallback = (!hasPages || imageError) && Boolean(fileSourceUrl);
+
+  // If raster page is suspiciously small (< 35,000 chars, which indicates empty vector lines without text)
+  // and we have the fileSourceUrl (either local blob or fileToken endpoint), automatically use iframe!
+  const isRasterSuspiciouslyBlank = Boolean(activePage && activePage.pngBase64.length < 35000);
+  const showIframeFallback = Boolean(fileSourceUrl && (!hasPages || imageError || isRasterSuspiciouslyBlank || preferIframe));
 
   if (!hasPages && !fileSourceUrl) {
     return (
@@ -82,6 +88,16 @@ export function DocumentViewer({ pages, fileToken, file }: DocumentViewerProps) 
         </div>
 
         <div className="flex items-center gap-1">
+          {fileSourceUrl && hasPages && (
+            <button
+              type="button"
+              onClick={() => setPreferIframe((p) => !p)}
+              className="px-2 py-0.5 rounded-sm hover:bg-border text-ink-2 transition text-[11px] font-mono mr-1 border border-border"
+              title={showIframeFallback ? "Switch to raster image view" : "Switch to embedded PDF document view"}
+            >
+              {showIframeFallback ? "Image" : "PDF"}
+            </button>
+          )}
           {fileSourceUrl && (
             <a
               href={fileSourceUrl}
