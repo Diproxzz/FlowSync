@@ -499,12 +499,16 @@ export async function sendCustomerInvoiceEmail(
     );
   }
 
-  const subject = `Invoice ${params.invoiceNumber} - ${params.customerName} | ₹ ${params.grandTotalFormatted}`;
+  const totalDisplay = params.grandTotalFormatted.startsWith("₹")
+    ? params.grandTotalFormatted
+    : `₹ ${params.grandTotalFormatted}`;
+
+  const subject = `Invoice ${params.invoiceNumber} - ${params.customerName} | ${totalDisplay}`;
 
   const textBody = [
     `Dear ${params.customerName},`,
     ``,
-    `Please find attached Invoice ${params.invoiceNumber} dated ${params.invoiceDate} for ₹ ${params.grandTotalFormatted} from Indobest.`,
+    `Please find attached Invoice ${params.invoiceNumber} dated ${params.invoiceDate} for ${totalDisplay}.`,
     ``,
     `For any queries, please contact us at 8240892993.`,
     ``,
@@ -515,7 +519,7 @@ export async function sendCustomerInvoiceEmail(
   const safeCustomerName = escapeHtml(params.customerName);
   const safeInvoiceNo = escapeHtml(params.invoiceNumber);
   const safeDate = escapeHtml(params.invoiceDate);
-  const safeTotal = escapeHtml(params.grandTotalFormatted);
+  const safeTotal = escapeHtml(totalDisplay);
 
   const htmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; color: #1e293b; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -523,7 +527,7 @@ export async function sendCustomerInvoiceEmail(
         Dear <strong>${safeCustomerName}</strong>,
       </p>
       <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
-        Please find attached Invoice <strong>${safeInvoiceNo}</strong> dated <strong>${safeDate}</strong> for <strong>₹ ${safeTotal}</strong> from Indobest.
+        Please find attached Invoice <strong>${safeInvoiceNo}</strong> dated <strong>${safeDate}</strong> for <strong>${safeTotal}</strong>.
       </p>
       <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
         For any queries, please contact us at 8240892993.

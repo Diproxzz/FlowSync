@@ -135,6 +135,8 @@ describe("Invoice Dispatch & Statement Edit Tests", () => {
       const expectedFilename = `${invoice.invoice_number.replace(/[/\\?%*:|"<>]/g, "-")}.pdf`;
       expect(callArgs.pdfAttachment?.fileName).toBe(expectedFilename);
       expect(callArgs.messageText).toContain("For any queries, please contact us at 8240892993.");
+      expect(callArgs.messageText).not.toContain("from Indobest");
+      expect(callArgs.messageText).toMatch(/for ₹[\d,.]+\.\n/);
     });
   });
 

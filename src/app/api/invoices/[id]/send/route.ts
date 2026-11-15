@@ -158,10 +158,14 @@ export async function POST(
     const grandTotalFormatted = formatINR(Number(invoice.grand_total));
     const invDateFormatted = formatDate(invoice.invoice_date);
 
+    const totalDisplay = grandTotalFormatted.startsWith("₹")
+      ? grandTotalFormatted
+      : `₹ ${grandTotalFormatted}`;
+
     const messageText = [
       `Dear ${customerName},`,
       ``,
-      `Please find attached Invoice ${invoice.invoice_number} dated ${invDateFormatted} for ₹ ${grandTotalFormatted} from Indobest.`,
+      `Please find attached Invoice ${invoice.invoice_number} dated ${invDateFormatted} for ${totalDisplay}.`,
       ``,
       `For any queries, please contact us at 8240892993.`,
       ``,
