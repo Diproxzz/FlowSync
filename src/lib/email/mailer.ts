@@ -459,6 +459,104 @@ export async function sendCustomerStatementEmail(
   });
 }
 
+export interface CustomerInvoiceEmailParams {
+  to: string;
+  customerName: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  grandTotalFormatted: string;
+  pdfBuffer: Buffer;
+  pdfFilename: string;
+}
+
+export async function sendCustomerInvoiceEmail(
+  params: CustomerInvoiceEmailParams
+): Promise<void> {
+  const smtpUser = (
+    process.env.INDOBEST_SMTP_USER ||
+    process.env.COMPANY_SMTP_USER ||
+    process.env.SMTP_USER ||
+    env.SMTP_USER ||
+    "indobest@gmail.com"
+  ).trim();
+  const smtpPass = (
+    process.env.INDOBEST_SMTP_PASS ||
+    process.env.COMPANY_SMTP_PASS ||
+    process.env.SMTP_PASS ||
+    env.SMTP_PASS ||
+    ""
+  ).trim();
+  const smtpHost = (process.env.SMTP_HOST || env.SMTP_HOST || "smtp.gmail.com").trim();
+  const smtpPortRaw = Number(process.env.SMTP_PORT || env.SMTP_PORT || "465");
+  const smtpPort = Number.isFinite(smtpPortRaw) && smtpPortRaw > 0 ? smtpPortRaw : 465;
+
+  const senderEmail = smtpUser || "indobest@gmail.com";
+  const cleanPass = smtpPass.replace(/\s+/g, "");
+
+  if (!smtpUser || !cleanPass) {
+    throw new SmtpNotConfiguredError(
+      "Indobest customer email delivery is not configured yet. Please set INDOBEST_SMTP_PASS (or SMTP_PASS) with the Google App Password for indobest@gmail.com in your .env / server environment."
+    );
+  }
+
+  const subject = `Invoice ${params.invoiceNumber} - ${params.customerName} | ₹ ${params.grandTotalFormatted}`;
+
+  const textBody = [
+    `Dear ${params.customerName},`,
+    ``,
+    `Please find attached Invoice ${params.invoiceNumber} dated ${params.invoiceDate} for ₹ ${params.grandTotalFormatted} from Indobest.`,
+    ``,
+    `For any queries, please contact us at 8240892993.`,
+    ``,
+    `Regards,`,
+    `Indobest`,
+  ].join("\n");
+
+  const safeCustomerName = escapeHtml(params.customerName);
+  const safeInvoiceNo = escapeHtml(params.invoiceNumber);
+  const safeDate = escapeHtml(params.invoiceDate);
+  const safeTotal = escapeHtml(params.grandTotalFormatted);
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; color: #1e293b; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        Dear <strong>${safeCustomerName}</strong>,
+      </p>
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        Please find attached Invoice <strong>${safeInvoiceNo}</strong> dated <strong>${safeDate}</strong> for <strong>₹ ${safeTotal}</strong> from Indobest.
+      </p>
+      <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        For any queries, please contact us at 8240892993.
+      </p>
+      <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.6; color: #1e293b;">
+        Regards,<br />
+        <strong>Indobest</strong>
+      </p>
+    </div>
+  `;
+
+  await dispatchEmail({
+    fromEmail: senderEmail,
+    fromName: "Indobest",
+    toEmail: params.to,
+    toName: params.customerName,
+    subject,
+    text: textBody,
+    html: htmlBody,
+    attachment: {
+      filename: params.pdfFilename,
+      content: params.pdfBuffer,
+      contentType: "application/pdf",
+    },
+    smtpFallback: {
+      host: smtpHost,
+      preferredPort: smtpPort,
+      user: smtpUser,
+      pass: cleanPass,
+    },
+  });
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

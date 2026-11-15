@@ -7,17 +7,26 @@ import { cn } from "@/lib/utils";
 
 export interface StatementRowForEdit {
   id: string;
-  entry_date: string;
+  entry_date?: string;
+  date?: string;
   sort_seq?: number;
-  entry_type: string;
+  entry_type?: string;
+  entryType?: string;
   particulars?: string;
   particulars_raw?: string;
+  particularsRaw?: string;
   doc_no?: string | null;
-  debit: number;
-  credit: number;
+  docNo?: string | null;
+  debit?: number;
+  debitTotal?: number;
+  credit?: number;
+  creditTotal?: number;
   payment_mode?: string | null;
+  paymentMode?: string | null;
   instrument_no?: string | null;
+  instrumentNo?: string | null;
   instrument_date?: string | null;
+  instrumentDate?: string | null;
   narration?: string | null;
 }
 
@@ -64,21 +73,31 @@ export function EntryEditModal({
     if (!isOpen) return;
 
     if (entryToEdit) {
-      const rowDate = entryToEdit.entry_date
-        ? new Date(entryToEdit.entry_date).toISOString().split("T")[0]
+      const rawDate = entryToEdit.entry_date || entryToEdit.date;
+      const rowDate = rawDate
+        ? new Date(rawDate).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0];
 
       setDate(rowDate);
-      setEntryType(entryToEdit.entry_type || defaultType);
-      setDebit(entryToEdit.debit > 0 ? String(entryToEdit.debit) : "");
-      setCredit(entryToEdit.credit > 0 ? String(entryToEdit.credit) : "");
-      setParticulars(entryToEdit.particulars_raw || entryToEdit.particulars || "");
-      setDocNo(entryToEdit.doc_no || "");
-      setPaymentMode(entryToEdit.payment_mode || "NONE");
-      setInstrumentNo(entryToEdit.instrument_no || "");
+      setEntryType(entryToEdit.entry_type || entryToEdit.entryType || defaultType);
+      const deb = entryToEdit.debit ?? entryToEdit.debitTotal ?? 0;
+      const cred = entryToEdit.credit ?? entryToEdit.creditTotal ?? 0;
+      setDebit(deb > 0 ? String(deb) : "");
+      setCredit(cred > 0 ? String(cred) : "");
+      setParticulars(
+        entryToEdit.particulars_raw ||
+        entryToEdit.particularsRaw ||
+        entryToEdit.particulars ||
+        ""
+      );
+      setDocNo(entryToEdit.doc_no || entryToEdit.docNo || "");
+      const pm = entryToEdit.payment_mode || entryToEdit.paymentMode;
+      setPaymentMode(pm || "NONE");
+      setInstrumentNo(entryToEdit.instrument_no || entryToEdit.instrumentNo || "");
+      const rawInstDate = entryToEdit.instrument_date || entryToEdit.instrumentDate;
       setInstrumentDate(
-        entryToEdit.instrument_date
-          ? new Date(entryToEdit.instrument_date).toISOString().split("T")[0]
+        rawInstDate
+          ? new Date(rawInstDate).toISOString().split("T")[0]
           : ""
       );
       setNarration(entryToEdit.narration || "");
@@ -159,11 +178,11 @@ export function EntryEditModal({
         debit: debNum,
         credit: credNum,
         particulars: particulars.trim(),
-        docNo: docNo.trim() || undefined,
-        paymentMode: paymentMode === "NONE" ? undefined : paymentMode,
-        instrumentNo: instrumentNo.trim() || undefined,
-        instrumentDate: instrumentDate || undefined,
-        narration: narration.trim() || undefined,
+        docNo: docNo.trim() ? docNo.trim() : null,
+        paymentMode: paymentMode && paymentMode !== "NONE" ? paymentMode : null,
+        instrumentNo: instrumentNo.trim() ? instrumentNo.trim() : null,
+        instrumentDate: instrumentDate ? instrumentDate : null,
+        narration: narration.trim() ? narration.trim() : null,
       };
 
       let res: Response;

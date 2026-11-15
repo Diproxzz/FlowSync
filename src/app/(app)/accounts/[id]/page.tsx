@@ -56,7 +56,7 @@ export default function AccountStatementPage() {
     setLoading(true);
     try {
       const url = `/api/ledger/accounts/${accountId}/statement?from=${fromDate}&to=${toDate}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       const json = await res.json();
       const payload = json.data || json;
       if (payload && (payload.account || payload.entries)) {
@@ -72,7 +72,7 @@ export default function AccountStatementPage() {
   const loadOpenItems = useCallback(async () => {
     try {
       const url = `/api/ledger/accounts/${accountId}/open-items?asOf=${toDate}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       const json = await res.json();
       const payload = json.data || json;
       if (payload && (payload.items || payload.totalOverdue !== undefined)) {

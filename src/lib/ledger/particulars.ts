@@ -33,6 +33,10 @@ export function formatParticularsText(data: ParticularsData): string {
     return "Opening Balance";
   }
 
+  if (particularsRaw && particularsRaw.trim()) {
+    return particularsRaw.trim();
+  }
+
   if (entryType === "SALE_INVOICE" || entryType === "PURCHASE_INVOICE") {
     return `Bill No. ${docNo || ""}`.trim();
   }

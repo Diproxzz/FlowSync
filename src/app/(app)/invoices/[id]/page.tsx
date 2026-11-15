@@ -17,7 +17,11 @@ import {
   Edit,
   Eye,
   FileSpreadsheet,
+  Mail,
+  MessageSquare,
+  Send,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { formatINR, formatDate, formatKg } from "@/lib/format";
 import { PreviewForm } from "@/components/upload/PreviewForm";
 import { ExtractedInvoice } from "@/lib/llm/schema";
@@ -85,6 +89,9 @@ interface InvoiceDetail {
     gstin: string | null;
     city: string | null;
     state: string | null;
+    email?: string | null;
+    phone?: string | null;
+    secondary_phone?: string | null;
   };
   items: InvoiceItem[];
   revisions: InvoiceRevision[];
@@ -105,6 +112,34 @@ export default function InvoiceDetailPage({
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [sendingChannel, setSendingChannel] = useState<"email" | "whatsapp" | "both" | null>(null);
+  const [dispatchStatus, setDispatchStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const handleSendInvoice = async (channel: "email" | "whatsapp" | "both") => {
+    if (!invoice) return;
+    setSendingChannel(channel);
+    setDispatchStatus(null);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.success === false) {
+        const errMsg =
+          typeof json.error === "string"
+            ? json.error
+            : json.error?.message || json.message || "Failed to send invoice";
+        throw new Error(errMsg);
+      }
+      setDispatchStatus({ type: "success", message: json.message });
+    } catch (err: any) {
+      setDispatchStatus({ type: "error", message: err.message || "Failed to send invoice" });
+    } finally {
+      setSendingChannel(null);
+    }
+  };
 
   const loadInvoice = useCallback(async () => {
     try {
@@ -738,6 +773,111 @@ export default function InvoiceDetailPage({
           </div>
         </div>
       )}
+      {/* Customer Dispatch Section: Email & WhatsApp */}
+      <div className="bg-surface border border-border rounded-sm p-4 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-primary" />
+              <h4 className="text-sm font-semibold text-ink">Send Invoice to Customer</h4>
+            </div>
+            <p className="text-xs text-ink-3">
+              Send {invoice.invoice_number.replace(/[/\\?%*:|"<>]/g, "-")}.pdf directly to {invoice.customer_name_snapshot} using contact details from Customers section.
+            </p>
+          </div>
+
+          {/* Customer Contact Badges */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-2 border border-border text-ink-2">
+              <Mail className="w-3.5 h-3.5 text-primary" />
+              <span className="font-mono text-[11px]">{invoice.customer.email || "No email registered"}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-2 border border-border text-ink-2">
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="font-mono text-[11px]">
+                {invoice.customer.phone || invoice.customer.secondary_phone || "No phone registered"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {dispatchStatus && (
+          <div
+            className={cn(
+              "p-3 rounded text-xs flex items-center justify-between gap-2",
+              dispatchStatus.type === "success"
+                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              {dispatchStatus.type === "success" ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+              <span>{dispatchStatus.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDispatchStatus(null)}
+              className="text-[11px] underline hover:opacity-80 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handleSendInvoice("email")}
+            disabled={sendingChannel !== null || !invoice.customer.email}
+            className={cn(
+              "inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded border border-border transition-all shadow-xs",
+              invoice.customer.email
+                ? "bg-surface hover:bg-surface-2 text-ink hover:border-primary/50 cursor-pointer"
+                : "bg-surface/50 text-ink-3 border-border/50 cursor-not-allowed",
+              sendingChannel === "email" && "opacity-60"
+            )}
+            title={invoice.customer.email ? `Email invoice to ${invoice.customer.email}` : "Add email in Customers section to enable"}
+          >
+            <Mail className="w-3.5 h-3.5 text-primary" />
+            <span>{sendingChannel === "email" ? "Sending Email..." : "Email Invoice"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSendInvoice("whatsapp")}
+            disabled={sendingChannel !== null || (!invoice.customer.phone && !invoice.customer.secondary_phone)}
+            className={cn(
+              "inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded border border-border transition-all shadow-xs",
+              (invoice.customer.phone || invoice.customer.secondary_phone)
+                ? "bg-surface hover:bg-surface-2 text-ink hover:border-emerald-500/50 cursor-pointer"
+                : "bg-surface/50 text-ink-3 border-border/50 cursor-not-allowed",
+              sendingChannel === "whatsapp" && "opacity-60"
+            )}
+            title={(invoice.customer.phone || invoice.customer.secondary_phone) ? `WhatsApp invoice to ${invoice.customer.phone || invoice.customer.secondary_phone}` : "Add phone in Customers section to enable"}
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+            <span>{sendingChannel === "whatsapp" ? "Sending WhatsApp..." : "WhatsApp Invoice"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSendInvoice("both")}
+            disabled={sendingChannel !== null || (!invoice.customer.email && !invoice.customer.phone && !invoice.customer.secondary_phone)}
+            className={cn(
+              "inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs cursor-pointer",
+              sendingChannel === "both" && "opacity-60",
+              (!invoice.customer.email && !invoice.customer.phone && !invoice.customer.secondary_phone) && "opacity-40 cursor-not-allowed"
+            )}
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>{sendingChannel === "both" ? "Sending..." : "Send Both (Email + WhatsApp)"}</span>
+          </button>
+        </div>
+      </div>
         </>
       )}
     </div>
