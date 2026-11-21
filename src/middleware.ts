@@ -34,6 +34,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/auth/reset-password" ||
     pathname === "/api/admin/sync-storage" ||
     pathname === "/api/admin/sync-products" ||
+    pathname === "/api/admin/migrate-from-old" ||
     (pathname === "/api/admin/backup" && !!request.headers.get("authorization")) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
