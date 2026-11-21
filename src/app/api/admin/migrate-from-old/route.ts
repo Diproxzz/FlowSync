@@ -1,10 +1,11 @@
-export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
-export async function GET(request: NextRequest) {
-  const secret = request.nextUrl.searchParams.get("key");
-  if (secret !== "migrate_now_indobest_2026") {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
+  const secretKey = req.nextUrl.searchParams.get("key");
+  if (secretKey !== "migrate_now_indobest_2026") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -12,7 +13,10 @@ export async function GET(request: NextRequest) {
   const newUrl = process.env.DATABASE_URL;
 
   if (!oldUrl || !newUrl) {
-    return NextResponse.json({ error: "Missing database URLs", oldUrl: !!oldUrl, newUrl: !!newUrl }, { status: 500 });
+    return NextResponse.json(
+      { error: "Both OLD_DATABASE_URL and DATABASE_URL must be configured" },
+      { status: 500 }
+    );
   }
 
   const oldPrisma = new PrismaClient({
@@ -29,111 +33,111 @@ export async function GET(request: NextRequest) {
 
     // 1. Settings
     const settings = await oldPrisma.setting.findMany();
-    await newPrisma.setting.createMany({ data: settings, skipDuplicates: true });
+    await (newPrisma.setting as any).createMany({ data: settings, skipDuplicates: true });
     stats.settings = settings.length;
 
     // 2. Customers & Aliases
     const customers = await oldPrisma.customer.findMany();
-    await newPrisma.customer.createMany({ data: customers, skipDuplicates: true });
+    await (newPrisma.customer as any).createMany({ data: customers, skipDuplicates: true });
     stats.customers = customers.length;
 
     const customerAliases = await oldPrisma.customerAlias.findMany();
-    await newPrisma.customerAlias.createMany({ data: customerAliases, skipDuplicates: true });
+    await (newPrisma.customerAlias as any).createMany({ data: customerAliases, skipDuplicates: true });
     stats.customerAliases = customerAliases.length;
 
     // 3. Suppliers & Aliases
     const suppliers = await oldPrisma.supplier.findMany();
-    await newPrisma.supplier.createMany({ data: suppliers, skipDuplicates: true });
+    await (newPrisma.supplier as any).createMany({ data: suppliers, skipDuplicates: true });
     stats.suppliers = suppliers.length;
 
     const supplierAliases = await oldPrisma.supplierAlias.findMany();
-    await newPrisma.supplierAlias.createMany({ data: supplierAliases, skipDuplicates: true });
+    await (newPrisma.supplierAlias as any).createMany({ data: supplierAliases, skipDuplicates: true });
     stats.supplierAliases = supplierAliases.length;
 
     // 4. Products & Aliases
     const products = await oldPrisma.product.findMany();
-    await newPrisma.product.createMany({ data: products, skipDuplicates: true });
+    await (newPrisma.product as any).createMany({ data: products, skipDuplicates: true });
     stats.products = products.length;
 
     const productAliases = await oldPrisma.productAlias.findMany();
-    await newPrisma.productAlias.createMany({ data: productAliases, skipDuplicates: true });
+    await (newPrisma.productAlias as any).createMany({ data: productAliases, skipDuplicates: true });
     stats.productAliases = productAliases.length;
 
     // 5. Upload Jobs
     const uploadJobs = await oldPrisma.uploadJob.findMany();
-    await newPrisma.uploadJob.createMany({ data: uploadJobs, skipDuplicates: true });
+    await (newPrisma.uploadJob as any).createMany({ data: uploadJobs, skipDuplicates: true });
     stats.uploadJobs = uploadJobs.length;
 
-    // 6. Invoices & Items
+    // 6. Invoices & Items & Revisions
     const invoices = await oldPrisma.invoice.findMany();
-    await newPrisma.invoice.createMany({ data: invoices, skipDuplicates: true });
+    await (newPrisma.invoice as any).createMany({ data: invoices, skipDuplicates: true });
     stats.invoices = invoices.length;
 
     const invoiceItems = await oldPrisma.invoiceItem.findMany();
-    await newPrisma.invoiceItem.createMany({ data: invoiceItems, skipDuplicates: true });
+    await (newPrisma.invoiceItem as any).createMany({ data: invoiceItems, skipDuplicates: true });
     stats.invoiceItems = invoiceItems.length;
 
     const invoiceRevisions = await oldPrisma.invoiceRevision.findMany();
-    await newPrisma.invoiceRevision.createMany({ data: invoiceRevisions, skipDuplicates: true });
+    await (newPrisma.invoiceRevision as any).createMany({ data: invoiceRevisions, skipDuplicates: true });
     stats.invoiceRevisions = invoiceRevisions.length;
 
-    // 7. Purchases & Items
+    // 7. Purchases & Items & Revisions
     const purchases = await oldPrisma.purchaseInvoice.findMany();
-    await newPrisma.purchaseInvoice.createMany({ data: purchases, skipDuplicates: true });
+    await (newPrisma.purchaseInvoice as any).createMany({ data: purchases, skipDuplicates: true });
     stats.purchases = purchases.length;
 
     const purchaseItems = await oldPrisma.purchaseInvoiceItem.findMany();
-    await newPrisma.purchaseInvoiceItem.createMany({ data: purchaseItems, skipDuplicates: true });
+    await (newPrisma.purchaseInvoiceItem as any).createMany({ data: purchaseItems, skipDuplicates: true });
     stats.purchaseItems = purchaseItems.length;
 
     const purchaseRevisions = await oldPrisma.purchaseInvoiceRevision.findMany();
-    await newPrisma.purchaseInvoiceRevision.createMany({ data: purchaseRevisions, skipDuplicates: true });
+    await (newPrisma.purchaseInvoiceRevision as any).createMany({ data: purchaseRevisions, skipDuplicates: true });
     stats.purchaseRevisions = purchaseRevisions.length;
 
-    // 8. Informal Invoices
+    // 8. Informal Invoices & Items
     const informalInvoices = await oldPrisma.informalInvoice.findMany();
-    await newPrisma.informalInvoice.createMany({ data: informalInvoices, skipDuplicates: true });
+    await (newPrisma.informalInvoice as any).createMany({ data: informalInvoices, skipDuplicates: true });
     stats.informalInvoices = informalInvoices.length;
 
     const informalItems = await oldPrisma.informalInvoiceItem.findMany();
-    await newPrisma.informalInvoiceItem.createMany({ data: informalItems, skipDuplicates: true });
+    await (newPrisma.informalInvoiceItem as any).createMany({ data: informalItems, skipDuplicates: true });
     stats.informalInvoiceItems = informalItems.length;
 
     // 9. Ledger Accounts & Imports
     const ledgerAccounts = await oldPrisma.ledgerAccount.findMany();
-    await newPrisma.ledgerAccount.createMany({ data: ledgerAccounts, skipDuplicates: true });
+    await (newPrisma.ledgerAccount as any).createMany({ data: ledgerAccounts, skipDuplicates: true });
     stats.ledgerAccounts = ledgerAccounts.length;
 
     const statementImports = await oldPrisma.statementImport.findMany();
-    await newPrisma.statementImport.createMany({ data: statementImports, skipDuplicates: true });
+    await (newPrisma.statementImport as any).createMany({ data: statementImports, skipDuplicates: true });
     stats.statementImports = statementImports.length;
 
-    // 10. Ledger Entries & Audits
+    // 10. Ledger Entries & Allocations & Audits
     const ledgerEntries = await oldPrisma.ledgerEntry.findMany();
-    await newPrisma.ledgerEntry.createMany({ data: ledgerEntries, skipDuplicates: true });
+    await (newPrisma.ledgerEntry as any).createMany({ data: ledgerEntries, skipDuplicates: true });
     stats.ledgerEntries = ledgerEntries.length;
 
     const ledgerAllocations = await oldPrisma.ledgerAllocation.findMany();
-    await newPrisma.ledgerAllocation.createMany({ data: ledgerAllocations, skipDuplicates: true });
+    await (newPrisma.ledgerAllocation as any).createMany({ data: ledgerAllocations, skipDuplicates: true });
     stats.ledgerAllocations = ledgerAllocations.length;
 
     const ledgerAudits = await oldPrisma.ledgerAudit.findMany();
-    await newPrisma.ledgerAudit.createMany({ data: ledgerAudits, skipDuplicates: true });
+    await (newPrisma.ledgerAudit as any).createMany({ data: ledgerAudits, skipDuplicates: true });
     stats.ledgerAudits = ledgerAudits.length;
 
     // 11. Stock Movements
     const stockMovements = await oldPrisma.stockMovement.findMany();
-    await newPrisma.stockMovement.createMany({ data: stockMovements, skipDuplicates: true });
+    await (newPrisma.stockMovement as any).createMany({ data: stockMovements, skipDuplicates: true });
     stats.stockMovements = stockMovements.length;
 
     // 12. Extraction Logs
     const extractionLogs = await oldPrisma.extractionLog.findMany();
-    await newPrisma.extractionLog.createMany({ data: extractionLogs, skipDuplicates: true });
+    await (newPrisma.extractionLog as any).createMany({ data: extractionLogs, skipDuplicates: true });
     stats.extractionLogs = extractionLogs.length;
 
     // 13. Business Logs
     const businessLogs = await oldPrisma.businessLog.findMany();
-    await newPrisma.businessLog.createMany({ data: businessLogs, skipDuplicates: true });
+    await (newPrisma.businessLog as any).createMany({ data: businessLogs, skipDuplicates: true });
     stats.businessLogs = businessLogs.length;
 
     // Check latest invoice date and ledger date in old db
