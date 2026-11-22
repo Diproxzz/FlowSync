@@ -563,6 +563,7 @@ export async function POST(request: NextRequest) {
         customerName: result.customerName,
         grandTotal: result.grandTotal,
       },
+      createdAt: invoiceDate,
     });
 
     return NextResponse.json({

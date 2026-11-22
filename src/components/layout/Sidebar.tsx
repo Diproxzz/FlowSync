@@ -24,6 +24,8 @@ import {
   ShieldAlert,
   ArrowLeft,
   History,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -153,6 +155,13 @@ export function Sidebar() {
       : []),
     ...(isLedgerEnabled
       ? [
+          {
+            title: "Payments",
+            items: [
+              { label: "Credit", href: "/payments/credit", icon: ArrowDownLeft },
+              { label: "Debit", href: "/payments/debit", icon: ArrowUpRight },
+            ],
+          },
           {
             title: "Accounts & Ledger",
             items: [

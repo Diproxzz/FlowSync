@@ -285,6 +285,14 @@ export async function syncProductMaster() {
       console.log("Updated v_stock_summary database view.");
     }
   }
+
+  try {
+    const { syncAllBusinessLogs } = await import("../src/lib/logs/sync");
+    await syncAllBusinessLogs();
+    console.log("Business logs synchronized with invoice and ledger dates.");
+  } catch (err) {
+    console.error("Failed to sync business logs:", err);
+  }
 }
 
 syncProductMaster()

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { normalizeInvoiceNumber } from "@/lib/matching/normalize";
 import Decimal from "decimal.js";
 import { requireFoundingReadResponse, requireFoundingWrite } from "@/lib/auth/session";
+import { syncBusinessLogForLedgerEntry } from "@/lib/logs/business-logger";
 
 export async function GET(
   request: NextRequest,
@@ -123,6 +124,15 @@ export async function PATCH(
       return res;
     });
 
+    // Keep business activity log updated with latest amount and entry date
+    const updatedFull = await prisma.ledgerEntry.findUnique({
+      where: { id },
+      include: { account: true },
+    });
+    if (updatedFull) {
+      await syncBusinessLogForLedgerEntry(updatedFull as any);
+    }
+
     return NextResponse.json({
       success: true,
       entry: updated,
@@ -153,6 +163,10 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
+
+    await prisma.businessLog.deleteMany({
+      where: { entity_type: "PAYMENT", entity_id: id },
+    });
 
     await prisma.ledgerEntry.delete({
       where: { id },

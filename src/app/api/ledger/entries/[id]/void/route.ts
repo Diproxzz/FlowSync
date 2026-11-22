@@ -70,6 +70,11 @@ export async function POST(
       return res;
     });
 
+    // Remove from business activity logs so voided transactions do not show as active payments
+    await prisma.businessLog.deleteMany({
+      where: { entity_type: "PAYMENT", entity_id: id },
+    });
+
     return NextResponse.json({
       success: true,
       message: `Entry voided successfully.`,

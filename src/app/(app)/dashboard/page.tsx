@@ -20,6 +20,7 @@ import {
   Boxes,
   Percent,
   Receipt,
+  CreditCard,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -41,6 +42,7 @@ import { AnalyticsData, TrendPoint, TopItem, AbcProduct } from "@/lib/analytics"
 import { PurchasesTab } from "@/components/dashboard/PurchasesTab";
 import { ReceivablesTab } from "@/components/dashboard/ReceivablesTab";
 import { ProfitabilityTab } from "@/components/dashboard/ProfitabilityTab";
+import { CustomerPaymentsTab } from "@/components/dashboard/CustomerPaymentsTab";
 
 // Accessible Okabe-Ito Palette
 const COLORS = {
@@ -55,7 +57,7 @@ const COLORS = {
 };
 
 export default function DashboardPage() {
-  const [section, setSection] = useState<"sales" | "purchases" | "receivables" | "profitability">("sales");
+  const [section, setSection] = useState<"sales" | "purchases" | "receivables" | "payments" | "profitability">("sales");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>("fy");
@@ -153,16 +155,28 @@ export default function DashboardPage() {
                 </button>
               )}
               {process.env.NEXT_PUBLIC_FEATURE_LEDGER !== "false" && (
-                <button
-                  onClick={() => setSection("receivables")}
-                  className={`px-3 py-1 rounded-xs transition ${
-                    section === "receivables"
-                      ? "bg-blue-600 text-white font-semibold shadow-xs"
-                      : "text-ink-2 hover:text-ink"
-                  }`}
-                >
-                  Receivables
-                </button>
+                <>
+                  <button
+                    onClick={() => setSection("receivables")}
+                    className={`px-3 py-1 rounded-xs transition ${
+                      section === "receivables"
+                        ? "bg-blue-600 text-white font-semibold shadow-xs"
+                        : "text-ink-2 hover:text-ink"
+                    }`}
+                  >
+                    Receivables
+                  </button>
+                  <button
+                    onClick={() => setSection("payments")}
+                    className={`px-3 py-1 rounded-xs transition flex items-center gap-1.5 ${
+                      section === "payments"
+                        ? "bg-emerald-600 text-white font-semibold shadow-xs"
+                        : "text-ink-2 hover:text-ink"
+                    }`}
+                  >
+                    <span>Customer Payments</span>
+                  </button>
+                </>
               )}
               <button
                 onClick={() => setSection("profitability")}
@@ -177,7 +191,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-xs text-ink-3 mt-1">
-            {section === "profitability"
+            {section === "payments"
+              ? "Graphical display of customer payments filtered by months, and timeline of when customers last made payments"
+              : section === "profitability"
               ? "Product-level landed costs, weighted average selling prices (WASP/WAPC), gross margin %, and customer profitability"
               : section === "receivables"
               ? "Party ledger statements, receivables ageing, top debtors, and cash collections"
@@ -188,136 +204,142 @@ export default function DashboardPage() {
         </div>
 
         {/* Period Selector Tabs */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs">
-            {[
-              { id: "this_month", label: "This Month" },
-              { id: "last_30", label: "Last 30 Days" },
-              { id: "fy", label: "FY 2026-27" },
-              { id: "all", label: "All Time" },
-              { id: "custom", label: "Custom" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setPeriod(tab.id)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-xs transition ${
-                  period === tab.id
-                    ? "bg-surface text-ink shadow-xs border border-border/40 font-semibold"
-                    : "text-ink-3 hover:text-ink"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={loadAnalytics}
-            className="p-1.5 border border-border bg-surface text-ink-3 hover:text-ink rounded-sm transition"
-            title="Refresh analytics"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Row */}
-      <div className="bg-surface p-3 border border-border rounded-sm flex flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5 text-ink-3 font-medium">
-          <Filter className="w-3.5 h-3.5" />
-          <span>Filters:</span>
-        </div>
-
-        {section === "sales" ? (
-          /* Customer Select */
-          <div className="flex-1 min-w-[180px] max-w-xs">
-            <select
-              value={selectedCustomer}
-              onChange={(e) => setSelectedCustomer(e.target.value)}
-              className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
-            >
-              <option value="">All Customers / Buyers</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
+        {section !== "payments" && section !== "receivables" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs">
+              {[
+                { id: "this_month", label: "This Month" },
+                { id: "last_30", label: "Last 30 Days" },
+                { id: "fy", label: "FY 2026-27" },
+                { id: "all", label: "All Time" },
+                { id: "custom", label: "Custom" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setPeriod(tab.id)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-xs transition ${
+                    period === tab.id
+                      ? "bg-surface text-ink shadow-xs border border-border/40 font-semibold"
+                      : "text-ink-3 hover:text-ink"
+                  }`}
+                >
+                  {tab.label}
+                </button>
               ))}
-            </select>
-          </div>
-        ) : (
-          /* Supplier Select */
-          <div className="flex-1 min-w-[180px] max-w-xs">
-            <select
-              value={selectedSupplier}
-              onChange={(e) => setSelectedSupplier(e.target.value)}
-              className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
-            >
-              <option value="">All Suppliers / Vendors</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+            </div>
 
-        {/* Product Select */}
-        <div className="flex-1 min-w-[180px] max-w-xs">
-          <select
-            value={selectedProduct}
-            onChange={(e) => setSelectedProduct(e.target.value)}
-            className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
-          >
-            <option value="">All Products</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.code} - {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Custom Date Pickers */}
-        {period === "custom" && (
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="px-2 py-1 bg-bg border border-border rounded-sm text-xs text-ink font-mono"
-            />
-            <span className="text-ink-3">to</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="px-2 py-1 bg-bg border border-border rounded-sm text-xs text-ink font-mono"
-            />
             <button
               onClick={loadAnalytics}
-              className="px-2.5 py-1 bg-primary text-primary-fg text-xs rounded-sm font-medium hover:opacity-90"
+              className="p-1.5 border border-border bg-surface text-ink-3 hover:text-ink rounded-sm transition"
+              title="Refresh analytics"
             >
-              Apply
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </button>
           </div>
         )}
-
-        {(selectedCustomer || selectedSupplier || selectedProduct) && (
-          <button
-            onClick={() => {
-              setSelectedCustomer("");
-              setSelectedSupplier("");
-              setSelectedProduct("");
-            }}
-            className="text-xs text-primary hover:underline ml-auto"
-          >
-            Clear Filters
-          </button>
-        )}
       </div>
 
-      {section === "profitability" ? (
+      {/* Filter Row */}
+      {section !== "payments" && section !== "receivables" && (
+        <div className="bg-surface p-3 border border-border rounded-sm flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-1.5 text-ink-3 font-medium">
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filters:</span>
+          </div>
+
+          {section === "sales" ? (
+            /* Customer Select */
+            <div className="flex-1 min-w-[180px] max-w-xs">
+              <select
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
+              >
+                <option value="">All Customers / Buyers</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            /* Supplier Select */
+            <div className="flex-1 min-w-[180px] max-w-xs">
+              <select
+                value={selectedSupplier}
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+                className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
+              >
+                <option value="">All Suppliers / Vendors</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Product Select */}
+          <div className="flex-1 min-w-[180px] max-w-xs">
+            <select
+              value={selectedProduct}
+              onChange={(e) => setSelectedProduct(e.target.value)}
+              className="w-full px-2.5 py-1 bg-bg border border-border rounded-sm text-xs text-ink"
+            >
+              <option value="">All Products</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} - {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Custom Date Pickers */}
+          {period === "custom" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="px-2 py-1 bg-bg border border-border rounded-sm text-xs text-ink font-mono"
+              />
+              <span className="text-ink-3">to</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="px-2 py-1 bg-bg border border-border rounded-sm text-xs text-ink font-mono"
+              />
+              <button
+                onClick={loadAnalytics}
+                className="px-2.5 py-1 bg-primary text-primary-fg text-xs rounded-sm font-medium hover:opacity-90"
+              >
+                Apply
+              </button>
+            </div>
+          )}
+
+          {(selectedCustomer || selectedSupplier || selectedProduct) && (
+            <button
+              onClick={() => {
+                setSelectedCustomer("");
+                setSelectedSupplier("");
+                setSelectedProduct("");
+              }}
+              className="text-xs text-primary hover:underline ml-auto"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {section === "payments" ? (
+        <CustomerPaymentsTab />
+      ) : section === "profitability" ? (
         <ProfitabilityTab
           period={period}
           fromDate={fromDate}
@@ -723,6 +745,28 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Quick Customer Collections & Last Made Payment Callout */}
+          <div className="bg-surface border border-border rounded-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                <CreditCard className="w-5 h-5" />
+              </span>
+              <div>
+                <h4 className="text-xs font-semibold text-ink">Customer Collections & Payment Timelines</h4>
+                <p className="text-[11px] text-ink-3">
+                  Graphically analyze which customer has paid how much amount by month, and monitor when each customer last made a payment.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSection("payments")}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-sm transition flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer shadow-xs"
+            >
+              <span>View Customer Payments</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

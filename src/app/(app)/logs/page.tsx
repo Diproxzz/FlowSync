@@ -74,6 +74,14 @@ export default function LogsPage() {
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
+      const hasTime = d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0 || d.getUTCSeconds() !== 0;
+      if (!hasTime) {
+        return d.toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+      }
       return d.toLocaleString("en-IN", {
         day: "2-digit",
         month: "short",
@@ -107,11 +115,17 @@ export default function LogsPage() {
           icon: CreditCard,
           className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
         };
+      case "PAYMENT_MADE":
+        return {
+          label: "Payment to Supplier",
+          icon: CreditCard,
+          className: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+        };
       case "STATEMENT_SENT":
         return {
           label: "Statement Emailed",
           icon: Mail,
-          className: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+          className: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
         };
       case "CUSTOMER_CREATED":
         return {
@@ -222,14 +236,24 @@ export default function LogsPage() {
             All ({totalCount})
           </button>
           <button
-            onClick={() => setActionFilter("INVOICE_GENERATED")}
+            onClick={() => setActionFilter("INVOICES")}
             className={`px-2.5 py-1 rounded-sm transition text-xs font-medium ${
-              actionFilter === "INVOICE_GENERATED"
+              actionFilter === "INVOICES"
                 ? "bg-primary text-primary-fg"
                 : "bg-surface-2 text-ink-3 hover:text-ink hover:bg-surface"
             }`}
           >
             Invoices
+          </button>
+          <button
+            onClick={() => setActionFilter("PAYMENTS")}
+            className={`px-2.5 py-1 rounded-sm transition text-xs font-medium ${
+              actionFilter === "PAYMENTS"
+                ? "bg-primary text-primary-fg"
+                : "bg-surface-2 text-ink-3 hover:text-ink hover:bg-surface"
+            }`}
+          >
+            All Payments
           </button>
           <button
             onClick={() => setActionFilter("PAYMENT_RECEIVED")}
@@ -239,7 +263,17 @@ export default function LogsPage() {
                 : "bg-surface-2 text-ink-3 hover:text-ink hover:bg-surface"
             }`}
           >
-            Payments
+            Customer Receipts
+          </button>
+          <button
+            onClick={() => setActionFilter("PAYMENT_MADE")}
+            className={`px-2.5 py-1 rounded-sm transition text-xs font-medium ${
+              actionFilter === "PAYMENT_MADE"
+                ? "bg-primary text-primary-fg"
+                : "bg-surface-2 text-ink-3 hover:text-ink hover:bg-surface"
+            }`}
+          >
+            Supplier Debits
           </button>
           <button
             onClick={() => setActionFilter("STATEMENT_SENT")}

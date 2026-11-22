@@ -46,6 +46,7 @@ import {
   ProductMarginRow,
   CustomerProfitabilityRow,
 } from "@/lib/analytics/profitability";
+import { ProfitabilityComparisonBox } from "./ProfitabilityComparisonBox";
 
 const COLORS = {
   primary: "#0F4C4A",
@@ -283,6 +284,9 @@ export function ProfitabilityTab({
           <span className="text-[10px] text-ink-3 block mt-0.5">Landed capital in stock</span>
         </div>
       </div>
+
+      {/* Comparison Box: Sold vs Spent on Purchase vs Received */}
+      <ProfitabilityComparisonBox />
 
       {/* Top Drivers Highlights */}
       {(kpis.topProfitProduct || kpis.topProfitCustomer) && (

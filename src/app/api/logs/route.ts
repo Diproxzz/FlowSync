@@ -32,7 +32,13 @@ export async function GET(request: NextRequest) {
     };
 
     if (action) {
-      where.action = action;
+      if (action === "PAYMENTS") {
+        where.action = { in: ["PAYMENT_RECEIVED", "PAYMENT_MADE"] };
+      } else if (action === "INVOICES") {
+        where.action = { in: ["INVOICE_GENERATED", "INVOICE_CONFIRMED"] };
+      } else {
+        where.action = action;
+      }
     }
 
     if (search) {

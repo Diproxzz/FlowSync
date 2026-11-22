@@ -175,14 +175,30 @@ export async function POST(request: NextRequest) {
     });
 
     const formattedAmount = "₹ " + numAmount.toNumber().toLocaleString("en-IN");
-    const desc = entryType === "RECEIPT" ? account.display_name + " paid " + formattedAmount + (instrumentNo ? " via Cheque/Ref " + instrumentNo : "") : entryType + " of " + formattedAmount + " recorded for " + account.display_name;
+    const isReceipt = entryType === "RECEIPT";
+    const isSupplierPayment = account.account_type === "SUPPLIER" && entryType === "PAYMENT";
+    const refSuffix = instrumentNo ? " via Cheque/Ref " + instrumentNo : "";
+
+    const action = isReceipt
+      ? "PAYMENT_RECEIVED"
+      : isSupplierPayment
+      ? "PAYMENT_MADE"
+      : "ENTRY_RECORDED";
+
+    const desc = isReceipt
+      ? account.display_name + " paid " + formattedAmount + refSuffix
+      : isSupplierPayment
+      ? "Paid " + formattedAmount + " to " + account.display_name + refSuffix
+      : entryType + " of " + formattedAmount + " recorded for " + account.display_name;
+
     await logBusinessActivity({
-      action: entryType === "RECEIPT" ? "PAYMENT_RECEIVED" : "ENTRY_RECORDED",
+      action,
       description: desc,
       entityType: "PAYMENT",
       entityId: result.id,
       amount: numAmount.toNumber(),
       metadata: { accountName: account.display_name, entryType, docNo: docNo || null, paymentMode: paymentMode || null, instrumentNo: instrumentNo || null },
+      createdAt: new Date(entryDate),
     });
 
     return NextResponse.json({

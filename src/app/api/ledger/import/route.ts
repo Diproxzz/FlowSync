@@ -5,6 +5,7 @@ import { normalizeCustomerName, normalizeInvoiceNumber } from "@/lib/matching/no
 import { ExtractedStatementSchema } from "@/lib/ledger/parse/schema";
 import { validateStatement } from "@/lib/ledger/parse/validate";
 import { requireFoundingWrite } from "@/lib/auth/session";
+import { syncBusinessLogForLedgerEntry } from "@/lib/logs/business-logger";
 
 export async function POST(request: NextRequest) {
   const auth = await requireFoundingWrite();
@@ -329,6 +330,21 @@ export async function POST(request: NextRequest) {
         totalEntries: parsedDraft.entries.length,
       };
     });
+
+    // Auto-sync imported ledger entries into business activity logs as per entry dates
+    try {
+      const addedEntries = await prisma.ledgerEntry.findMany({
+        where: { account_id: result.accountId, is_void: false },
+        include: { account: true },
+        take: 200,
+        orderBy: { created_at: "desc" },
+      });
+      for (const entry of addedEntries) {
+        await syncBusinessLogForLedgerEntry(entry as any);
+      }
+    } catch (e) {
+      console.error("Failed to auto-sync imported entries to business logs:", e);
+    }
 
     return NextResponse.json({
       success: true,

@@ -491,6 +491,7 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
         invoiceNumber: result.invoice.invoice_number,
         customerName: result.invoice.customer_name_snapshot,
       },
+      createdAt: result.invoice.invoice_date,
     });
   }
 
