@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "node scripts/sync-production-fixes.js && next start",
+    "start": "node scripts/start.js",
     "db:sync": "prisma db push --skip-generate && tsx scripts/sync-product-master.ts && tsx scripts/sync-production-data.ts",
     "lint": "next lint",
     "format": "prettier --write .",

@@ -41,6 +41,9 @@ export async function syncAllBusinessLogs() {
     }
   }
 
+  const toCreateInvoices: Prisma.BusinessLogCreateManyInput[] = [];
+  const toUpdateInvoices: Array<{ id: string; created_at: Date; amount: number }> = [];
+
   for (const inv of allInvoices) {
     if (inv.invoice_number.toUpperCase().includes("TEST")) continue;
 
@@ -51,34 +54,42 @@ export async function syncAllBusinessLogs() {
 
     if (existing) {
       const existingDate = new Date(existing.created_at);
-      // If dates differ by more than 1 minute
       if (Math.abs(existingDate.getTime() - invDate.getTime()) > 60000) {
-        await prisma.businessLog.update({
-          where: { id: existing.id },
-          data: {
-            created_at: invDate,
-            amount: new Prisma.Decimal(grandTotalNum),
-          },
+        toUpdateInvoices.push({
+          id: existing.id,
+          created_at: invDate,
+          amount: grandTotalNum,
         });
-        invoicesUpdated++;
       }
     } else {
-      await prisma.businessLog.create({
-        data: {
-          action: "INVOICE_CONFIRMED",
-          description: desc,
-          entity_type: "INVOICE",
-          entity_id: inv.id,
-          amount: new Prisma.Decimal(grandTotalNum),
-          metadata: {
-            invoiceNumber: inv.invoice_number,
-            customerName: inv.customer_name_snapshot,
-          },
-          created_at: invDate,
+      toCreateInvoices.push({
+        action: "INVOICE_CONFIRMED",
+        description: desc,
+        entity_type: "INVOICE",
+        entity_id: inv.id,
+        amount: new Prisma.Decimal(grandTotalNum),
+        metadata: {
+          invoiceNumber: inv.invoice_number,
+          customerName: inv.customer_name_snapshot,
         },
+        created_at: invDate,
       });
-      invoicesCreated++;
     }
+  }
+
+  if (toCreateInvoices.length > 0) {
+    await prisma.businessLog.createMany({ data: toCreateInvoices });
+    invoicesCreated = toCreateInvoices.length;
+  }
+  for (const item of toUpdateInvoices) {
+    await prisma.businessLog.update({
+      where: { id: item.id },
+      data: {
+        created_at: item.created_at,
+        amount: new Prisma.Decimal(item.amount),
+      },
+    });
+    invoicesUpdated++;
   }
 
   // 2. Process Customer Payments (RECEIPT / Credit)
@@ -125,6 +136,14 @@ export async function syncAllBusinessLogs() {
     }
   }
 
+  const toCreatePayments: Prisma.BusinessLogCreateManyInput[] = [];
+  const toUpdatePayments: Array<{
+    id: string;
+    created_at: Date;
+    amount: number;
+    description: string;
+  }> = [];
+
   // Sync Customer Receipts
   for (const entry of customerReceipts) {
     const entryDate = new Date(entry.entry_date);
@@ -140,35 +159,29 @@ export async function syncAllBusinessLogs() {
     if (existing) {
       const existingDate = new Date(existing.created_at);
       if (Math.abs(existingDate.getTime() - entryDate.getTime()) > 60000) {
-        await prisma.businessLog.update({
-          where: { id: existing.id },
-          data: {
-            created_at: entryDate,
-            amount: new Prisma.Decimal(amount),
-            description: desc,
-          },
+        toUpdatePayments.push({
+          id: existing.id,
+          created_at: entryDate,
+          amount,
+          description: desc,
         });
-        paymentsUpdated++;
       }
     } else {
-      await prisma.businessLog.create({
-        data: {
-          action: "PAYMENT_RECEIVED",
-          description: desc,
-          entity_type: "PAYMENT",
-          entity_id: entry.id,
-          amount: new Prisma.Decimal(amount),
-          metadata: {
-            accountName: entry.account.display_name,
-            entryType: entry.entry_type,
-            docNo: entry.doc_no,
-            paymentMode: entry.payment_mode,
-            instrumentNo: entry.instrument_no,
-          },
-          created_at: entryDate,
+      toCreatePayments.push({
+        action: "PAYMENT_RECEIVED",
+        description: desc,
+        entity_type: "PAYMENT",
+        entity_id: entry.id,
+        amount: new Prisma.Decimal(amount),
+        metadata: {
+          accountName: entry.account.display_name,
+          entryType: entry.entry_type,
+          docNo: entry.doc_no,
+          paymentMode: entry.payment_mode,
+          instrumentNo: entry.instrument_no,
         },
+        created_at: entryDate,
       });
-      paymentsCreated++;
     }
   }
 
@@ -187,36 +200,46 @@ export async function syncAllBusinessLogs() {
     if (existing) {
       const existingDate = new Date(existing.created_at);
       if (Math.abs(existingDate.getTime() - entryDate.getTime()) > 60000) {
-        await prisma.businessLog.update({
-          where: { id: existing.id },
-          data: {
-            created_at: entryDate,
-            amount: new Prisma.Decimal(amount),
-            description: desc,
-          },
+        toUpdatePayments.push({
+          id: existing.id,
+          created_at: entryDate,
+          amount,
+          description: desc,
         });
-        paymentsUpdated++;
       }
     } else {
-      await prisma.businessLog.create({
-        data: {
-          action: "PAYMENT_MADE",
-          description: desc,
-          entity_type: "PAYMENT",
-          entity_id: entry.id,
-          amount: new Prisma.Decimal(amount),
-          metadata: {
-            accountName: entry.account.display_name,
-            entryType: entry.entry_type,
-            docNo: entry.doc_no,
-            paymentMode: entry.payment_mode,
-            instrumentNo: entry.instrument_no,
-          },
-          created_at: entryDate,
+      toCreatePayments.push({
+        action: "PAYMENT_MADE",
+        description: desc,
+        entity_type: "PAYMENT",
+        entity_id: entry.id,
+        amount: new Prisma.Decimal(amount),
+        metadata: {
+          accountName: entry.account.display_name,
+          entryType: entry.entry_type,
+          docNo: entry.doc_no,
+          paymentMode: entry.payment_mode,
+          instrumentNo: entry.instrument_no,
         },
+        created_at: entryDate,
       });
-      paymentsCreated++;
     }
+  }
+
+  if (toCreatePayments.length > 0) {
+    await prisma.businessLog.createMany({ data: toCreatePayments });
+    paymentsCreated = toCreatePayments.length;
+  }
+  for (const item of toUpdatePayments) {
+    await prisma.businessLog.update({
+      where: { id: item.id },
+      data: {
+        created_at: item.created_at,
+        amount: new Prisma.Decimal(item.amount),
+        description: item.description,
+      },
+    });
+    paymentsUpdated++;
   }
 
   return {
