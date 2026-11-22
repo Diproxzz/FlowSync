@@ -219,6 +219,10 @@ async function syncAllBusinessLogs() {
   });
 }
 
-syncAllBusinessLogs()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+if (require.main === module) {
+  syncAllBusinessLogs()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());
+}
+
+module.exports = { syncAllBusinessLogs };
