@@ -90,8 +90,16 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
   let newCustomerCreated = false;
   let newProductsCreatedCount = 0;
 
-  // Execute in single Prisma Transaction
-  const result = await prisma.$transaction(async (tx) => {
+  // Handle File Storage before DB transaction to avoid holding DB transaction locks
+  let storageKey: string | null = null;
+  if (fileToken) {
+    const finalFileName = `invoices/${numberNorm.replace(/[^A-Z0-9-]/gi, "_")}.pdf`;
+    storageKey = await storage.persist(fileToken, finalFileName);
+  }
+
+  // Execute in single Prisma Transaction with extended timeout for remote network latency
+  const result = await prisma.$transaction(
+    async (tx) => {
     // 3. Resolve Customer
     const rawCustomerName = draft.customer.name?.trim();
     let customerId = customerResolution.customerId;
@@ -222,12 +230,7 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
       }
     }
 
-    // 5. Handle File Storage
-    let storageKey: string | null = null;
-    if (fileToken) {
-      const finalFileName = `invoices/${numberNorm.replace(/[^A-Z0-9-]/gi, "_")}.pdf`;
-      storageKey = await storage.persist(fileToken, finalFileName);
-    }
+    // 5. File storage persistence already handled before transaction
 
     // Calculate financial year string (e.g. "2026-27")
     const invDate = new Date(draft.invoice.date);
@@ -478,6 +481,9 @@ export async function confirmInvoice(input: ConfirmInvoiceInput) {
       newCustomerCreated,
       newProductsCreatedCount,
     };
+  }, {
+    maxWait: 15000,
+    timeout: 60000,
   });
 
   if (!result.invoice.invoice_number.toUpperCase().includes("TEST") && process.env.NODE_ENV !== "test") {

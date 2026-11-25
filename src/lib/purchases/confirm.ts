@@ -488,5 +488,8 @@ export async function confirmPurchaseInvoice(input: ConfirmPurchaseInput) {
       grandTotal: savedPurchase.grand_total,
       mode,
     };
+  }, {
+    maxWait: 15000,
+    timeout: 60000,
   });
 }

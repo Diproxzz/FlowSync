@@ -550,6 +550,9 @@ export async function POST(request: NextRequest) {
         customerName: cleanName,
         grandTotal: calc.grandTotal,
       };
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
 
     await logBusinessActivity({
