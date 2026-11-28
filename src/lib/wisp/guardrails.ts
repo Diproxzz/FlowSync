@@ -18,15 +18,16 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /\b(\.env|environment\s+variables?|DATABASE_URL|JWT_SECRET)\b/i,
 
   // 2. Creator & Identity Probing
-  /\bwho\s+(made|created|built|developed|programmed|trained|designed|authored)\s+(you|wisp)\b/i,
-  /\bwho\s+is\s+your\s+(creator|developer|maker|author|programmer|owner|boss|company)\b/i,
-  /\b(are\s+you|were\s+you\s+made\s+by)\s+(chatgpt|openai|anthropic|google|deepmind|meta|llama|mistral)\b/i,
-  /\bwhat\s+(company|organization)\s+(owns|created|made|built)\s+you\b/i,
+  /\bwho\s+(made|created|built|developed|programmed|trained|designed|authored)\s+(you|wisp|this|the\s+website|the\s+app|flowpilot|invoicer)\b/i,
+  /\bwho\s+is\s+(your|the)\s+(creator|developer|maker|author|programmer|owner|boss|company)\b/i,
+  /\b(are\s+you|were\s+you\s+made\s+by)\s+(chatgpt|openai|anthropic|google|deepmind|meta|llama|mistral|groq)\b/i,
+  /\bwhat\s+(company|organization|person|team)\s+(owns|created|made|built|developed)\s+(you|this|it)\b/i,
 
-  // 3. System Architecture & Source Code Probing
-  /\bhow\s+are\s+you\s+(built|made|implemented|coded|programmed|architected)\b/i,
-  /\b(what\s+model\s+are\s+you|which\s+llm\s+are\s+you|what\s+version\s+of\s+gpt)\b/i,
-  /\b(show|print|reveal|give|display)\s+(me\s+)?(your|the)\s+(source\s+code|codebase|system\s+prompt|prompt\s+instructions)\b/i,
+  // 3. System Architecture, LLM Name, Tech Stack & Source Code Probing
+  /\bhow\s+(are\s+you|is\s+(it|this|the\s+app|the\s+website|wisp))\s+(built|made|implemented|coded|programmed|architected)\b/i,
+  /\b(what|which)\s+(llm|ai\s+model|model|gpt|gemini|groq|claude|llama|tech\s+stack|framework|database|library|packages?)\b/i,
+  /\b(powered\s+by|running\s+on|built\s+with|written\s+in)\b.*\b(llm|model|gpt|gemini|groq|next\.?js|prisma|postgres|react|node)\b/i,
+  /\b(show|print|reveal|give|display|tell\s+me)\s+(me\s+)?(your|the)\s+(source\s+code|codebase|system\s+prompt|prompt\s+instructions|tech\s+stack|architecture)\b/i,
   /\b(what\s+is|repeat|output)\s+your\s+(system\s+prompt|initial\s+prompt|hidden\s+prompt|rules|instructions)\b/i,
 
   // 4. Jailbreak & Prompt Injection attempts

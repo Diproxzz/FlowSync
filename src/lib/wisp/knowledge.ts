@@ -104,7 +104,7 @@ export const APP_GUIDES: TaskGuide[] = [
       "  * If Purchases > Sales (Orange bar taller than Blue): The company is building up inventory, stocking raw materials, or taking advance bulk shipments."
     ],
     tips: [
-      "Uses high-contrast Okabe-Ito accessible color palette (Blue `#0072B2` for Sales, Orange `#E69F00` for Purchases).",
+      "Uses high-contrast theme-aware chart colors that adapt automatically between Light Mode and Dark Mode.",
       "Hover over any bar to inspect exact values in ₹ Lakhs."
     ]
   },
@@ -150,7 +150,7 @@ export const APP_GUIDES: TaskGuide[] = [
     steps: [
       "Navigate to [Upload Invoice](/upload).",
       "Drag and drop your invoice PDF or image file (PNG/JPG) into the upload dropzone, or click 'Select File'.",
-      "The system will scan and transcribe the document using the active vision model (Groq, Gemini, or local models).",
+      "The system will scan and transcribe the document using the built-in AI document scanner.",
       "Once transcribed, review the extracted header details: Invoice Number, Date, Customer Name, and GSTIN.",
       "Check the line items (Product Code, Quantity in kg, Rate, Taxable Amount, CGST/SGST/IGST). You can edit any line item directly in the review screen before saving.",
       "If the customer or product alias is newly detected, verify or map it to an existing master record.",
@@ -256,6 +256,109 @@ export const APP_GUIDES: TaskGuide[] = [
       "Review the supplier name, invoice number, items, and tax breakdown.",
       "When saved, inward quantities are automatically added to your stock ledger.",
       "To manage supplier information, addresses, and GSTINs, visit [Suppliers](/suppliers)."
+    ]
+  },
+  {
+    id: "gstr1_return_and_exports",
+    title: "GSTR-1 Outward Supplies Report & Exports (PDF, XLSX, DOCX)",
+    keywords: [
+      "gstr1",
+      "gstr-1",
+      "gst return",
+      "cgst",
+      "sgst",
+      "igst",
+      "hsn summary",
+      "b2b",
+      "b2c",
+      "export pdf",
+      "export xlsx",
+      "export docx",
+      "gst report",
+      "tax liability",
+    ],
+    route: "/gstr1",
+    summary:
+      "View complete GSTR-1 outward supplies tax liability (CGST, SGST, IGST), B2B/B2C invoice registers, HSN-wise and GST rate-wise summaries, with Monthly, Quarterly, Financial Year, or Custom date filtering and PDF/XLSX/DOCX export.",
+    steps: [
+      "Open [GSTR-1 Report](/gstr1) from the Sales section in the sidebar, or click the 'GSTR-1' tab in [Executive Dashboard](/dashboard).",
+      "Choose your reporting period mode: 'Monthly' (pick month), 'Quarterly' (select FY + Q1/Q2/Q3/Q4), 'Financial Year' (Apr 1 – Mar 31), or 'Custom' (choose start and end dates and click Apply).",
+      "Review the 5 summary KPI cards: Taxable Value, CGST Output, SGST Output, IGST Output, and Grand Invoice Value.",
+      "Switch between the detail tabs: 'B2B Invoices' (registered GSTIN buyers), 'B2C Invoices' (unregistered buyers), 'HSN Summary', and 'Rate-wise Tax'.",
+      "Click 'Export PDF', 'Export XLSX', or 'Export DOCX' in the top-right bar to download the formatted return report."
+    ],
+    tips: [
+      "Intra-state supplies show CGST + SGST; inter-state supplies show IGST.",
+      "XLSX export includes separate worksheets for Summary, B2B Invoices, B2C Invoices, Rate Summary, and HSN Summary."
+    ]
+  },
+  {
+    id: "invoice_generation",
+    title: "How to Generate and Manage Sales Invoices",
+    keywords: [
+      "generate invoice",
+      "create invoice",
+      "new sales invoice",
+      "invoice generation",
+      "print invoice",
+      "sales invoices",
+      "edit invoice",
+    ],
+    route: "/invoices/generate",
+    summary:
+      "Create GST-compliant sales invoices directly in the app with automatic tax calculation (CGST/SGST/IGST), customer/product lookup, and print-ready PDF output.",
+    steps: [
+      "Navigate to [Invoice Generation](/invoices/generate) under Sales in the sidebar.",
+      "Select the Customer, Invoice Date, and add chemical/product line items with quantity (kg) and rate.",
+      "The system automatically computes Taxable Value, CGST, SGST, or IGST based on the customer's state/GSTIN, plus round-off and Grand Total.",
+      "Save the invoice to update stock and post to the customer's ledger automatically.",
+      "To view, search, edit, or print existing bills, visit [Sales Invoices](/invoices)."
+    ]
+  },
+  {
+    id: "payments_credit_debit",
+    title: "Managing Credit Receipts & Debit Payments",
+    keywords: [
+      "credit",
+      "debit",
+      "payments",
+      "credit page",
+      "debit page",
+      "customer receipt",
+      "supplier payment",
+      "bill allocation",
+    ],
+    route: "/payments/credit",
+    summary:
+      "Track and record incoming customer receipts under Payments → Credit and outgoing supplier payments under Payments → Debit.",
+    steps: [
+      "Go to [Credit Payments](/payments/credit) to view or record money received from customers.",
+      "Go to [Debit Payments](/payments/debit) to view or record money paid to suppliers.",
+      "Filter by date or party, inspect payment modes (RTGS, NEFT, UPI, Cheque, Cash), and allocate payments to open bills."
+    ]
+  },
+  {
+    id: "customers_and_logs_and_settings",
+    title: "Customers, Business Activity Logs, Settings & Mobile View",
+    keywords: [
+      "customers",
+      "merge customer",
+      "activity log",
+      "logs",
+      "settings",
+      "dark mode",
+      "light mode",
+      "theme",
+      "mobile",
+    ],
+    route: "/customers",
+    summary:
+      "Manage customer master records and aliases, audit business activity logs, switch between Light and Dark themes, and use the mobile-optimized interface.",
+    steps: [
+      "Visit [Customers](/customers) to view, edit, or merge duplicate customer profiles and GSTINs.",
+      "Visit [Business Activity Logs](/logs) to inspect a chronological audit trail of invoices, payments, and stock actions.",
+      "Visit [Settings](/settings) to configure workspace preferences, and use the Sun/Moon toggle in the topbar to switch between Light Mode and Dark Mode.",
+      "All dashboards, tables, and GSTR-1 reports are mobile-responsive with horizontal table scrolling and touch-friendly controls."
     ]
   }
 ];
