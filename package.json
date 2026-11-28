@@ -42,6 +42,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "decimal.js": "^10.4.3",
+    "docx": "^9.16.1",
     "exceljs": "^4.4.0",
     "fastest-levenshtein": "^1.0.16",
     "jose": "^5.9.6",

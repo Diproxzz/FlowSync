@@ -38,15 +38,15 @@ import {
 import { formatINR, formatKg } from "@/lib/format";
 import { PurchaseAnalyticsData } from "@/lib/analytics/purchases";
 
-// Okabe-Ito Color Palette (Accessible)
+// Dynamic Theme Chart Palette (Option 9 Dark / Option 10 Light)
 const COLORS = {
-  sales: "#0072B2", // Sales (blue)
-  purchase: "#E69F00", // Purchase (accent orange/amber)
-  green: "#009E73",
-  vermilion: "#D55E00",
-  purple: "#CC79A7",
-  slate: "#718096",
-  darkTeal: "#0F4C4A",
+  sales: "var(--chart-1)",
+  purchase: "var(--chart-2)",
+  green: "var(--chart-3)",
+  vermilion: "var(--chart-4)",
+  purple: "var(--chart-5)",
+  slate: "var(--chart-8)",
+  darkTeal: "var(--primary)",
 };
 
 interface PurchasesTabProps {
@@ -265,10 +265,10 @@ export function PurchasesTab({
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--ink-2)" }} />
                   <YAxis
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize: 11, fill: "var(--ink-2)" }}
                     tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`}
                   />
                   <Tooltip

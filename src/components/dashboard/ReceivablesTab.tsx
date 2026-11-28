@@ -27,12 +27,12 @@ import {
 import { formatINR, formatDate } from "@/lib/format";
 
 const OKABE_ITO = {
-  blue: "#0072B2",
-  amber: "#E69F00",
-  green: "#009E73",
-  vermilion: "#D55E00",
-  purple: "#CC79A7",
-  slate: "#718096",
+  blue: "var(--chart-1)",
+  amber: "var(--chart-4)",
+  green: "var(--chart-3)",
+  vermilion: "var(--danger)",
+  purple: "var(--chart-5)",
+  slate: "var(--chart-8)",
 };
 
 export function ReceivablesTab() {

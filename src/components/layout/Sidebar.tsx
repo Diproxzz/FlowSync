@@ -139,6 +139,7 @@ export function Sidebar() {
       items: [
         { label: "Sales Invoices", href: "/invoices", icon: Receipt },
         { label: "Invoice Generation", href: "/invoices/generate", icon: FilePlus2 },
+        { label: "GSTR-1 Report", href: "/gstr1", icon: FileSpreadsheet },
         { label: "Customers", href: "/customers", icon: Users },
       ],
     },

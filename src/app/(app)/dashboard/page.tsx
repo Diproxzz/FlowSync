@@ -43,21 +43,22 @@ import { PurchasesTab } from "@/components/dashboard/PurchasesTab";
 import { ReceivablesTab } from "@/components/dashboard/ReceivablesTab";
 import { ProfitabilityTab } from "@/components/dashboard/ProfitabilityTab";
 import { CustomerPaymentsTab } from "@/components/dashboard/CustomerPaymentsTab";
+import { Gstr1Section } from "@/components/gstr1/Gstr1Section";
 
-// Accessible Okabe-Ito Palette
+// Dynamic Theme Chart Palette (Option 9 Dark / Option 10 Light)
 const COLORS = {
-  primary: "#0F4C4A",
-  accent: "#9A5B24",
-  blue: "#0072B2",
-  sky: "#56B4E9",
-  green: "#009E73",
-  vermilion: "#D55E00",
-  purple: "#CC79A7",
-  slate: "#718096",
+  primary: "var(--chart-1)",
+  accent: "var(--chart-4)",
+  blue: "var(--chart-2)",
+  sky: "var(--chart-6)",
+  green: "var(--chart-3)",
+  vermilion: "var(--danger)",
+  purple: "var(--chart-5)",
+  slate: "var(--chart-8)",
 };
 
 export default function DashboardPage() {
-  const [section, setSection] = useState<"sales" | "purchases" | "receivables" | "payments" | "profitability">("sales");
+  const [section, setSection] = useState<"sales" | "purchases" | "receivables" | "payments" | "profitability" | "gstr1">("sales");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>("fy");
@@ -188,10 +189,22 @@ export default function DashboardPage() {
               >
                 <span>Profitability & Margins</span>
               </button>
+              <button
+                onClick={() => setSection("gstr1")}
+                className={`px-3 py-1 rounded-xs transition flex items-center gap-1.5 ${
+                  section === "gstr1"
+                    ? "bg-primary text-primary-fg font-semibold shadow-xs"
+                    : "text-ink-2 hover:text-ink"
+                }`}
+              >
+                <span>GSTR-1</span>
+              </button>
             </div>
           </div>
           <p className="text-xs text-ink-3 mt-1">
-            {section === "payments"
+            {section === "gstr1"
+              ? "GSTR-1 outward supplies return with CGST, SGST, IGST breakdown and PDF/XLSX/DOCX export"
+              : section === "payments"
               ? "Graphical display of customer payments filtered by months, and timeline of when customers last made payments"
               : section === "profitability"
               ? "Product-level landed costs, weighted average selling prices (WASP/WAPC), gross margin %, and customer profitability"
@@ -204,7 +217,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Period Selector Tabs */}
-        {section !== "payments" && section !== "receivables" && (
+        {section !== "payments" && section !== "receivables" && section !== "gstr1" && (
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex p-0.5 bg-surface-2 border border-border rounded-sm text-xs">
               {[
@@ -240,7 +253,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Filter Row */}
-      {section !== "payments" && section !== "receivables" && (
+      {section !== "payments" && section !== "receivables" && section !== "gstr1" && (
         <div className="bg-surface p-3 border border-border rounded-sm flex flex-wrap items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 text-ink-3 font-medium">
             <Filter className="w-3.5 h-3.5" />
@@ -337,7 +350,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {section === "payments" ? (
+      {section === "gstr1" ? (
+        <Gstr1Section />
+      ) : section === "payments" ? (
         <CustomerPaymentsTab />
       ) : section === "profitability" ? (
         <ProfitabilityTab
@@ -572,17 +587,17 @@ export default function DashboardPage() {
               {data?.trend && data.trend.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={data.trend} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
-                    <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.6} />
+                    <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--ink-2)" }} />
                     <YAxis
                       yAxisId="left"
-                      tick={{ fontSize: 11 }}
+                      tick={{ fontSize: 11, fill: "var(--ink-2)" }}
                       tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
                     />
                     <YAxis
                       yAxisId="right"
                       orientation="right"
-                      tick={{ fontSize: 11 }}
+                      tick={{ fontSize: 11, fill: "var(--ink-2)" }}
                       tickFormatter={(v) => `${(v / 1000).toFixed(0)}k kg`}
                     />
                     <Tooltip
@@ -591,7 +606,7 @@ export default function DashboardPage() {
                         if (name === "Volume (kg)") return [formatKg(value), name];
                         return [value, name];
                       }}
-                      contentStyle={{ backgroundColor: "#ffffff", borderRadius: "4px", fontSize: "11px" }}
+                      contentStyle={{ backgroundColor: "var(--surface)", borderColor: "var(--border)", color: "var(--ink)", borderRadius: "8px", fontSize: "11px" }}
                     />
                     <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
                     <Bar

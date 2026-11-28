@@ -49,17 +49,25 @@ import {
 import { ProfitabilityComparisonBox } from "./ProfitabilityComparisonBox";
 
 const COLORS = {
-  primary: "#0F4C4A",
-  accent: "#9A5B24",
-  blue: "#0072B2",
-  sky: "#56B4E9",
-  green: "#009E73",
-  vermilion: "#D55E00",
-  purple: "#CC79A7",
-  slate: "#718096",
+  primary: "var(--chart-1)",
+  accent: "var(--chart-4)",
+  blue: "var(--chart-2)",
+  sky: "var(--chart-6)",
+  green: "var(--chart-3)",
+  vermilion: "var(--danger)",
+  purple: "var(--chart-5)",
+  slate: "var(--chart-8)",
 };
 
-const PIE_COLORS = ["#009E73", "#0072B2", "#9A5B24", "#CC79A7", "#56B4E9", "#D55E00", "#718096"];
+const PIE_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-8)",
+];
 
 interface ProfitabilityTabProps {
   period: string;
@@ -335,7 +343,7 @@ export function ProfitabilityTab({
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#0072B2]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--chart-2)]" />
                 <h3 className="text-sm font-bold text-ink">1. Monthly Revenue & Profit (₹ in Lakhs)</h3>
               </div>
               <p className="text-xs text-ink-3 mt-0.5">

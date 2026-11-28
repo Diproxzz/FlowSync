@@ -1,0 +1,88 @@
+/* ==========================================================================
+   Mobile Optimization Stylesheet (<= 767px)
+   Dedicated responsive rules to keep InVoiceR clean, legible, and touch-friendly
+   on phones and small viewports without altering desktop layout or print output.
+   ========================================================================== */
+
+@media screen and (max-width: 767px) {
+  html,
+  body {
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Give main workspace breathing room on narrow screens */
+  main {
+    padding: 0.875rem 0.75rem !important;
+  }
+
+  /* Keep sticky topbar compact and prevent button overflow */
+  header {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    gap: 0.5rem;
+  }
+
+  header h1 {
+    font-size: 0.875rem;
+    max-width: 44vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Prevent iOS auto-zoom on focus & improve tap comfort */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Smooth horizontal scroll for wide financial tables without squishing text */
+  table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table th,
+  table td {
+    white-space: nowrap;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  /* Keep charts contained within mobile viewport */
+  .recharts-wrapper,
+  .recharts-responsive-container {
+    max-width: 100% !important;
+  }
+
+  /* Ensure modals/dialogs fit cleanly inside dynamic mobile viewport */
+  [role="dialog"],
+  .fixed > .bg-surface {
+    max-width: calc(100vw - 1rem) !important;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+
+  /* Comfortable spacing for stacked card grids */
+  .grid {
+    gap: 0.75rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  main {
+    padding: 0.75rem 0.625rem !important;
+  }
+
+  /* Slightly more compact KPI / summary typography on very small phones */
+  .num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}

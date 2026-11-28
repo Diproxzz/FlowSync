@@ -37,18 +37,18 @@ import {
 } from "recharts";
 import { formatINR, formatDate } from "@/lib/format";
 
-// Accessible Financial Palette
+// Dynamic Theme Chart Palette (Option 9 Dark / Option 10 Light)
 const CHART_COLORS = [
-  "#009E73", // Green
-  "#0072B2", // Blue
-  "#E69F00", // Amber
-  "#56B4E9", // Sky
-  "#D55E00", // Vermilion
-  "#CC79A7", // Purple
-  "#0F4C4A", // Primary Teal
-  "#9A5B24", // Deep Ochre
-  "#718096", // Slate
-  "#4A5568", // Cool Gray
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
+  "var(--primary)",
+  "var(--accent)",
 ];
 
 interface CustomerPaymentItem {
