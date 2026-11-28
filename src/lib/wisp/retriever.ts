@@ -161,6 +161,25 @@ export interface AdHocFilterSummary {
   }>;
 }
 
+export interface GstPeriodSummary {
+  periodLabel: string;
+  invoiceCount: number;
+  b2bCount: number;
+  b2cCount: number;
+  taxableFormatted: string;
+  cgstFormatted: string;
+  sgstFormatted: string;
+  igstFormatted: string;
+  totalTaxFormatted: string;
+  grandTotalFormatted: string;
+}
+
+export interface GstContextSummary {
+  requestedPeriod?: GstPeriodSummary;
+  lifetimeOutward: GstPeriodSummary;
+  monthlyBreakdown: GstPeriodSummary[];
+}
+
 export interface RetrievedContext {
   guides: TaskGuide[];
   invoices: Array<{
@@ -187,6 +206,7 @@ export interface RetrievedContext {
   analytics?: BusinessAnalyticsSummary;
   filterSummary?: AdHocFilterSummary;
   partyProductTransactions?: PartyProductTransactionSummary[];
+  gstSummary?: GstContextSummary;
   systemStats?: {
     totalSalesInvoices: number;
     totalPurchases: number;
@@ -1160,6 +1180,11 @@ export async function retrieveContextForQuery(
     }
   }
 
+  const gstSummary = await computeGstContextIfRelevant(cleanQuery);
+  if (gstSummary && !sources.some((s) => s.url === "/gstr1")) {
+    sources.push({ title: "GSTR-1 Report", url: "/gstr1" });
+  }
+
   return {
     guides: matchedGuides,
     invoices: invoicesFound,
@@ -1171,7 +1196,149 @@ export async function retrieveContextForQuery(
     analytics,
     filterSummary,
     partyProductTransactions,
+    gstSummary,
     sources: prioritizedSources.slice(0, 6),
+  };
+}
+
+const MONTH_NAME_MAP: Record<string, number> = {
+  jan: 0, january: 0,
+  feb: 1, february: 1,
+  mar: 2, march: 2,
+  apr: 3, april: 3,
+  may: 4,
+  jun: 5, june: 5,
+  jul: 6, july: 6,
+  aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8,
+  oct: 9, october: 9,
+  nov: 10, november: 10,
+  dec: 11, december: 11,
+};
+
+async function computeGstContextIfRelevant(query: string): Promise<GstContextSummary | undefined> {
+  const qLower = query.toLowerCase();
+  const hasMonthWord = Object.keys(MONTH_NAME_MAP).some((m) =>
+    new RegExp(`\\b${m}\\b`, "i").test(qLower)
+  );
+  const isGstQuery =
+    /\b(gst|cgst|sgst|igst|gstr1|gstr-1|tax|taxable|vat|turnover)\b/i.test(qLower) ||
+    hasMonthWord;
+
+  if (!isGstQuery) return undefined;
+
+  const invoices = await prisma.invoice.findMany({
+    select: {
+      invoice_date: true,
+      taxable_total: true,
+      cgst_total: true,
+      sgst_total: true,
+      igst_total: true,
+      grand_total: true,
+      customer_gstin_snapshot: true,
+    },
+    orderBy: { invoice_date: "desc" },
+  });
+
+  const makeEmptyAcc = (label: string) => ({
+    label,
+    invoiceCount: 0,
+    b2bCount: 0,
+    b2cCount: 0,
+    taxable: 0,
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    grand: 0,
+  });
+
+  const toSummary = (acc: ReturnType<typeof makeEmptyAcc>): GstPeriodSummary => ({
+    periodLabel: acc.label,
+    invoiceCount: acc.invoiceCount,
+    b2bCount: acc.b2bCount,
+    b2cCount: acc.b2cCount,
+    taxableFormatted: formatINR(acc.taxable),
+    cgstFormatted: formatINR(acc.cgst),
+    sgstFormatted: formatINR(acc.sgst),
+    igstFormatted: formatINR(acc.igst),
+    totalTaxFormatted: formatINR(acc.cgst + acc.sgst + acc.igst),
+    grandTotalFormatted: formatINR(acc.grand),
+  });
+
+  const lifetimeAcc = makeEmptyAcc("All Time (Lifetime)");
+  const monthMap = new Map<string, ReturnType<typeof makeEmptyAcc>>();
+
+  for (const inv of invoices) {
+    const d = new Date(inv.invoice_date);
+    const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("en-IN", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+
+    const taxable = Number(inv.taxable_total.toString());
+    const cgst = Number(inv.cgst_total.toString());
+    const sgst = Number(inv.sgst_total.toString());
+    const igst = Number(inv.igst_total.toString());
+    const grand = Number(inv.grand_total.toString());
+    const isB2B = Boolean(inv.customer_gstin_snapshot && inv.customer_gstin_snapshot.trim());
+
+    for (const target of [lifetimeAcc]) {
+      target.invoiceCount += 1;
+      if (isB2B) target.b2bCount += 1;
+      else target.b2cCount += 1;
+      target.taxable += taxable;
+      target.cgst += cgst;
+      target.sgst += sgst;
+      target.igst += igst;
+      target.grand += grand;
+    }
+
+    const mAcc = monthMap.get(ym) || makeEmptyAcc(label);
+    mAcc.invoiceCount += 1;
+    if (isB2B) mAcc.b2bCount += 1;
+    else mAcc.b2cCount += 1;
+    mAcc.taxable += taxable;
+    mAcc.cgst += cgst;
+    mAcc.sgst += sgst;
+    mAcc.igst += igst;
+    mAcc.grand += grand;
+    monthMap.set(ym, mAcc);
+  }
+
+  // Detect requested month/year (e.g. "September, 2026" or "Sep 2026" or "September")
+  let requestedPeriod: GstPeriodSummary | undefined;
+  let matchedMonth: number | undefined;
+  for (const [name, idx] of Object.entries(MONTH_NAME_MAP)) {
+    if (new RegExp(`\\b${name}\\b`, "i").test(qLower)) {
+      matchedMonth = idx;
+      break;
+    }
+  }
+
+  if (matchedMonth !== undefined) {
+    const yearMatch = qLower.match(/\b(20\d{2})\b/);
+    const year = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear();
+    const ym = `${year}-${String(matchedMonth + 1).padStart(2, "0")}`;
+    const label = new Date(Date.UTC(year, matchedMonth, 1)).toLocaleDateString("en-IN", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    const found = monthMap.get(ym);
+    requestedPeriod = found ? toSummary(found) : toSummary(makeEmptyAcc(label));
+  }
+
+  const monthlyBreakdown = Array.from(monthMap.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .slice(0, 12)
+    .map(([, acc]) => toSummary(acc));
+
+  return {
+    requestedPeriod,
+    lifetimeOutward: toSummary(lifetimeAcc),
+    monthlyBreakdown,
   };
 }
 

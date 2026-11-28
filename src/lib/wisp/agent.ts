@@ -162,6 +162,23 @@ function buildContextString(context: RetrievedContext): string {
     );
   }
 
+  // 0.2 GST & GSTR-1 Ground Truth Data (CGST, SGST, IGST by month and lifetime)
+  if (context.gstSummary) {
+    const g = context.gstSummary;
+    const fmtPeriod = (p: typeof g.lifetimeOutward) =>
+      `**${p.periodLabel}** (${p.invoiceCount} invoices: ${p.b2bCount} B2B, ${p.b2cCount} B2C): Taxable Value = **${p.taxableFormatted}**, CGST = **${p.cgstFormatted}**, SGST = **${p.sgstFormatted}**, IGST = **${p.igstFormatted}**, Total GST = **${p.totalTaxFormatted}**, Grand Total = **${p.grandTotalFormatted}**`;
+
+    const monthlyLines = g.monthlyBreakdown.map((m) => `  - ${fmtPeriod(m)}`).join("\n");
+
+    sections.push(
+      `[GST & GSTR-1 TAX DATA (GROUND TRUTH)]:\n` +
+      `CRITICAL INSTRUCTION: When the user asks for CGST, SGST, IGST, or GST figures for a specific month or period, state the EXACT numbers directly in your first sentence using this ground truth data (do NOT tell them to look it up themselves unless adding a helpful link to [GSTR-1 Report](/gstr1)).\n` +
+      (g.requestedPeriod ? `- REQUESTED PERIOD: ${fmtPeriod(g.requestedPeriod)}\n` : "") +
+      `- LIFETIME OUTWARD TOTALS: ${fmtPeriod(g.lifetimeOutward)}\n` +
+      (monthlyLines ? `- MONTH-WISE BREAKDOWN:\n${monthlyLines}` : "")
+    );
+  }
+
   // 1. Live Business Analytics & Calculations (Top rankings, sales totals, stock valuation, debtors)
   if (context.analytics) {
     const a = context.analytics;
